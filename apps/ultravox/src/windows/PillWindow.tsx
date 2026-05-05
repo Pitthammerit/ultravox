@@ -3,13 +3,13 @@ import VoiceWaveform from "../components/VoiceWaveform";
 import { useRecorder } from "../hooks/useRecorder";
 import { useHotkeyEvent } from "../hooks/useHotkeyEvents";
 import { transcribe } from "../lib/transcribe";
-import { TOKEN_ENDPOINT, pasteToFrontmost } from "../lib/tauri-bridge";
+import { TOKEN_ENDPOINT, pasteToFrontmost, getFrontmostApp } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
+import { loadSettings, type AppSettings } from "../lib/store-bridge";
+import { pickAutoMode } from "../lib/autoMode";
 import { invoke } from "@tauri-apps/api/core";
 
 type PillState = "idle" | "recording" | "transcribing" | "error";
-
-const DEFAULT_MODE: VoiceMode = DEFAULT_MODES[0]!;
 
 /**
  * Floating pill window — visible while recording / transcribing.
@@ -23,11 +23,22 @@ const DEFAULT_MODE: VoiceMode = DEFAULT_MODES[0]!;
 export default function PillWindow() {
   const recorder = useRecorder();
   const [state, setState] = useState<PillState>("idle");
-  const [mode] = useState<VoiceMode>(DEFAULT_MODE);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [mode, setMode] = useState<VoiceMode>(DEFAULT_MODES[0]!);
   const [errorMsg, setErrorMsg] = useState<string>("");
+
+  useEffect(() => {
+    loadSettings().then(setSettings).catch(() => setSettings(null));
+  }, []);
 
   const startRecord = useCallback(async () => {
     try {
+      // Pick mode based on the app that was frontmost when hotkey fired.
+      const cur = settings ?? null;
+      const frontmost = await getFrontmostApp();
+      const modes = cur?.modes ?? DEFAULT_MODES;
+      const fallbackId = cur?.activeModeId ?? modes[0]!.id;
+      setMode(pickAutoMode(frontmost?.bundle_id ?? null, modes, fallbackId));
       await recorder.start();
       setState("recording");
     } catch (e) {
@@ -38,7 +49,7 @@ export default function PillWindow() {
         invoke("hide_pill").catch(() => {});
       }, 1500);
     }
-  }, [recorder]);
+  }, [recorder, settings]);
 
   const stopAndTranscribe = useCallback(async () => {
     setState("transcribing");
@@ -51,7 +62,7 @@ export default function PillWindow() {
       }
       const result = await transcribe(blob, {
         mode,
-        vocabulary: [],
+        vocabulary: settings?.vocabulary ?? [],
         tokenEndpoint: TOKEN_ENDPOINT,
       });
       if (result.text) {
@@ -71,7 +82,7 @@ export default function PillWindow() {
         invoke("hide_pill").catch(() => {});
       }, 2000);
     }
-  }, [recorder, mode]);
+  }, [recorder, mode, settings]);
 
   // Toggle record on global hotkey
   useHotkeyEvent(

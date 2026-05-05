@@ -1,5 +1,6 @@
 mod hotkey;
 mod paste;
+mod tray;
 
 #[cfg(target_os = "macos")]
 mod frontmost;
@@ -14,6 +15,9 @@ pub fn run() {
         .setup(|app| {
             if let Err(e) = hotkey::register_default_hotkeys(app.handle()) {
                 eprintln!("hotkey registration failed: {e}");
+            }
+            if let Err(e) = tray::create_tray(app.handle()) {
+                eprintln!("tray creation failed: {e}");
             }
             Ok(())
         });

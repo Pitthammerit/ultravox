@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "apps": [
+    { "bundleId": "com.apple.mail",                "preferredMode": "email",   "displayName": "Mail" },
+    { "bundleId": "com.microsoft.Outlook",         "preferredMode": "email",   "displayName": "Outlook" },
+    { "bundleId": "com.google.Chrome",             "preferredMode": "note",    "displayName": "Chrome" },
+    { "bundleId": "com.apple.Safari",              "preferredMode": "note",    "displayName": "Safari" },
+    { "bundleId": "company.thebrowser.Browser",    "preferredMode": "note",    "displayName": "Arc" },
+    { "bundleId": "com.tinyspeck.slackmacgap",     "preferredMode": "message", "displayName": "Slack" },
+    { "bundleId": "com.hnc.Discord",               "preferredMode": "message", "displayName": "Discord" },
+    { "bundleId": "com.apple.MobileSMS",           "preferredMode": "message", "displayName": "Messages" },
+    { "bundleId": "net.whatsapp.WhatsApp",         "preferredMode": "message", "displayName": "WhatsApp" },
+    { "bundleId": "com.tdesktop.Telegram",         "preferredMode": "message", "displayName": "Telegram" },
+    { "bundleId": "com.apple.Notes",               "preferredMode": "note",    "displayName": "Notes" },
+    { "bundleId": "notion.id",                     "preferredMode": "note",    "displayName": "Notion" },
+    { "bundleId": "md.obsidian",                   "preferredMode": "note",    "displayName": "Obsidian" },
+    { "bundleId": "com.toolforge.bear",            "preferredMode": "note",    "displayName": "Bear" },
+    { "bundleId": "com.todesktop.230313mzl4w4u92", "preferredMode": "code",    "displayName": "Cursor" },
+    { "bundleId": "com.microsoft.VSCode",          "preferredMode": "code",    "displayName": "VS Code" },
+    { "bundleId": "com.jetbrains.WebStorm",        "preferredMode": "code",    "displayName": "WebStorm" },
+    { "bundleId": "com.googlecode.iterm2",         "preferredMode": "code",    "displayName": "iTerm" },
+    { "bundleId": "com.apple.Terminal",            "preferredMode": "code",    "displayName": "Terminal" }
+  ]
+}
