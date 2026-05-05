@@ -1,12 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 
 /**
- * Dev: start the CF Voice Worker locally with `wrangler dev` (port 8787).
- * Prod: VITE_WORKER_URL is set in `.env.production` to the deployed Worker.
+ * Defaults to the deployed worker (which is always reachable).
+ * Set `VITE_WORKER_URL=http://localhost:8787` to override during local
+ * worker development with `wrangler dev`.
  */
-export const TOKEN_ENDPOINT = import.meta.env["VITE_WORKER_URL"]
-  ? `${import.meta.env["VITE_WORKER_URL"]}/api/voice/token`
-  : "http://localhost:8787/api/voice/token";
+const DEFAULT_WORKER_URL = "https://ultravox-voice-worker.journey-within.workers.dev";
+const WORKER_BASE = import.meta.env["VITE_WORKER_URL"] ?? DEFAULT_WORKER_URL;
+export const TOKEN_ENDPOINT = `${WORKER_BASE}/api/voice/token`;
 
 export async function pasteToFrontmost(text: string): Promise<void> {
   await invoke("paste_to_frontmost", { text });

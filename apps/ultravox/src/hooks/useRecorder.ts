@@ -52,6 +52,7 @@ export function useRecorder(mimeType = "audio/webm"): RecorderControls {
     } catch (err) {
       setError(err as Error);
       setState("error");
+      throw err; // re-throw so callers know recording never started
     }
   }, [mic, mimeType]);
 
