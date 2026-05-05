@@ -1,0 +1,1431 @@
+/*
+ * BKA-2nd-Brain design tokens
+ * Last synced: 2026-04-25
+ * Source: /Users/benjaminkurtz/Documents/websites/regression-landing/regression/frontend/tailwind.config.css
+ * Manual re-sync when regression brand tokens change. See README "Token Sync".
+ */
+
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────
+   COLOR TOKENS (dual theme)
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* Core Brand Colors */
+  --color-primary: #224160;      /* Dark navy steel blue — headings, buttons, dark bg, circular borders */
+  --color-text: #5A5550;         /* Warm taupe gray — body text, paragraphs */
+  --color-secondary: #7696AD;    /* Muted steel blue — labels, metadata, links, hover states */
+  --color-accent: #2DAD71;       /* Fresh green — CTAs, success states, active elements */
+  --color-star: #f5d10a;         /* Bright yellow — star ratings, highlights */
+  --color-warning: #DC2626;      /* Red — unsaved/error states, destructive actions */
+
+  /* Warm Amber Accent (Testimonials) */
+  --color-amber-50: #fffbeb;     /* Very light amber — gradient backgrounds */
+  --color-amber-100: #fef3c7;    /* Light amber — subtle accents */
+  --color-amber-200: #fde68a;    /* Medium light amber — decorative elements */
+  --color-amber-300: #fcd34d;    /* Medium amber — borders, glows */
+  --color-amber-400: #fbbf24;    /* Medium dark amber — active stars */
+
+  /* Backgrounds & Overlays */
+  --color-bg-light: #EDE7DC;     /* Warm cream beige — main page background */
+  --color-bg-dark: var(--color-primary);  /* Dark navy — hero, footer, dark sections */
+  --color-card-overlay: #ffffff80;        /* Semi-transparent white (50%) — card overlays */
+  --color-overlay-dark: #00000040;        /* Semi-transparent black (25%) — dark overlays */
+  --color-dialog-backdrop: rgba(34, 65, 96, 0.40); /* Navy 40% — modal backdrop */
+
+  /* Border Colors */
+  --color-border-primary: #224160;  /* Dark navy — circular image borders, prominent borders */
+  --color-border-light: #ffffff4D;   /* White 30% — dividers, card borders, mehr/weniger lines */
+
+  /* On-Dark (used on dark backgrounds like hero, footer) */
+  --color-primary-on-dark: #FFFFFF;      /* Pure white — headings on dark */
+  --color-text-on-dark: #FFFFFFCC;       /* White 80% — body text on dark */
+  --color-secondary-on-dark: #ffffff9c;  /* White 60% — metadata on dark */
+  --color-divider-on-dark: #ffffff33;    /* White 20% — dividers on dark */
+
+  /* Surface tokens — translucent cards layered on the page bg */
+  --color-surface: rgba(255, 255, 255, 0.40);        /* Card panel background */
+  --color-surface-hover: rgba(255, 255, 255, 0.60);  /* Card hover state */
+  --color-surface-strong: rgba(255, 255, 255, 0.60); /* Strong overlay (textarea bed) */
+  --color-surface-border: rgba(255, 255, 255, 0.30); /* Card border */
+  --color-surface-popover: #ffffff;                  /* Solid popover/dropdown background */
+
+  /* Brand mark — the brain SVG fill. Stays brand-navy in light; softer steel-blue in dark for visibility on near-black bg. */
+  --color-brand-mark: var(--color-primary);
+
+  /* Primary action button — navy bg + white fg in light; inverts in dark for contrast on near-black page bg. */
+  --color-button-primary-bg: var(--color-primary);
+  --color-button-primary-fg: var(--color-primary-on-dark);
+
+  /* Foreground token — navy in light, white in dark. Use for active-state
+     text/borders that need to read on the page bg in both themes. */
+  --color-fg: var(--color-primary);
+
+  /* Ink tokens — primary tint at common opacity stops (focus rings, soft borders) */
+  --color-ink-faint: rgba(34, 65, 96, 0.04);   /* Gutter / footer wash */
+  --color-ink-08: rgba(34, 65, 96, 0.08);
+  --color-ink-subtle: rgba(34, 65, 96, 0.10);  /* Soft divider */
+  --color-ink-15: rgba(34, 65, 96, 0.15);
+  --color-ink-20: rgba(34, 65, 96, 0.20);
+  --color-ink-30: rgba(34, 65, 96, 0.30);
+  --color-ink-45: rgba(34, 65, 96, 0.45);
+}
+
+/* ── Shared dark tokens (apply to all dark themes) ───────────────────── */
+[data-theme="dark-ocean"], [data-theme="dark-night"] {
+  /* Core Brand Colors */
+  --color-primary: #0f1419;
+  --color-text: #d4cec3;
+  --color-secondary: #8fa3b8;
+  --color-accent: #2DAD71;
+  --color-star: #ffc107;
+  --color-warning: #c97070;
+
+  /* Warm Amber Accent */
+  --color-amber-50: #1a140a;
+  --color-amber-100: #2c2416;
+  --color-amber-200: #3e3423;
+  --color-amber-300: #514530;
+  --color-amber-400: #65563c;
+
+  /* Shared overlays */
+  --color-card-overlay: #00000050;
+  --color-overlay-dark: #ffffff20;
+  --color-dialog-backdrop: rgba(0, 0, 0, 0.60);
+
+  /* Border Colors */
+  --color-border-primary: #4a5a6a;
+  --color-border-light: #ffffff20;
+
+  /* On-Dark */
+  --color-primary-on-dark: #FFFFFF;
+  --color-text-on-dark: #FFFFFFCC;
+  --color-secondary-on-dark: #ffffff9c;
+  --color-divider-on-dark: #ffffff33;
+
+  --color-brand-mark: var(--color-secondary);
+  --color-button-primary-bg: var(--color-primary-on-dark);
+  --color-button-primary-fg: var(--color-primary);
+  --color-fg: var(--color-primary-on-dark);
+}
+
+/* ── Ocean Blue — primary navy background ─────────────────────────────── */
+[data-theme="dark-ocean"] {
+  --color-bg-light: #224160;
+  --color-bg-dark: #1a3455;
+
+  --color-surface: rgba(255, 255, 255, 0.08);
+  --color-surface-hover: rgba(255, 255, 255, 0.14);
+  --color-surface-strong: rgba(255, 255, 255, 0.11);
+  --color-surface-border: rgba(255, 255, 255, 0.15);
+  --color-surface-popover: #1a3455;
+
+  --color-ink-faint: rgba(255, 255, 255, 0.07);
+  --color-ink-08: rgba(255, 255, 255, 0.12);
+  --color-ink-subtle: rgba(255, 255, 255, 0.14);
+  --color-ink-15: rgba(255, 255, 255, 0.20);
+  --color-ink-20: rgba(255, 255, 255, 0.26);
+  --color-ink-30: rgba(255, 255, 255, 0.36);
+  --color-ink-45: rgba(255, 255, 255, 0.60);
+}
+
+/* ── Dark Night — near-black background ──────────────────────────────── */
+[data-theme="dark-night"] {
+  --color-bg-light: #0a0a0a;
+  --color-bg-dark: #1a1a1a;
+
+  --color-surface: rgba(255, 255, 255, 0.04);
+  --color-surface-hover: rgba(255, 255, 255, 0.08);
+  --color-surface-strong: rgba(255, 255, 255, 0.06);
+  --color-surface-border: rgba(255, 255, 255, 0.10);
+  --color-surface-popover: #1e1e20;
+
+  --color-ink-faint: rgba(255, 255, 255, 0.04);
+  --color-ink-08: rgba(255, 255, 255, 0.08);
+  --color-ink-subtle: rgba(255, 255, 255, 0.10);
+  --color-ink-15: rgba(255, 255, 255, 0.15);
+  --color-ink-20: rgba(255, 255, 255, 0.20);
+  --color-ink-30: rgba(255, 255, 255, 0.30);
+  --color-ink-45: rgba(255, 255, 255, 0.55);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DARK MODE UTILITY OVERRIDES
+   text-color-primary is dark navy in light mode (heading on cream bg)
+   but invisible on near-black dark bg — flip to on-dark white.
+   ───────────────────────────────────────────────────────────── */
+[data-theme^="dark"] .text-color-primary { color: var(--color-primary-on-dark); }
+[data-theme^="dark"] .hover\:text-color-primary:hover { color: var(--color-primary-on-dark); }
+[data-theme^="dark"] .border-color-primary { border-color: var(--color-border-primary); }
+
+/* Placeholder color tracks --color-secondary so it flips with theme.
+   Without this, browser default inherits text color at low opacity, which
+   in dark mode produces invisible near-black placeholders. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-secondary);
+  opacity: 0.6;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SHARED THEME TOKENS (for multi-site future)
+   ───────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ─────────────────────────────────────────────────────────────
+     FONT FAMILIES (3 total)
+     ───────────────────────────────────────────────────────────── */
+  --font-primary: "DM Sans", system-ui, sans-serif;
+  --font-secondary: "Cormorant Garamond", Georgia, serif;
+  --font-handwriting: "Kalam", cursive;
+
+  /* ─────────────────────────────────────────────────────────────
+     TYPOGRAPHY SCALE (18 tokens)
+     ───────────────────────────────────────────────────────────── */
+  /* Hero */
+  --font-hero-large: clamp(2.64rem, 7.26vw, 5.94rem);
+  --font-hero: clamp(1.44rem, 3.84vw, 3.36rem);
+  --font-podcast-headline: clamp(2.8rem, 6vw, 5rem);
+
+  /* Headlines */
+  --font-h2: 2.25rem;
+  --font-h2-hand: 2.25rem;
+  --font-h3: 1.875rem;
+  --font-h3-hand: 1.875rem;
+  --font-h4: 1.5rem;
+
+  /* Body */
+  --font-body: 1.125rem;
+  --font-body-lg: 1.25rem;
+  --font-label: 0.94rem;
+  --font-menu-text: 0.9375rem;
+  --font-subline: 1rem;
+
+  /* Special */
+  --font-quote-featured-mobile-lg: 1.5rem; /* Featured card, mobile */
+  --font-quote-featured-mobile-sm: 1.375rem; /* Regular card, mobile */
+  --font-quote-featured: 2.5rem; /* Desktop */
+  --font-author-name: 2rem;
+  --font-summary-large: 1.625rem;
+  --font-body-narrative: 1.125rem;
+  --font-body-narrative-mobile: 1rem; /* Mobile version of body narrative */
+  --font-size-handwriting: 2rem; /* Handwriting font size for greetings/signatures */
+  --font-meta: 0.875rem;
+  --font-disclaimer: 0.75rem;
+  --font-button-text: 0.875rem;
+  --font-hint: 0.875rem;
+
+  /* ─────────────────────────────────────────────────────────────
+     SPACING UTILITIES (27 tokens + px-content)
+     ───────────────────────────────────────────────────────────── */
+  /* Section Spacing */
+  --spacing-section-padding: 5rem 0 7rem 0;
+  --spacing-section-block-spacing: 4rem;
+  --spacing-section-padding-sm: 2.5rem 0 0 0;
+
+  /* Horizontal Padding Utility (Responsive) */
+  --spacing-px-content-mobile: 1rem;      /* 16px - Mobile */
+  --spacing-px-content-tablet: 1.5rem;     /* 24px - Tablet */
+  --spacing-px-content-desktop: 2rem;     /* 32px - Desktop */
+
+  /* Content Spacing */
+  --spacing-content-spacing: 1.5rem;
+  --spacing-content-spacing-md: 1rem;
+  --spacing-content-spacing-lg: 2rem;
+
+  /* Element Spacing */
+  --spacing-label-heading: 0.7rem;
+  --spacing-name-role: 0.25rem;
+  --spacing-role-date: 0.25rem;
+  --spacing-block-label: 0.75rem;
+  --spacing-item-tag: 0.5rem;
+  --spacing-paragraph: 1rem;
+  --spacing-expanded-content: 1rem 0 0 2rem;
+
+  /* Margin Top */
+  --spacing-element-xs: 0.5rem;
+  --spacing-element-sm: 0.75rem;
+  --spacing-element-md: 1rem;
+  --spacing-margin-top-sm: 1.5rem;
+  --spacing-margin-top-md: 3rem;
+
+  /* Grid */
+  --spacing-grid-gap-lg: 2rem;
+  --spacing-grid-gap-xl: 4rem;
+
+  /* Letter Spacing */
+  --letter-heading-tight: -0.02em;
+  --letter-label-wide: 0.2em;
+  --letter-label-alt: 0.15em;
+
+  /* Max Width */
+  --max-width-content: 72rem;
+  --max-width-centered-header: 48rem;
+
+  /* Transitions */
+  --transition-fast: 200ms;
+  --transition-normal: 300ms;
+  --transition-slow: 500ms;
+  --transition-slower: 700ms;
+
+  /* ─────────────────────────────────────────────────────────────
+     BREAKPOINTS (Custom)
+     ───────────────────────────────────────────────────────────── */
+  --breakpoint-900: 900px;
+
+  /* ─────────────────────────────────────────────────────────────
+     MOBILE-SPECIFIC TOKENS
+     ───────────────────────────────────────────────────────────── */
+
+  /* Mobile spacing (smaller than desktop) */
+  --spacing-section-padding-mobile: 3rem 0 4rem 0;
+  --spacing-grid-gap-mobile: 1rem;
+  --spacing-grid-gap-sm-mobile: 0.75rem;
+
+  /* Mobile touch targets (minimum 48px per WCAG) */
+  --size-touch-target: 3rem; /* 48px */
+  --size-touch-target-lg: 3.5rem; /* 56px */
+
+  /* Mobile-specific max widths */
+  --max-width-mobile-content: 100%;
+  --max-width-mobile-narrow: 90%;
+
+  /* Mobile font sizes (slightly smaller for readability) */
+  --font-mobile-hero: 1.8rem;
+  --font-mobile-hero-h1: 2.2rem;          /* NEW: Mobile hero h1 (+10%) */
+  --font-mobile-logo: 1.3rem;           /* NEW: Mobile logo text */
+  --font-mobile-h2: 1.75rem;
+  --font-mobile-h3: 1.5rem;
+  --font-mobile-h4: 1.25rem;
+  --font-mobile-body: 1rem;
+  --font-mobile-label: 0.875rem;
+  --font-mobile-meta: 0.875rem;
+
+  /* ─────────────────────────────────────────────────────────────
+     VIDEO PLAYER TOKENS (7 sizes, 1 spacing, 1 blur, 1 overlay)
+     ───────────────────────────────────────────────────────────── */
+  /* Player-specific sizes */
+  --size-player-button: 5rem;           /* w-20 h-20 */
+  --size-player-rewind: 2.5rem;         /* w-10 h-10 */
+  --size-player-icon-lg: 1.625rem;      /* 26px */
+  --size-player-icon-md: 1.125rem;      /* 18px */
+  --size-player-icon-sm: 1rem;          /* 16px */
+  --size-player-icon-xl: 1.25rem;       /* 20px */
+
+  /* Scrubber */
+  --height-player-scrubber: 11px;
+
+  /* Spacing */
+  --spacing-player-gap: 0.75rem;        /* gap-3 */
+  --spacing-player-padding: 1.25rem;    /* px-5 py-3 */
+}
+
+/* ─────────────────────────────────────────────────────────────
+   COMPOSITE TYPOGRAPHY UTILITIES (font + size + weight + color + line-height + spacing)
+   ───────────────────────────────────────────────────────────── */
+
+/* Headlines (Secondary/Serif Font + Primary Color by default) */
+@utility typography-hero-large {
+  font-family: var(--font-secondary);
+  font-size: var(--font-hero-large);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+@utility typography-hero {
+  font-family: var(--font-secondary);
+  font-size: var(--font-hero);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+@utility typography-h2 {
+  font-family: var(--font-secondary);
+  font-size: var(--font-h2);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+/* Large H2 for statement sections, featured quotes */
+@utility typography-h2-large {
+  font-family: var(--font-secondary);
+  font-size: var(--font-hero);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+@utility typography-h3 {
+  font-family: var(--font-secondary);
+  font-size: var(--font-h3);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+@utility typography-h4 {
+  font-family: var(--font-secondary);
+  font-size: var(--font-h4);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--color-primary);
+}
+
+/* Body Text (Primary/Sans Font + Text Color by default) */
+@utility typography-body {
+  font-family: var(--font-primary);
+  font-size: var(--font-body);
+  font-weight: 400;
+  line-height: 1.75;
+  letter-spacing: 0;
+  color: var(--color-text);
+  margin-bottom: 1.5rem;
+}
+
+@utility typography-body-italic {
+  font-family: var(--font-primary);
+  font-size: var(--font-body);
+  font-weight: 400;
+  line-height: 1.75;
+  letter-spacing: 0;
+  color: var(--color-text);
+  font-style: italic;
+  margin-bottom: 1.5rem;
+}
+
+@utility typography-body-lg {
+  font-family: var(--font-primary);
+  font-size: var(--font-body-lg);
+  font-weight: 400;
+  line-height: 1.625;
+  letter-spacing: 0;
+  color: var(--color-text);
+  margin-bottom: 2rem;
+}
+
+@utility typography-body-narrative {
+  font-family: var(--font-secondary);
+  font-size: var(--font-body-narrative);
+  font-weight: 400;
+  line-height: 1.75;
+  letter-spacing: 0;
+  color: var(--color-text);
+}
+
+@utility typography-body-narrative-mobile {
+  font-family: var(--font-secondary);
+  font-size: var(--font-body-narrative-mobile);
+  font-weight: 400;
+  line-height: 1.75;
+  letter-spacing: 0;
+  color: var(--color-text);
+}
+
+/* Labels (Primary/Sans Font + Wide Spacing + Secondary Color by default) */
+@utility typography-label {
+  font-family: var(--font-primary);
+  font-size: var(--font-label);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-secondary);
+  margin-bottom: 0.7rem;
+}
+
+/* Menu & Meta */
+@utility typography-menu-text {
+  font-family: var(--font-primary);
+  font-size: var(--font-menu-text);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+@utility typography-meta {
+  font-family: var(--font-primary);
+  font-size: var(--font-meta);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--color-text);
+  margin-bottom: 0.25rem;
+}
+
+/* Settings panel section/group label.
+ * Use for all in-settings section headings (e.g. "Visual", "AI Engine",
+ * "Quick Menu"). Pairs the readable Quick-Menu heading style with the
+ * primary-on-dark sidebar color. Spacing (pt/pb/px) is left to the caller. */
+@utility settings-label {
+  font-size: 0.875rem;          /* text-sm */
+  font-weight: 500;              /* font-medium */
+  color: var(--color-primary-on-dark);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+@utility typography-list {
+  font-family: var(--font-primary);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0;
+  color: var(--color-text);
+}
+
+/* Quote & Author Utilities */
+@utility typography-quote-featured {
+  font-family: var(--font-secondary);
+  font-size: var(--font-quote-featured);
+  font-weight: 400;
+  line-height: 1.1;
+  font-style: italic;
+  letter-spacing: 0;
+  color: var(--color-primary);
+  margin-bottom: 1.5rem;
+}
+
+@utility typography-author-name {
+  font-family: var(--font-secondary);
+  font-size: var(--font-author-name);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--color-primary);
+  margin-bottom: 0.25rem;
+}
+
+/* Handwriting Font (for decorative use) */
+@utility typography-handwriting {
+  font-family: var(--font-handwriting);
+  font-size: var(--font-size-handwriting);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--color-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ON-DARK TYPOGRAPHY UTILITIES (14 utilities)
+   ───────────────────────────────────────────────────────────── */
+
+/* Headlines on dark (white on dark blue) */
+@utility typography-hero-large-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-hero-large);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--color-primary-on-dark);
+}
+
+@utility typography-hero-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-hero);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--color-primary-on-dark);
+}
+
+@utility typography-h2-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-h2);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-primary-on-dark);
+}
+
+@utility typography-h3-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-h3);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-primary-on-dark);
+}
+
+@utility typography-h4-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-h4);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--color-primary-on-dark);
+}
+
+/* Body text on dark (white on dark blue) */
+@utility typography-body-on-dark {
+  font-family: var(--font-primary);
+  font-size: var(--font-body);
+  font-weight: 400;
+  line-height: 1.75;
+  letter-spacing: 0;
+  color: var(--color-text-on-dark);
+}
+
+@utility typography-body-lg-on-dark {
+  font-family: var(--font-primary);
+  font-size: var(--font-body-lg);
+  font-weight: 400;
+  line-height: 1.625;
+  letter-spacing: 0;
+  color: var(--color-text-on-dark);
+}
+
+@utility typography-body-narrative-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-body-narrative);
+  font-weight: 400;
+  line-height: 1.75;
+  letter-spacing: 0;
+  color: var(--color-text-on-dark);
+}
+
+@utility typography-summary-large-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-summary-large);
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0;
+  color: var(--color-text-on-dark);
+}
+
+/* Labels on dark */
+@utility typography-label-on-dark {
+  font-family: var(--font-primary);
+  font-size: var(--font-label);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-secondary-on-dark);
+}
+
+@utility typography-menu-text-on-dark {
+  font-family: var(--font-primary);
+  font-size: var(--font-menu-text);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--color-primary-on-dark);
+}
+
+@utility typography-meta-on-dark {
+  font-family: var(--font-primary);
+  font-size: var(--font-meta);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--color-secondary-on-dark);
+}
+
+/* Quote & Author on dark */
+@utility typography-quote-featured-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-quote-featured);
+  font-weight: 400;
+  line-height: 1.1;
+  font-style: italic;
+  letter-spacing: 0;
+  color: var(--color-primary-on-dark);
+}
+
+@utility typography-author-name-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-author-name);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--color-primary-on-dark);
+}
+
+/* Font Family Utilities (3) */
+@utility font-primary {
+  font-family: var(--font-primary);
+}
+
+@utility font-secondary {
+  font-family: var(--font-secondary);
+}
+
+@utility font-handwriting {
+  font-family: var(--font-handwriting);
+}
+
+/* Text Color Utilities (5) */
+@utility text-color-primary {
+  color: var(--color-primary);
+}
+
+@utility text-color-text {
+  color: var(--color-text);
+}
+
+@utility text-color-secondary {
+  color: var(--color-secondary);
+}
+
+@utility text-color-accent {
+  color: var(--color-accent);
+}
+
+@utility text-color-star {
+  color: var(--color-star);
+}
+
+@utility text-color-warning {
+  color: var(--color-warning);
+}
+
+/* On-Dark Text Utilities (Universal Naming) */
+@utility text-primary-on-dark {
+  color: var(--color-primary-on-dark);
+}
+
+@utility text-on-dark {
+  color: var(--color-text-on-dark);
+}
+
+@utility text-secondary-on-dark {
+  color: var(--color-secondary-on-dark);
+}
+
+@utility text-divider-on-dark {
+  color: var(--color-divider-on-dark);
+}
+
+/* Background Color Utilities (5) */
+@utility bg-color-bg-light {
+  background-color: var(--color-bg-light);
+}
+
+@utility bg-color-bg-dark {
+  background-color: var(--color-bg-dark);
+}
+
+@utility bg-divider-on-dark {
+  background-color: var(--color-divider-on-dark);
+}
+
+@utility bg-primary-on-dark {
+  background-color: var(--color-primary-on-dark);
+}
+
+@utility bg-color-card-overlay {
+  background-color: var(--color-card-overlay);
+}
+
+@utility bg-color-overlay-dark {
+  background-color: var(--color-overlay-dark);
+}
+
+/* Surface utilities — translucent card panels that flip with theme */
+@utility bg-color-surface {
+  background-color: var(--color-surface);
+}
+
+@utility bg-color-surface-hover {
+  background-color: var(--color-surface-hover);
+}
+
+@utility bg-color-surface-strong {
+  background-color: var(--color-surface-strong);
+}
+
+@utility bg-color-surface-popover {
+  background-color: var(--color-surface-popover);
+}
+
+@utility border-color-surface {
+  border-color: var(--color-surface-border);
+}
+
+@utility divide-color-surface {
+  border-color: var(--color-surface-border);
+}
+
+/* Ink utilities — primary tint at common opacity stops */
+@utility bg-color-ink-faint {
+  background-color: var(--color-ink-faint);
+}
+
+@utility border-color-ink-subtle {
+  border-color: var(--color-ink-subtle);
+}
+
+@utility border-color-ink-08 {
+  border-color: var(--color-ink-08);
+}
+
+@utility border-color-ink-15 {
+  border-color: var(--color-ink-15);
+}
+
+@utility border-color-ink-20 {
+  border-color: var(--color-ink-20);
+}
+
+@utility bg-color-ink-08 {
+  background-color: var(--color-ink-08);
+}
+
+@utility border-color-ink-30 {
+  border-color: var(--color-ink-30);
+}
+
+@utility divide-color-ink-subtle {
+  border-color: var(--color-ink-subtle);
+}
+
+@utility text-color-ink-45 {
+  color: var(--color-ink-45);
+}
+
+/* Semantic Background Colors (for buttons, etc.) */
+@utility bg-color-primary {
+  background-color: var(--color-primary);
+}
+
+@utility bg-color-text {
+  background-color: var(--color-text);
+}
+
+@utility bg-color-secondary {
+  background-color: var(--color-secondary);
+}
+
+@utility bg-color-accent {
+  background-color: var(--color-accent);
+}
+
+@utility bg-color-star {
+  background-color: var(--color-star);
+}
+
+@utility bg-color-warning {
+  background-color: var(--color-warning);
+}
+
+@utility bg-color-border-light {
+  background-color: var(--color-border-light);
+}
+
+/* Border Color Utilities (for buttons, etc.) */
+@utility border-color-primary {
+  border-color: var(--color-border-primary);
+}
+
+@utility border-color-text {
+  border-color: var(--color-text);
+}
+
+@utility border-color-secondary {
+  border-color: var(--color-secondary);
+}
+
+@utility border-color-accent {
+  border-color: var(--color-accent);
+}
+
+@utility border-color-star {
+  border-color: var(--color-star);
+}
+
+@utility border-color-warning {
+  border-color: var(--color-warning);
+}
+
+@utility border-color-light {
+  border-color: var(--color-border-light);
+}
+
+/* Background color as border utilities */
+@utility border-color-bg-light {
+  border-color: var(--color-bg-light);
+}
+
+@utility border-color-bg-dark {
+  border-color: var(--color-bg-dark);
+}
+
+@utility border-divider-on-dark {
+  border-color: var(--color-divider-on-dark);
+}
+
+@utility divide-color-bg-dark {
+  border-color: var(--color-bg-dark);
+}
+
+@utility divide-color-primary {
+  border-color: var(--color-border-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CUSTOM UTILITIES (from plugin - 14 utilities after cleanup)
+   ───────────────────────────────────────────────────────────── */
+
+/* Divider line - explicit 1px top border for consistent weight */
+@utility divider-line {
+  border-top: 1px solid;
+}
+
+@utility divider-spacing {
+  padding-top: 2.25rem;
+}
+
+/* Chevron Utilities - standardized icon sizing */
+@utility chevron {
+  width: 1rem;
+  height: 1rem;
+}
+
+@utility chevron-on-dark {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-primary);
+}
+
+@utility chevron-lg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+@utility chevron-lg-on-dark {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--color-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NEXT ARROW BUTTON UTILITY (for scroll arrows in Hero & CaseStudies)
+   ─────────────────────────────────────────────────────────────
+   These are LARGER bouncing arrows used as scroll triggers.
+   They are different from accordion chevrons (which use chevron utilities above).
+
+   Size: 4rem (64px) - matches original w-16 h-16 from copy sections
+   Color: color-secondary (light blue) with bounce animation
+
+   Usage:
+   - HeroV3Section: next-arrow-button
+   - CaseStudiesSection: next-arrow-button-on-dark (on dark background)
+
+   Do NOT use for accordion chevrons — use chevron/chevron-lg instead.
+   ───────────────────────────────────────────────────────────── */
+@utility next-arrow-button {
+  width: 4rem;
+  height: 4rem;
+  color: var(--color-secondary);
+}
+
+@utility next-arrow-button-on-dark {
+  width: 4rem;
+  height: 4rem;
+  color: var(--color-secondary-on-dark);
+}
+
+@utility section-padding {
+  padding-top: 5rem;
+  padding-bottom: 7rem;
+}
+
+@utility section-block-spacing {
+  margin-bottom: 4rem;
+}
+
+@utility grid-gap-lg {
+  gap: 2rem;
+}
+
+@utility grid-gap-xl {
+  gap: 4rem;
+}
+
+/* Card Grid Gaps - for topic cards, form cards, etc. */
+@utility card-grid-gap-sm {
+  gap: 1rem;
+}
+
+@utility card-grid-gap-md {
+  gap: 1.25rem;
+}
+
+@utility card-grid-gap-lg {
+  gap: 2rem;
+}
+
+/* Author Grid Gap - for researcher quotes section (3-column author grid) */
+@utility author-grid-gap {
+  gap: 2.5rem;
+}
+
+@utility author-grid-gap-lg {
+  gap: 3.5rem;
+}
+
+@utility margin-top-sm {
+  margin-top: 1.5rem;
+}
+
+@utility margin-top-md {
+  margin-top: 3rem;
+}
+
+@utility section-padding-sm {
+  padding-top: 2.5rem;
+}
+
+@utility transition-fast {
+  transition-duration: 200ms;
+}
+
+@utility transition-normal {
+  transition-duration: 300ms;
+}
+
+@utility transition-slow {
+  transition-duration: 500ms;
+}
+
+@utility transition-slower {
+  transition-duration: 700ms;
+}
+
+@utility tracking-label-alt {
+  letter-spacing: 0.15em;
+}
+
+@utility label-heading-spacing {
+  margin-bottom: 0.7rem;
+}
+
+@utility heading-body-spacing {
+  margin-bottom: 1.5rem;
+}
+
+@utility name-role-spacing {
+  margin-bottom: 0.25rem;
+}
+
+@utility role-date-spacing {
+  margin-bottom: 0.25rem;
+}
+
+@utility block-label-spacing {
+  margin-bottom: 0.75rem;
+}
+
+@utility content-spacing {
+  margin-bottom: 1.5rem;
+}
+
+@utility content-spacing-md {
+  margin-bottom: 1rem;
+}
+
+@utility content-spacing-lg {
+  margin-bottom: 2rem;
+}
+
+@utility item-tag-spacing {
+  margin-bottom: 0.5rem;
+}
+
+@utility element-spacing-xs {
+  margin-top: 0.5rem;
+}
+
+@utility element-spacing-sm {
+  margin-top: 0.75rem;
+}
+
+@utility element-spacing-md {
+  margin-top: 1rem;
+}
+
+@utility paragraph-spacing {
+  margin-bottom: 1rem;
+}
+
+@utility expanded-content-spacing {
+  margin-top: 1rem;
+  padding-top: 2rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MAX-WIDTH UTILITIES
+   ───────────────────────────────────────────────────────────── */
+@utility max-w-content {
+  max-width: 72rem;
+}
+
+@utility max-w-centered-header {
+  max-width: 48rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   BACKGROUND IMAGE (paper texture)
+   ───────────────────────────────────────────────────────────── */
+@utility bg-paper {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SCROLL SNAP UTILITIES
+   ───────────────────────────────────────────────────────────── */
+@utility snap-section {
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+}
+
+@utility snap-force {
+  scroll-snap-stop: always;
+}
+
+@utility snap-none {
+  scroll-snap-align: none;
+}
+
+/* Disable scroll-snap on this section entirely */
+@utility section-no-snap {
+  scroll-snap-stop: always;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   VIDEO PLAYER UTILITIES (minimal)
+   ───────────────────────────────────────────────────────────── */
+@utility player-scrubber {
+  height: var(--height-player-scrubber);
+}
+
+@utility player-gap {
+  gap: var(--spacing-player-gap);
+}
+
+@utility player-padding {
+  padding-left: var(--spacing-player-padding);
+  padding-right: var(--spacing-player-padding);
+  padding-top: var(--spacing-player-padding);
+  padding-bottom: var(--spacing-player-padding);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLASS VIDEO PLAYER UTILITIES
+   ───────────────────────────────────────────────────────────── */
+
+/* Glass Player Target - for liquidGL */
+@utility glass-player-target {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  /* Ensure high z-index for liquidGL refraction */
+  z-index: 3;
+}
+
+/* Glass Controls - white glassmorphism */
+@utility glass-controls {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Glass Progress Bar - blue background, white progress */
+@utility glass-progress {
+  background-color: var(--color-primary);
+  height: var(--height-player-scrubber);
+}
+
+@utility glass-progress-fill {
+  background-color: white;
+  height: 100%;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MOBILE-SPECIFIC UTILITIES
+   ───────────────────────────────────────────────────────────── */
+
+/* Mobile spacing */
+@utility section-padding-mobile {
+  padding-top: 3rem;
+  padding-bottom: 4rem;
+}
+
+@utility grid-gap-mobile {
+  gap: 1rem;
+}
+
+@utility grid-gap-sm-mobile {
+  gap: 0.75rem;
+}
+
+/* Touch targets (WCAG minimum: 48x48px) */
+@utility touch-target {
+  min-width: 3rem;
+  min-height: 3rem;
+}
+
+@utility touch-target-lg {
+  min-width: 3.5rem;
+  min-height: 3.5rem;
+}
+
+/* Mobile max widths */
+@utility max-w-mobile-content {
+  max-width: 100%;
+}
+
+@utility max-w-mobile-narrow {
+  max-width: 90%;
+}
+
+/* Mobile typography */
+@utility typography-h2-mobile {
+  font-family: var(--font-secondary);
+  font-size: var(--font-mobile-h2);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+@utility typography-h2-mobile-on-dark {
+  font-family: var(--font-secondary);
+  font-size: var(--font-mobile-h2);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-primary-on-dark);
+}
+
+@utility typography-h3-mobile {
+  font-family: var(--font-secondary);
+  font-size: var(--font-mobile-h3);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+@utility typography-body-mobile {
+  font-family: var(--font-primary);
+  font-size: var(--font-mobile-body);
+  font-weight: 400;
+  line-height: 1.75;
+  letter-spacing: 0;
+  color: var(--color-text);
+  margin-bottom: 1.5rem;
+}
+
+/* Mobile typography — Extended */
+@utility typography-hero-mobile {
+  font-family: var(--font-secondary);
+  font-size: var(--font-mobile-hero);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+@utility typography-h4-mobile {
+  font-family: var(--font-secondary);
+  font-size: var(--font-mobile-h4);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--color-primary);
+}
+
+@utility typography-label-mobile {
+  font-family: var(--font-primary);
+  font-size: var(--font-mobile-label);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-secondary);
+}
+
+@utility typography-meta-mobile {
+  font-family: var(--font-primary);
+  font-size: var(--font-mobile-meta);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--color-text);
+}
+
+/* NEW: Mobile Logo Typography Utility */
+@utility typography-logo-mobile {
+  font-family: var(--font-primary);
+  font-size: var(--font-mobile-logo);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--color-primary);
+}
+
+/* NEW: Mobile Hero H1 Typography Utility */
+@utility typography-hero-h1-mobile {
+  font-family: var(--font-secondary);
+  font-size: var(--font-mobile-hero-h1);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+/* Mobile quote-featured utility for narrative text */
+@utility typography-quote-featured-mobile {
+  font-family: var(--font-secondary);
+  font-size: var(--font-quote-featured-mobile-lg);
+  font-weight: 400;
+  line-height: 1.4;
+  font-style: italic;
+  letter-spacing: 0;
+  color: var(--color-primary);
+}
+
+
+@utility min-w-0 {
+  min-width: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CUSTOM ANIMATIONS
+   ───────────────────────────────────────────────────────────── */
+
+@utility animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes toast-slide-in {
+  from { transform: translateX(calc(100% + 1.5rem)); opacity: 0; }
+  to   { transform: translateX(0);                  opacity: 1; }
+}
+
+@keyframes toast-slide-out {
+  from { transform: translateX(0);                  opacity: 1; }
+  to   { transform: translateX(calc(100% + 1.5rem)); opacity: 0; }
+}
+
+@utility toast-enter {
+  animation: toast-slide-in 200ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@utility toast-leave {
+  animation: toast-slide-out 150ms ease-in forwards;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MARKER-HIGHLIGHT (yellow-marker for important text)
+   v1: static yellow background. v2: paint-on stroke animation
+   will hook into this same class without markup changes.
+   ───────────────────────────────────────────────────────────── */
+@utility marker-highlight {
+  background-color: var(--color-amber-200);
+  color: var(--color-primary);
+  padding-inline: 0.25em;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   VOICE-LINE FADE — for text swaps in <VoiceLine />.
+   Applied via key={message} so React mounts a new node and the
+   animation fires once per text change.
+   ───────────────────────────────────────────────────────────── */
+@utility voice-line-fade {
+  animation: voice-line-fade-in 250ms ease-out;
+}
+
+@keyframes voice-line-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-line-fade {
+    animation: none !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   QUICK MENU — theme-aware tokens
+   Light: warm-beige bg at 40%, primary text, hairline navy top border.
+   Dark:  bg-light of active dark theme at 90%, white text + subtle border.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --quick-menu-bg: color-mix(in srgb, var(--color-bg-light) 40%, transparent);
+  --quick-menu-border: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  --quick-menu-fg: var(--color-primary);
+
+  /* Panel header separator dot — navy in light, white (dimmed) in dark */
+  --color-status-dot: var(--color-primary);
+}
+[data-theme^="dark"] {
+  --quick-menu-bg: color-mix(in srgb, var(--color-bg-light) 90%, transparent);
+  --quick-menu-border: rgba(255, 255, 255, 0.20);
+  --quick-menu-fg: #ffffff;
+
+  --color-status-dot: rgba(255, 255, 255, 0.55);
+}
+[data-theme="dark-night"] {
+  --color-status-dot: rgba(255, 255, 255, 0.35);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   QUICK MENU — slide-up + stagger animations
+   ───────────────────────────────────────────────────────────── */
+@keyframes quick-menu-enter {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes quick-menu-leave {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(100%); opacity: 0; }
+}
+@keyframes quick-item-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@utility quick-menu-enter {
+  animation: quick-menu-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@utility quick-menu-leave {
+  animation: quick-menu-leave 180ms ease-in forwards;
+}
+@utility quick-item-in {
+  animation: quick-item-in 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-menu-enter,
+  .quick-menu-leave,
+  .quick-item-in { animation: none !important; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLOBAL OVERFLOW + SAFE-AREA (mobile responsiveness)
+   ───────────────────────────────────────────────────────────── */
+html, body { overflow-x: clip; overscroll-behavior-y: none; }

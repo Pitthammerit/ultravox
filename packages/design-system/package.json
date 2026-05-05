@@ -1,0 +1,25 @@
+{
+  "name": "@ultravox/design-system",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ultravox design system — tokens, fonts, and theme runtime. Shared between the Tauri app and the future website.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./fonts.css": "./src/fonts.css"
+  },
+  "files": [
+    "src",
+    "assets"
+  ],
+  "scripts": {
+    "test": "echo \"(no tests yet — wired in Phase 5/6)\" && exit 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

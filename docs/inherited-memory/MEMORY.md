@@ -1,0 +1,7 @@
+- [Always use AskUserQuestion tool for questions](feedback_ask_user_question_tool.md) — bounded-choice questions go through the picker tool, not prose A/B/C
+- [No Claude Co-Author trailers in commits](feedback_no_claude_coauthor.md) — commit messages stay attributed to Benjamin only
+- [Dev verification on localhost first](feedback_localhost_first.md) — smoke tests run locally; CF deploy is a separate manual step
+- [Design system: Regression brand tokens](reference_design_system.md) — source at `~/Documents/websites/regression-landing/regression/frontend/tailwind.config.css`, sync to `app/ui/tokens.css`
+- [app/shared canonical layer](feedback_shared_layer.md) — cross-runtime helpers go in app/shared/, never duplicate server↔worker
+- [2026-05-01 four-axis audit resolved](project_audit_2026_05_01.md) — security + dedup + perf wave; shared layer was the keystone
+- [OpenRouter key strategy: admin vs regular users](project_openrouter_key_strategy.md) — admins use own key; published users get managed key (TBD source)

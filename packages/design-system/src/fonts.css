@@ -1,0 +1,51 @@
+/*
+ * Ultravox design system — bundled fonts.
+ * Source: Google Fonts (Latin + Latin-extended subsets), woff2 only.
+ * Re-download via google-webfonts-helper (gwfh) — see ../README.md for exact URLs.
+ *
+ * Paths are relative to this CSS file; Vite rewrites them when consuming apps
+ * import "@ultravox/design-system/fonts.css".
+ *
+ * Pairs with tokens.css `--font-primary` (DM Sans) and `--font-secondary`
+ * (Cormorant Garamond). Kalam (`--font-handwriting`) is not bundled in v1.
+ */
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("../assets/fonts/dm-sans-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("../assets/fonts/dm-sans-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("../assets/fonts/dm-sans-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("../assets/fonts/cormorant-garamond-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("../assets/fonts/cormorant-garamond-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}

@@ -1,0 +1,19 @@
+{
+  "name": "ultravox-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Ultravox monorepo: macOS Tauri voice-dictation app + shared design system.",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @ultravox/app tauri dev",
+    "build": "pnpm --filter @ultravox/app tauri build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r exec tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
