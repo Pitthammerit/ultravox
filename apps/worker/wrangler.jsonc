@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ultravox-voice-worker",
+  "main": "index.ts",
+  "compatibility_date": "2026-04-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": {
+    "binding": "AI"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "routes": []
+  // Secrets set via `wrangler secret put`:
+  //   OPENROUTER_API_KEY  — managed OpenRouter key for LLM cleanup
+  //   VOICE_HMAC_SECRET   — signs short-lived tokens issued by /api/voice/token
+  //   DEV_BEARER_TOKEN    — static token for local curl smoke-tests only
+}

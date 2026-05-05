@@ -8,7 +8,7 @@ beforeEach(() => {
   fetchMock.mockReset();
 });
 
-const tokenResponse = { ok: true, token: "tok", apiUrl: "https://worker.example" };
+const tokenResponse = { ok: true, token: "tok", expiresIn: 300 };
 const blob = new Blob(["x"], { type: "audio/webm" });
 
 const baseMode: VoiceMode = {
@@ -63,7 +63,7 @@ describe("transcribe", () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 503,
-      json: async () => ({ ok: false, error: "service unavailable", token: "", apiUrl: "" }),
+      json: async () => ({ ok: false, error: "service unavailable", token: "", expiresIn: 0 }),
     });
 
     await expect(

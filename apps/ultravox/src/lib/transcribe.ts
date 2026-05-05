@@ -17,17 +17,25 @@ export interface TranscribeResult {
 interface TokenResponse {
   ok: boolean;
   token: string;
-  apiUrl: string;
+  expiresIn?: number;
   error?: string;
 }
 
-async function fetchToken(
-  endpoint: string,
-): Promise<{ token: string; apiUrl: string }> {
+/**
+ * Strips `/api/voice/token` (or any final path) off the token endpoint to get
+ * the worker's base URL — the client knows where it asked for the token, so
+ * the audio endpoints live on the same origin.
+ */
+function deriveApiBase(tokenEndpoint: string): string {
+  const url = new URL(tokenEndpoint, "http://localhost");
+  return `${url.protocol}//${url.host}`;
+}
+
+async function fetchToken(endpoint: string): Promise<{ token: string; apiUrl: string }> {
   const res = await fetch(endpoint);
   const data = (await res.json()) as TokenResponse;
   if (!res.ok || !data.ok) throw new Error(data.error ?? `token endpoint ${res.status}`);
-  return { token: data.token, apiUrl: data.apiUrl };
+  return { token: data.token, apiUrl: deriveApiBase(endpoint) };
 }
 
 export async function transcribe(

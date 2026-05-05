@@ -26,7 +26,7 @@ interface Env {
 interface TokenResponse {
   ok: boolean;
   token: string;
-  apiUrl: string;
+  expiresIn: number;
   error?: string;
 }
 
@@ -105,10 +105,10 @@ async function verifyAuth(request: Request, env: Env): Promise<boolean> {
 // Token endpoint
 // ---------------------------------------------------------------------------
 
-async function handleToken(request: Request, env: Env): Promise<Response> {
+async function handleToken(_request: Request, env: Env): Promise<Response> {
   if (!env.VOICE_HMAC_SECRET) {
     return Response.json(
-      { ok: false, token: '', apiUrl: '', error: 'VOICE_HMAC_SECRET not configured' } satisfies TokenResponse,
+      { ok: false, token: '', expiresIn: 0, error: 'VOICE_HMAC_SECRET not configured' } satisfies TokenResponse,
       { status: 500 },
     );
   }
@@ -116,11 +116,7 @@ async function handleToken(request: Request, env: Env): Promise<Response> {
   const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_SEC;
   const token = await signToken('anon', exp, env.VOICE_HMAC_SECRET);
 
-  // Return our own origin as the API base URL so clients don't need to know it.
-  const url = new URL(request.url);
-  const apiUrl = `${url.protocol}//${url.host}`;
-
-  return Response.json({ ok: true, token, apiUrl } satisfies TokenResponse);
+  return Response.json({ ok: true, token, expiresIn: TOKEN_TTL_SEC } satisfies TokenResponse);
 }
 
 // ---------------------------------------------------------------------------
