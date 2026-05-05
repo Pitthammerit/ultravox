@@ -1,15 +1,14 @@
+import { Description, Section } from "../components/ui";
+
 export default function HistoryPanel() {
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h2 className="typography-h3 text-color-primary">History</h2>
-      </header>
-      <div className="rounded-lg border border-color-ink-15 bg-color-surface p-8 text-center">
-        <p className="typography-body text-color-secondary">
-          Transcription history is coming in v1.1. Your audio never leaves the worker today —
-          recordings are not stored.
-        </p>
+    <Section label="Archive">
+      <div className="rounded-xl border border-color-divider-on-dark/40 bg-color-surface px-4 py-6 text-center">
+        <Description>
+          Transcription history is coming in v1.1. Your audio never leaves the
+          worker today — recordings are not stored.
+        </Description>
       </div>
-    </div>
+    </Section>
   );
 }

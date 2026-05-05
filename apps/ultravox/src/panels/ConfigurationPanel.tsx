@@ -1,109 +1,93 @@
-import { useEffect } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme, type ThemeChoice } from "@ultravox/design-system";
+import { Row, Section, Segmented } from "../components/ui";
 
 interface ConfigurationPanelProps {
   settings: AppSettings;
   onChange: (patch: Partial<AppSettings>) => Promise<void>;
 }
 
-const THEMES: Array<{ id: ThemeChoice; label: string; bg: string; accent: string }> = [
-  { id: "auto",       label: "Auto",       bg: "#EDE7DC", accent: "#224160" },
-  { id: "light",      label: "Light",      bg: "#EDE7DC", accent: "#224160" },
-  { id: "dark-ocean", label: "Dark Ocean", bg: "#0F2A40", accent: "#7696AD" },
-  { id: "dark-night", label: "Dark Night", bg: "#0A0E14", accent: "#7696AD" },
-];
-
 export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
-  // Apply theme immediately on mount + on change
-  useEffect(() => {
-    applyTheme(settings.theme);
-  }, [settings.theme]);
+  // Map our 4 themes to bka2brain's "appearance + dark variant" pattern.
+  const appearance: "light" | "dark" | "auto" =
+    settings.theme === "auto"
+      ? "auto"
+      : settings.theme === "light"
+      ? "light"
+      : "dark";
+  const darkVariant: "ocean" | "night" =
+    settings.theme === "dark-night" ? "night" : "ocean";
 
-  const setTheme = async (theme: ThemeChoice) => {
+  const setAppearance = async (next: "light" | "dark" | "auto") => {
+    let theme: ThemeChoice;
+    if (next === "light") theme = "light";
+    else if (next === "auto") theme = "auto";
+    else theme = darkVariant === "night" ? "dark-night" : "dark-ocean";
+    await onChange({ theme });
+    applyTheme(theme);
+  };
+
+  const setDarkVariant = async (next: "ocean" | "night") => {
+    const theme: ThemeChoice = next === "night" ? "dark-night" : "dark-ocean";
     await onChange({ theme });
     applyTheme(theme);
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      <header>
-        <h2 className="typography-h3 text-color-primary">Configuration</h2>
-      </header>
-
-      <section className="flex flex-col gap-3">
-        <div className="typography-label">Theme</div>
-        <div className="grid grid-cols-4 gap-2">
-          {THEMES.map((t) => {
-            const isActive = t.id === settings.theme;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                className={`flex flex-col gap-2 p-3 rounded-lg border transition-colors ${
-                  isActive
-                    ? "border-color-primary bg-color-primary text-primary-on-dark"
-                    : "border-color-ink-15 bg-color-surface text-color-text hover:bg-color-surface-hover"
-                }`}
-              >
-                <div className="flex gap-1">
-                  <div
-                    className="w-5 h-5 rounded-full border border-color-ink-15"
-                    style={{ background: t.bg }}
-                  />
-                  <div
-                    className="w-5 h-5 rounded-full border border-color-ink-15"
-                    style={{ background: t.accent }}
-                  />
-                </div>
-                <span className="typography-menu-text">{t.label}</span>
-              </button>
-            );
-          })}
+    <>
+      <Section label="Visual">
+        <div className="rounded-xl border border-color-divider-on-dark/40 bg-color-surface px-4 py-3 flex flex-col gap-3">
+          <Row
+            label="Theme"
+            control={
+              <Segmented<"light" | "dark" | "auto">
+                options={[
+                  { id: "light", label: "☀ Light" },
+                  { id: "dark", label: "☾ Dark" },
+                  { id: "auto", label: "⌬ Auto" },
+                ]}
+                value={appearance}
+                onChange={setAppearance}
+              />
+            }
+          />
+          {appearance !== "light" && (
+            <Row
+              label="Dark variant"
+              control={
+                <Segmented<"ocean" | "night">
+                  options={[
+                    { id: "ocean", label: "Ocean" },
+                    { id: "night", label: "Night" },
+                  ]}
+                  value={darkVariant}
+                  onChange={setDarkVariant}
+                />
+              }
+            />
+          )}
         </div>
-      </section>
+      </Section>
 
-      <section className="flex flex-col gap-3">
-        <div className="typography-label">Hotkeys</div>
-        <Row label="Record toggle" value={settings.hotkeyRecord} />
-        <Row label="Mode switcher" value={settings.hotkeyModeOverlay} />
-        <p className="typography-meta text-color-secondary">
-          Hotkey editing will arrive in v1.1. Defaults are active now.
-        </p>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="typography-label">Recording style</div>
-        <div className="flex gap-2">
-          {(["toggle", "push-to-talk"] as const).map((style) => {
-            const isActive = settings.recordingStyle === style;
-            return (
-              <button
-                key={style}
-                onClick={() => onChange({ recordingStyle: style })}
-                className={`px-4 py-2 rounded-full typography-menu-text border transition-colors ${
-                  isActive
-                    ? "bg-color-primary text-primary-on-dark border-color-primary"
-                    : "bg-color-surface text-color-text border-color-ink-15 hover:bg-color-surface-hover"
-                }`}
-              >
-                {style === "toggle" ? "Toggle (tap to start/stop)" : "Push-to-talk (hold)"}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-md border border-color-ink-15 bg-color-surface px-4 py-3">
-      <span className="typography-body">{label}</span>
-      <code className="typography-meta px-2 py-1 rounded bg-color-bg-light text-color-primary">
-        {value}
-      </code>
-    </div>
+      <Section label="Shortcuts">
+        <Row
+          label="Record toggle"
+          help="Default record hotkey. Editing comes in v1.1."
+          control={
+            <span className="px-3 py-1 rounded-md bg-color-divider-on-dark/30 text-[12px] font-mono text-color-fg">
+              {settings.hotkeyRecord}
+            </span>
+          }
+        />
+        <Row
+          label="Mode switcher"
+          control={
+            <span className="px-3 py-1 rounded-md bg-color-divider-on-dark/30 text-[12px] font-mono text-color-fg">
+              {settings.hotkeyModeOverlay}
+            </span>
+          }
+        />
+      </Section>
+    </>
   );
 }
