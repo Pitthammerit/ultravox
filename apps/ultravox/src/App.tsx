@@ -1,7 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import SettingsWindow from "./windows/SettingsWindow";
 import OnboardingWizard from "./windows/OnboardingWizard";
-import { useState } from "react";
 import { loadSettings, saveSettings } from "./lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 
