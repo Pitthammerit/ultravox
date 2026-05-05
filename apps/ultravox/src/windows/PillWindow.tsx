@@ -8,6 +8,7 @@ import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
 import { loadSettings, type AppSettings } from "../lib/store-bridge";
 import { pickAutoMode } from "../lib/autoMode";
 import { invoke } from "@tauri-apps/api/core";
+import { captureError, track } from "../lib/telemetry";
 
 type PillState = "idle" | "recording" | "transcribing" | "error";
 
@@ -38,10 +39,13 @@ export default function PillWindow() {
       const frontmost = await getFrontmostApp();
       const modes = cur?.modes ?? DEFAULT_MODES;
       const fallbackId = cur?.activeModeId ?? modes[0]!.id;
-      setMode(pickAutoMode(frontmost?.bundle_id ?? null, modes, fallbackId));
+      const picked = pickAutoMode(frontmost?.bundle_id ?? null, modes, fallbackId);
+      setMode(picked);
+      track("recording.started", { modeId: picked.id, bundleId: frontmost?.bundle_id ?? null });
       await recorder.start();
       setState("recording");
     } catch (e) {
+      captureError(e, { stage: "start" });
       setErrorMsg((e as Error).message);
       setState("error");
       setTimeout(() => {
@@ -65,16 +69,18 @@ export default function PillWindow() {
         vocabulary: settings?.vocabulary ?? [],
         tokenEndpoint: TOKEN_ENDPOINT,
       });
+      track("transcription.completed", { modeId: mode.id, length: result.text.length });
       if (result.text) {
         try {
           await pasteToFrontmost(result.text);
         } catch (pasteErr) {
-          console.warn("paste failed:", pasteErr);
+          captureError(pasteErr, { stage: "paste" });
         }
       }
       setState("idle");
       await invoke("hide_pill").catch(() => {});
     } catch (e) {
+      captureError(e, { stage: "transcribe" });
       setErrorMsg((e as Error).message);
       setState("error");
       setTimeout(() => {
