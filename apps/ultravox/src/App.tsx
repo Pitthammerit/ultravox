@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BRANDING } from "./branding";
 import { useRecorder } from "./hooks/useRecorder";
 import { transcribe } from "./lib/transcribe";
-import { getApiKeys } from "./lib/tauri-bridge";
+import { TOKEN_ENDPOINT } from "./lib/tauri-bridge";
 import type { VoiceMode } from "./lib/voiceModes";
 
 const TEST_MODE: VoiceMode = {
@@ -29,7 +29,7 @@ export default function App() {
           const result = await transcribe(blob, {
             mode: TEST_MODE,
             vocabulary: [],
-            keys: getApiKeys(),
+            tokenEndpoint: TOKEN_ENDPOINT,
           });
           setText(result.text);
         } catch (err) {
