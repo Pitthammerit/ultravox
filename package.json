@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @ultravox/app tauri dev",
+    "dev:worker": "pnpm --filter @ultravox/worker dev",
     "build": "pnpm --filter @ultravox/app tauri build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r exec tsc --noEmit"
