@@ -4,6 +4,7 @@ import OnboardingWizard from "./windows/OnboardingWizard";
 import { loadSettings, saveSettings } from "./lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { tokens } from "./components/ui";
+import { registerHotkeys } from "./lib/tauri-bridge";
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -13,6 +14,12 @@ export default function App() {
     (async () => {
       const settings = await loadSettings();
       applyTheme(settings.theme);
+      // Re-register hotkeys with the user's saved combos (if any).
+      try {
+        await registerHotkeys(settings.hotkeyRecord, settings.hotkeyModeOverlay);
+      } catch (e) {
+        console.warn("hotkey register failed:", e);
+      }
       setShowOnboarding(!settings.onboardingComplete);
       setReady(true);
     })();

@@ -5,10 +5,11 @@ import { useHotkeyEvent } from "../hooks/useHotkeyEvents";
 import { transcribe } from "../lib/transcribe";
 import { TOKEN_ENDPOINT, pasteToFrontmost, getFrontmostApp } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
-import { loadSettings, type AppSettings } from "../lib/store-bridge";
+import { appendHistory, loadSettings, type AppSettings } from "../lib/store-bridge";
 import { pickAutoMode } from "../lib/autoMode";
 import { invoke } from "@tauri-apps/api/core";
 import { captureError, track } from "../lib/telemetry";
+import { playStartChime, playStopChime } from "../lib/chime";
 
 type PillState = "idle" | "recording" | "transcribing" | "error";
 
@@ -42,7 +43,16 @@ export default function PillWindow() {
       const picked = pickAutoMode(frontmost?.bundle_id ?? null, modes, fallbackId);
       setMode(picked);
       track("recording.started", { modeId: picked.id, bundleId: frontmost?.bundle_id ?? null });
-      await recorder.start();
+      // Start chime — fire-and-forget, before getUserMedia so it plays even
+      // if mic permission prompts.
+      if (cur?.sound.chime) playStartChime(cur.sound.chimeVolume);
+      // Pass autoGain preference into getUserMedia.
+      const autoGain = cur?.sound.autoGain ?? true;
+      await recorder.start({
+        autoGainControl: autoGain,
+        noiseSuppression: true,
+        echoCancellation: true,
+      });
       setState("recording");
     } catch (e) {
       captureError(e, { stage: "start" });
@@ -57,6 +67,7 @@ export default function PillWindow() {
 
   const stopAndTranscribe = useCallback(async () => {
     setState("transcribing");
+    if (settings?.sound.chime) playStopChime(settings.sound.chimeVolume);
     try {
       const blob = await recorder.stop();
       if (!blob) {
@@ -64,6 +75,7 @@ export default function PillWindow() {
         await invoke("hide_pill").catch(() => {});
         return;
       }
+      const frontmost = await getFrontmostApp();
       const result = await transcribe(blob, {
         mode,
         vocabulary: settings?.vocabulary ?? [],
@@ -75,6 +87,19 @@ export default function PillWindow() {
           await pasteToFrontmost(result.text);
         } catch (pasteErr) {
           captureError(pasteErr, { stage: "paste" });
+        }
+        // Persist to history (newest-first, capped). Race-safe — re-reads
+        // settings inside `appendHistory`.
+        try {
+          await appendHistory({
+            id: crypto.randomUUID(),
+            ts: Date.now(),
+            modeId: mode.id,
+            bundleId: frontmost?.bundle_id ?? null,
+            text: result.text,
+          });
+        } catch (histErr) {
+          captureError(histErr, { stage: "history-append" });
         }
       }
       setState("idle");

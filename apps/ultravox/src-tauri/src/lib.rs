@@ -30,6 +30,7 @@ pub fn run() {
         hotkey::hide_pill,
         hotkey::show_mode_overlay,
         hotkey::hide_mode_overlay,
+        hotkey::ultravox_register_hotkeys,
     ]);
 
     #[cfg(not(target_os = "macos"))]
@@ -39,6 +40,7 @@ pub fn run() {
         hotkey::hide_pill,
         hotkey::show_mode_overlay,
         hotkey::hide_mode_overlay,
+        hotkey::ultravox_register_hotkeys,
     ]);
 
     builder

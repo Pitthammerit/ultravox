@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import HomePanel from "../panels/HomePanel";
 import ModesPanel from "../panels/ModesPanel";
+import ModeEditor from "../panels/ModeEditor";
 import VocabularyPanel from "../panels/VocabularyPanel";
 import ConfigurationPanel from "../panels/ConfigurationPanel";
 import SoundPanel from "../panels/SoundPanel";
@@ -9,11 +10,19 @@ import { loadSettings, saveSettings, type AppSettings } from "../lib/store-bridg
 import { applyTheme } from "@ultravox/design-system";
 import { PageHeader, tokens } from "../components/ui";
 
-type Section = "home" | "modes" | "vocabulary" | "configuration" | "sound" | "history";
+type Section =
+  | "home"
+  | "modes"
+  | "modes-edit"
+  | "vocabulary"
+  | "configuration"
+  | "sound"
+  | "history";
 
 const BREADCRUMBS: Record<Section, string> = {
   home: "",
   modes: "modes",
+  "modes-edit": "modes / edit",
   vocabulary: "vocabulary",
   configuration: "configuration",
   sound: "sound",
@@ -22,6 +31,7 @@ const BREADCRUMBS: Record<Section, string> = {
 
 export default function SettingsWindow() {
   const [section, setSection] = useState<Section>("home");
+  const [editingModeId, setEditingModeId] = useState<string>("");
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useEffect(() => {
@@ -37,6 +47,16 @@ export default function SettingsWindow() {
     setSettings(next);
     await saveSettings(next);
     if (patch.theme) applyTheme(patch.theme);
+  };
+
+  const startEditMode = (modeId: string) => {
+    setEditingModeId(modeId);
+    setSection("modes-edit");
+  };
+
+  const back = () => {
+    if (section === "modes-edit") setSection("modes");
+    else setSection("home");
   };
 
   if (!settings) {
@@ -59,17 +79,33 @@ export default function SettingsWindow() {
     >
       <PageHeader
         breadcrumb={BREADCRUMBS[section] || undefined}
-        onBack={section === "home" ? null : () => setSection("home")}
+        onBack={section === "home" ? null : back}
       />
 
       <div className="flex-1 overflow-y-auto px-5 py-5">
         <div className="flex flex-col gap-6 max-w-md mx-auto">
-          {section === "home"          && <HomePanel settings={settings} onNavigate={setSection} onChange={update} />}
-          {section === "modes"         && <ModesPanel settings={settings} onChange={update} />}
-          {section === "vocabulary"    && <VocabularyPanel settings={settings} onChange={update} />}
-          {section === "configuration" && <ConfigurationPanel settings={settings} onChange={update} />}
-          {section === "sound"         && <SoundPanel />}
-          {section === "history"       && <HistoryPanel />}
+          {section === "home" && (
+            <HomePanel settings={settings} onNavigate={setSection} onChange={update} />
+          )}
+          {section === "modes" && (
+            <ModesPanel settings={settings} onChange={update} onEdit={startEditMode} />
+          )}
+          {section === "modes-edit" && (
+            <ModeEditor
+              settings={settings}
+              modeId={editingModeId}
+              onChange={update}
+              onClose={() => setSection("modes")}
+            />
+          )}
+          {section === "vocabulary" && (
+            <VocabularyPanel settings={settings} onChange={update} />
+          )}
+          {section === "configuration" && (
+            <ConfigurationPanel settings={settings} onChange={update} />
+          )}
+          {section === "sound" && <SoundPanel settings={settings} onChange={update} />}
+          {section === "history" && <HistoryPanel />}
         </div>
       </div>
     </main>

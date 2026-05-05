@@ -1,13 +1,14 @@
 import type { AppSettings } from "../lib/store-bridge";
 import { CLEANUP_VARIANTS, LANGUAGES } from "../lib/voiceModes";
-import { RadioCard, Section, tokens } from "../components/ui";
+import { Button, RadioCard, Section, tokens } from "../components/ui";
 
 interface ModesPanelProps {
   settings: AppSettings;
   onChange: (patch: Partial<AppSettings>) => Promise<void>;
+  onEdit: (modeId: string) => void;
 }
 
-export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
+export default function ModesPanel({ settings, onChange, onEdit }: ModesPanelProps) {
   return (
     <>
       <Section
@@ -25,11 +26,20 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         ))}
       </Section>
 
-      <Section label="All modes" help="Read-only in v1. Editor lands in v1.1.">
+      <Section
+        label="All modes"
+        help="Click a mode to edit its prompt, model, and language."
+        right={
+          <Button size="xs" variant="outline" onClick={() => onEdit("__new__")}>
+            + New
+          </Button>
+        }
+      >
         {settings.modes.map((m) => (
-          <div
+          <button
             key={m.id}
-            className="px-3.5 py-2.5 rounded-lg"
+            onClick={() => onEdit(m.id)}
+            className="w-full text-left px-3.5 py-2.5 rounded-lg transition-colors hover:bg-[var(--s-card-hover)]"
             style={{
               background: tokens.card,
               border: `1px solid ${tokens.border}`,
@@ -57,7 +67,7 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
               <span>{langLabel(m.language)}</span>
               <span>{m.languageModelProvider}</span>
             </div>
-          </div>
+          </button>
         ))}
       </Section>
     </>

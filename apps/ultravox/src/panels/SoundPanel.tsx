@@ -1,11 +1,17 @@
-import { useState } from "react";
-import { Section, ToggleRow, tokens } from "../components/ui";
+import type { AppSettings } from "../lib/store-bridge";
+import { Button, Row, Section, ToggleRow, tokens } from "../components/ui";
+import { playStartChime, playStopChime } from "../lib/chime";
 
-export default function SoundPanel() {
-  // Stub controls — wired to real audio devices in v1.1.
-  const [autoGain, setAutoGain] = useState(true);
-  const [silenceRemoval, setSilenceRemoval] = useState(false);
-  const [chime, setChime] = useState(false);
+interface SoundPanelProps {
+  settings: AppSettings;
+  onChange: (patch: Partial<AppSettings>) => Promise<void>;
+}
+
+export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
+  const sound = settings.sound;
+
+  const setSound = (patch: Partial<AppSettings["sound"]>) =>
+    onChange({ sound: { ...sound, ...patch } });
 
   return (
     <>
@@ -23,14 +29,14 @@ export default function SoundPanel() {
         <ToggleRow
           label="Auto-gain"
           description="Browser auto-adjusts microphone level"
-          checked={autoGain}
-          onChange={setAutoGain}
+          checked={sound.autoGain}
+          onChange={(v) => setSound({ autoGain: v })}
         />
         <ToggleRow
           label="Silence removal"
-          description="Trim silent passages before upload"
-          checked={silenceRemoval}
-          onChange={setSilenceRemoval}
+          description="Trim silent passages before upload (v1.1)"
+          checked={sound.silenceRemoval}
+          onChange={(v) => setSound({ silenceRemoval: v })}
         />
       </Section>
 
@@ -38,9 +44,42 @@ export default function SoundPanel() {
         <ToggleRow
           label="Chime on start/stop"
           description="Brief tone when recording starts and stops"
-          checked={chime}
-          onChange={setChime}
+          checked={sound.chime}
+          onChange={(v) => setSound({ chime: v })}
         />
+        {sound.chime && (
+          <Row
+            label="Chime volume"
+            control={
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={sound.chimeVolume}
+                onChange={(e) =>
+                  setSound({ chimeVolume: Number(e.currentTarget.value) })
+                }
+                style={{ width: 140, accentColor: tokens.fg }}
+              />
+            }
+          />
+        )}
+        {sound.chime && (
+          <Row
+            label="Test"
+            control={
+              <div className="flex items-center gap-1.5">
+                <Button size="xs" onClick={() => playStartChime(sound.chimeVolume)}>
+                  ▶ Start
+                </Button>
+                <Button size="xs" onClick={() => playStopChime(sound.chimeVolume)}>
+                  ▶ Stop
+                </Button>
+              </div>
+            }
+          />
+        )}
       </Section>
     </>
   );

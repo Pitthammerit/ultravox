@@ -24,3 +24,7 @@ export async function getFrontmostApp(): Promise<FrontmostApp | null> {
     return null;
   }
 }
+
+export async function registerHotkeys(record: string, modeOverlay: string): Promise<void> {
+  await invoke("ultravox_register_hotkeys", { record, modeOverlay });
+}

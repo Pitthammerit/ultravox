@@ -8,7 +8,7 @@ export interface RecorderControls {
   audioBlob: Blob | null;
   error: Error | null;
   stream: MediaStream | null;
-  start: () => Promise<void>;
+  start: (constraints?: MediaTrackConstraints) => Promise<void>;
   stop: () => Promise<Blob | null>;
   cancel: () => void;
 }
@@ -23,9 +23,9 @@ export function useRecorder(mimeType = "audio/webm"): RecorderControls {
   const chunksRef = useRef<BlobPart[]>([]);
   const stopResolveRef = useRef<((blob: Blob | null) => void) | null>(null);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (constraints?: MediaTrackConstraints) => {
     try {
-      const stream = await mic.start();
+      const stream = await mic.start(constraints);
       chunksRef.current = [];
       const recorder = new MediaRecorder(stream, { mimeType });
       recorder.ondataavailable = (e) => {

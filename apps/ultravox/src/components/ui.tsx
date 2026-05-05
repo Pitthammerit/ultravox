@@ -491,6 +491,84 @@ export function Input({
 }
 
 /* ─────────────────────────────────────────────────────────────
+   SELECT  (native <select> styled to match)
+   ───────────────────────────────────────────────────────────── */
+
+export function Select<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: Array<{ id: T; label: string }>;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.currentTarget.value as T)}
+      className="rounded-md transition-colors focus:outline-none cursor-pointer"
+      style={{
+        background: tokens.control,
+        color: tokens.fg,
+        border: `1px solid ${tokens.border}`,
+        padding: "4px 26px 4px 10px",
+        fontSize: 12.5,
+        appearance: "none",
+        backgroundImage:
+          'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><polyline points=\'6 9 12 15 18 9\'></polyline></svg>")',
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "right 8px center",
+      }}
+    >
+      {options.map((opt) => (
+        <option
+          key={opt.id}
+          value={opt.id}
+          style={{ background: tokens.card, color: tokens.fg }}
+        >
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TEXTAREA
+   ───────────────────────────────────────────────────────────── */
+
+export function Textarea({
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <textarea
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      rows={rows}
+      className="w-full rounded-md transition-colors focus:outline-none resize-y leading-relaxed"
+      style={{
+        background: tokens.control,
+        color: tokens.fg,
+        border: `1px solid ${tokens.border}`,
+        padding: "8px 10px",
+        fontSize: 13,
+        fontFamily: "var(--font-primary)",
+      }}
+    />
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
    HOTKEY CHIP
    ───────────────────────────────────────────────────────────── */
 
