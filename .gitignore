@@ -27,5 +27,12 @@ debug/
 .env.local
 .env.*.local
 
+# Wrangler dev state
+.wrangler/
+**/worker-configuration.d.ts
+
+# Lockfiles from non-pnpm package managers
+package-lock.json
+
 # OS
 Thumbs.db
