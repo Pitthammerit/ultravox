@@ -8,8 +8,8 @@ beforeEach(() => {
   fetchMock.mockReset();
 });
 
-const tokenResponse = { ok: true, token: "tok", apiUrl: "https://worker.example" };
 const blob = new Blob(["x"], { type: "audio/webm" });
+const keys = { openAiKey: "sk-test", openRouterKey: "or-test" };
 
 const baseMode: VoiceMode = {
   id: "email",
@@ -18,53 +18,75 @@ const baseMode: VoiceMode = {
   language: "auto",
   cleanup: "prose",
   languageModelProvider: "openrouter",
-  languageModel: "anthropic/claude-haiku-4-5",
+  languageModel: "anthropic/claude-haiku-4-5-20251001",
 };
 
 describe("transcribe", () => {
-  it("POSTs to /v1/audio/clean for prose cleanup", async () => {
+  it("calls Whisper then OpenRouter for prose cleanup", async () => {
     fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "hello world" }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw transcript" }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: "cleaned text" } }] }),
+      });
 
-    const result = await transcribe(blob, {
-      mode: baseMode,
-      vocabulary: [],
-      tokenEndpoint: "/api/voice/token",
-    });
+    const result = await transcribe(blob, { mode: baseMode, vocabulary: [], keys });
 
-    expect(result.text).toBe("hello world");
+    expect(result.text).toBe("cleaned text");
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/v1/audio/clean"),
+      expect.stringContaining("openai.com/v1/audio/transcriptions"),
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("openrouter.ai"),
       expect.any(Object),
     );
   });
 
-  it("POSTs to /v1/audio/transcriptions for raw cleanup", async () => {
-    fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw text" }) });
+  it("skips OpenRouter for raw cleanup and returns Whisper text directly", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ text: "raw text" }),
+    });
 
     const result = await transcribe(blob, {
-      mode: { ...baseMode, id: "code", cleanup: "raw" },
+      mode: { ...baseMode, cleanup: "raw" },
       vocabulary: [],
-      tokenEndpoint: "/api/voice/token",
+      keys,
     });
 
     expect(result.text).toBe("raw text");
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/v1/audio/transcriptions"),
-      expect.any(Object),
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("throws on non-ok worker response", async () => {
+  it("applies vocabulary replacements before LLM cleanup", async () => {
     fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
-      .mockResolvedValueOnce({ ok: false, status: 500, text: async () => "oops" });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "ultravox is great" }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: "Ultravox is great" } }] }),
+      });
+
+    await transcribe(blob, {
+      mode: baseMode,
+      vocabulary: [{ input: "ultravox", replace: "Ultravox" }],
+      keys,
+    });
+
+    const llmCall = fetchMock.mock.calls[1] as [string, RequestInit];
+    const body = JSON.parse(llmCall[1].body as string) as { messages: Array<{ content: string }> };
+    expect(body.messages[1]?.content).toBe("Ultravox is great");
+  });
+
+  it("throws on Whisper error", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => "Unauthorized",
+    });
 
     await expect(
-      transcribe(blob, { mode: baseMode, vocabulary: [], tokenEndpoint: "/api/voice/token" }),
-    ).rejects.toThrow("voice worker 500");
+      transcribe(blob, { mode: baseMode, vocabulary: [], keys }),
+    ).rejects.toThrow("Whisper 401");
   });
 });

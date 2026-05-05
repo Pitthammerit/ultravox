@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BRANDING } from "./branding";
 import { useRecorder } from "./hooks/useRecorder";
 import { transcribe } from "./lib/transcribe";
-import { TOKEN_ENDPOINT } from "./lib/tauri-bridge";
+import { getApiKeys } from "./lib/tauri-bridge";
 import type { VoiceMode } from "./lib/voiceModes";
 
 const TEST_MODE: VoiceMode = {
@@ -12,7 +12,7 @@ const TEST_MODE: VoiceMode = {
   language: "auto",
   cleanup: "prose",
   languageModelProvider: "openrouter",
-  languageModel: "anthropic/claude-haiku-4-5",
+  languageModel: "anthropic/claude-haiku-4-5-20251001",
 };
 
 export default function App() {
@@ -29,7 +29,7 @@ export default function App() {
           const result = await transcribe(blob, {
             mode: TEST_MODE,
             vocabulary: [],
-            tokenEndpoint: TOKEN_ENDPOINT,
+            keys: getApiKeys(),
           });
           setText(result.text);
         } catch (err) {
