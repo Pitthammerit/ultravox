@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BRANDING } from "./branding";
 import { useRecorder } from "./hooks/useRecorder";
 import { transcribe } from "./lib/transcribe";
-import { TOKEN_ENDPOINT } from "./lib/tauri-bridge";
+import { TOKEN_ENDPOINT, pasteToFrontmost } from "./lib/tauri-bridge";
 import type { VoiceMode } from "./lib/voiceModes";
 
 const TEST_MODE: VoiceMode = {
@@ -32,6 +32,13 @@ export default function App() {
             tokenEndpoint: TOKEN_ENDPOINT,
           });
           setText(result.text);
+          if (result.text) {
+            try {
+              await pasteToFrontmost(result.text);
+            } catch (pasteErr) {
+              console.warn("paste failed:", pasteErr);
+            }
+          }
         } catch (err) {
           setText(`Error: ${(err as Error).message}`);
         }
