@@ -64,6 +64,60 @@ export interface VoiceSettings {
   lastUsedModes?: Record<string, string>;
 }
 
+/**
+ * Starter modes shipped on first run. Users can edit these (v1.1+) or add
+ * their own in the Modes panel.
+ */
+export const DEFAULT_MODES: VoiceMode[] = [
+  {
+    id: "email",
+    name: "Email",
+    icon: "Mail",
+    voiceModel: "whisper-large-v3-turbo",
+    language: "auto",
+    cleanup: "prose",
+    languageModelProvider: "openrouter",
+    languageModel: "anthropic/claude-haiku-4-5-20251001",
+    autocapitalize: true,
+    insertion: "paste",
+  },
+  {
+    id: "message",
+    name: "Message",
+    icon: "MessageCircle",
+    voiceModel: "whisper-large-v3-turbo",
+    language: "auto",
+    cleanup: "prose",
+    languageModelProvider: "openrouter",
+    languageModel: "anthropic/claude-haiku-4-5-20251001",
+    autocapitalize: true,
+    insertion: "paste",
+  },
+  {
+    id: "note",
+    name: "Note",
+    icon: "FileText",
+    voiceModel: "whisper-large-v3-turbo",
+    language: "auto",
+    cleanup: "note",
+    languageModelProvider: "openrouter",
+    languageModel: "anthropic/claude-haiku-4-5-20251001",
+    autocapitalize: true,
+    insertion: "paste",
+  },
+  {
+    id: "code",
+    name: "Code",
+    icon: "Code",
+    voiceModel: "whisper-large-v3-turbo",
+    language: "en",
+    cleanup: "raw",
+    languageModelProvider: "none",
+    autocapitalize: false,
+    insertion: "paste",
+  },
+];
+
 export const FALLBACK_MODE: VoiceMode = {
   id: "raw",
   name: "Raw (no cleanup)",

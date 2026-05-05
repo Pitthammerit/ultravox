@@ -1,3 +1,4 @@
+mod hotkey;
 mod paste;
 
 #[cfg(target_os = "macos")]
@@ -7,16 +8,34 @@ mod frontmost;
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_clipboard_manager::init());
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .setup(|app| {
+            if let Err(e) = hotkey::register_default_hotkeys(app.handle()) {
+                eprintln!("hotkey registration failed: {e}");
+            }
+            Ok(())
+        });
 
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         paste::paste_to_frontmost,
-        frontmost::get_frontmost_app
+        frontmost::get_frontmost_app,
+        hotkey::show_pill,
+        hotkey::hide_pill,
+        hotkey::show_mode_overlay,
+        hotkey::hide_mode_overlay,
     ]);
 
     #[cfg(not(target_os = "macos"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![paste::paste_to_frontmost]);
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        paste::paste_to_frontmost,
+        hotkey::show_pill,
+        hotkey::hide_pill,
+        hotkey::show_mode_overlay,
+        hotkey::hide_mode_overlay,
+    ]);
 
     builder
         .run(tauri::generate_context!())

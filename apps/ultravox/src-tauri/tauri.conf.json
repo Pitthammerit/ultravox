@@ -14,16 +14,54 @@
       {
         "label": "settings",
         "title": "Ultravox",
+        "url": "index.html",
         "width": 960,
         "height": 640,
+        "minWidth": 720,
+        "minHeight": 480,
         "resizable": true,
         "fullscreen": false,
-        "visible": true
+        "visible": true,
+        "decorations": true
+      },
+      {
+        "label": "pill",
+        "title": "Ultravox Pill",
+        "url": "index.html#/pill",
+        "width": 240,
+        "height": 64,
+        "x": 100,
+        "y": 100,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "shadow": false,
+        "focus": false,
+        "acceptFirstMouse": true
+      },
+      {
+        "label": "mode-overlay",
+        "title": "Ultravox Mode",
+        "url": "index.html#/mode-overlay",
+        "width": 320,
+        "height": 360,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "shadow": false,
+        "center": true
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,

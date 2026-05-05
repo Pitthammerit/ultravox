@@ -7,6 +7,7 @@ export interface RecorderControls {
   state: RecorderState;
   audioBlob: Blob | null;
   error: Error | null;
+  stream: MediaStream | null;
   start: () => Promise<void>;
   stop: () => Promise<Blob | null>;
   cancel: () => void;
@@ -75,5 +76,5 @@ export function useRecorder(mimeType = "audio/webm"): RecorderControls {
     mic.stop();
   }, [mic]);
 
-  return { state, audioBlob, error, start, stop, cancel };
+  return { state, audioBlob, error, stream: mic.stream, start, stop, cancel };
 }
