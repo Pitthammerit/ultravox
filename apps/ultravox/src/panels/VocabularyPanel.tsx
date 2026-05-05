@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AppSettings, VocabularyEntry } from "../lib/store-bridge";
-import { Description, Input, PillButton, Section, SectionLabel } from "../components/ui";
+import { Button, Input, Section, SectionLabel, tokens } from "../components/ui";
 
 interface VocabularyPanelProps {
   settings: AppSettings;
@@ -26,17 +26,23 @@ export default function VocabularyPanel({ settings, onChange }: VocabularyPanelP
 
   return (
     <>
-      <Description>
-        Help Whisper recognize people's names, company names, acronyms, slang, or
-        words from other languages. Add a replacement to fix consistent
-        mis-transcriptions.
-      </Description>
+      <p
+        className="text-[12.5px] leading-relaxed"
+        style={{ color: tokens.fgMuted }}
+      >
+        Help Whisper recognize names, acronyms, and jargon. Add a replacement to
+        fix consistent mis-transcriptions.
+      </p>
 
-      <div className="rounded-xl border border-color-divider-on-dark/40 bg-color-surface p-3 flex flex-col gap-2">
+      <div
+        className="flex flex-col gap-2 rounded-lg p-3"
+        style={{ background: tokens.card, border: `1px solid ${tokens.border}` }}
+      >
         <Input
           value={draft.input}
           onChange={(v) => setDraft({ ...draft, input: v })}
           placeholder="New word or phrase…"
+          autoFocus
         />
         {showReplace && (
           <Input
@@ -45,35 +51,50 @@ export default function VocabularyPanel({ settings, onChange }: VocabularyPanelP
             placeholder="Replace with…"
           />
         )}
-        <div className="flex items-center justify-between gap-2 pt-1">
+        <div className="flex items-center justify-between gap-2 pt-0.5">
           {!showReplace ? (
-            <PillButton variant="outline" size="sm" onClick={() => setShowReplace(true)}>
+            <Button variant="ghost" size="xs" onClick={() => setShowReplace(true)}>
               + Replace with…
-            </PillButton>
+            </Button>
           ) : (
             <span />
           )}
-          <PillButton onClick={add} disabled={!draft.input.trim()} size="sm">
-            + Add to vocabulary
-          </PillButton>
+          <Button onClick={add} disabled={!draft.input.trim()} size="xs" variant="primary">
+            Add
+          </Button>
         </div>
       </div>
 
       <Section label={`Entries (${settings.vocabulary.length})`}>
         {settings.vocabulary.length === 0 ? (
-          <p className="text-[13px] italic text-color-secondary">
+          <p
+            className="text-[12.5px] italic"
+            style={{ color: tokens.fgSubtle }}
+          >
             No entries yet — add a name above to bias Whisper.
           </p>
         ) : (
           settings.vocabulary.map((entry, i) => (
             <div
               key={`${entry.input}-${i}`}
-              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-color-divider-on-dark/40 bg-color-surface"
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-md"
+              style={{
+                background: tokens.card,
+                border: `1px solid ${tokens.border}`,
+              }}
             >
               <div className="flex flex-col min-w-0">
-                <span className="text-[13px] text-color-fg truncate">{entry.input}</span>
+                <span
+                  className="text-[12.5px] truncate"
+                  style={{ color: tokens.fg }}
+                >
+                  {entry.input}
+                </span>
                 {entry.replace && (
-                  <span className="text-[12px] text-color-secondary truncate">
+                  <span
+                    className="text-[11.5px] truncate"
+                    style={{ color: tokens.fgMuted }}
+                  >
                     → {entry.replace}
                   </span>
                 )}
@@ -81,7 +102,8 @@ export default function VocabularyPanel({ settings, onChange }: VocabularyPanelP
               <button
                 onClick={() => remove(i)}
                 aria-label="Remove"
-                className="text-color-secondary hover:text-color-warning text-[16px] leading-none"
+                className="text-[15px] leading-none px-1 hover:opacity-100 opacity-60"
+                style={{ color: tokens.fgMuted }}
               >
                 ×
               </button>
@@ -91,9 +113,12 @@ export default function VocabularyPanel({ settings, onChange }: VocabularyPanelP
       </Section>
 
       <SectionLabel>Tip</SectionLabel>
-      <p className="text-[12px] text-color-secondary leading-relaxed -mt-1">
-        Leave the replacement blank to only bias Whisper toward a specific
-        spelling without rewriting the text.
+      <p
+        className="text-[11.5px] leading-relaxed -mt-1"
+        style={{ color: tokens.fgSubtle }}
+      >
+        Leave the replacement blank to bias Whisper toward a spelling without
+        rewriting the text.
       </p>
     </>
   );

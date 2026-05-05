@@ -4,8 +4,8 @@ import {
   NavCard,
   Row,
   Section,
-  SectionLabel,
-  ToggleCard,
+  ToggleRow,
+  tokens,
 } from "../components/ui";
 
 interface HomePanelProps {
@@ -27,7 +27,7 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
         />
         <NavCard
           title="Vocabulary"
-          subtitle={`${settings.vocabulary.length} entries · find/replace applied globally`}
+          subtitle={`${settings.vocabulary.length} entries · find/replace globally`}
           onClick={() => onNavigate("vocabulary")}
         />
         <NavCard
@@ -43,13 +43,11 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
       </Section>
 
       <Section label="Recording">
-        <ToggleCard
+        <ToggleRow
           label="Push-to-talk"
           description="Hold the hotkey while speaking instead of toggle"
           checked={settings.recordingStyle === "push-to-talk"}
-          onChange={(v) =>
-            onChange({ recordingStyle: v ? "push-to-talk" : "toggle" })
-          }
+          onChange={(v) => onChange({ recordingStyle: v ? "push-to-talk" : "toggle" })}
         />
       </Section>
 
@@ -66,12 +64,9 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
         />
       </Section>
 
-      <div className="pt-2">
-        <SectionLabel>About</SectionLabel>
-        <p className="text-[12px] text-color-secondary leading-relaxed">
-          Ultravox v0.1.0 · keys are managed server-side · audio is never stored.
-        </p>
-      </div>
+      <p className="text-[11.5px] leading-relaxed pt-1" style={{ color: tokens.fgSubtle }}>
+        Ultravox v0.1.0 · keys are managed server-side · audio is never stored.
+      </p>
     </>
   );
 }

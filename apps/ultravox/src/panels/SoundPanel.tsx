@@ -1,5 +1,5 @@
-import { Description, Section, ToggleCard } from "../components/ui";
 import { useState } from "react";
+import { Section, ToggleRow, tokens } from "../components/ui";
 
 export default function SoundPanel() {
   // Stub controls — wired to real audio devices in v1.1.
@@ -10,21 +10,23 @@ export default function SoundPanel() {
   return (
     <>
       <Section label="Microphone">
-        <Description>
-          Ultravox uses your system default microphone. Per-device selection is
-          coming in v1.1.
-        </Description>
+        <p
+          className="text-[12.5px] leading-relaxed"
+          style={{ color: tokens.fgMuted }}
+        >
+          Ultravox uses your system default microphone. Per-device selection
+          comes in v1.1.
+        </p>
       </Section>
 
       <Section label="Input processing">
-        <ToggleCard
+        <ToggleRow
           label="Auto-gain"
           description="Browser auto-adjusts microphone level"
           checked={autoGain}
           onChange={setAutoGain}
-          highlight
         />
-        <ToggleCard
+        <ToggleRow
           label="Silence removal"
           description="Trim silent passages before upload"
           checked={silenceRemoval}
@@ -33,9 +35,9 @@ export default function SoundPanel() {
       </Section>
 
       <Section label="Sound effects">
-        <ToggleCard
+        <ToggleRow
           label="Chime on start/stop"
-          description="Play a brief tone when recording starts and stops"
+          description="Brief tone when recording starts and stops"
           checked={chime}
           onChange={setChime}
         />

@@ -3,6 +3,7 @@ import SettingsWindow from "./windows/SettingsWindow";
 import OnboardingWizard from "./windows/OnboardingWizard";
 import { loadSettings, saveSettings } from "./lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
+import { tokens } from "./components/ui";
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -25,8 +26,11 @@ export default function App() {
 
   if (!ready) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-color-bg-light">
-        <p className="typography-body text-color-secondary">Loading…</p>
+      <main
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: tokens.page }}
+      >
+        <p className="text-[13px]" style={{ color: tokens.fgMuted }}>Loading…</p>
       </main>
     );
   }

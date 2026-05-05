@@ -1,6 +1,6 @@
 import type { AppSettings } from "../lib/store-bridge";
 import { CLEANUP_VARIANTS, LANGUAGES } from "../lib/voiceModes";
-import { Card, RadioCard, Section } from "../components/ui";
+import { RadioCard, Section, tokens } from "../components/ui";
 
 interface ModesPanelProps {
   settings: AppSettings;
@@ -12,7 +12,7 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
     <>
       <Section
         label="Active mode"
-        help="Used when no app-specific mode is auto-selected."
+        help="Used when no app-specific mode is auto-picked."
       >
         {settings.modes.map((m) => (
           <RadioCard
@@ -25,24 +25,39 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         ))}
       </Section>
 
-      <Section
-        label="All modes"
-        help="Read-only in v1. Full editor lands in v1.1."
-      >
+      <Section label="All modes" help="Read-only in v1. Editor lands in v1.1.">
         {settings.modes.map((m) => (
-          <Card key={m.id}>
+          <div
+            key={m.id}
+            className="px-3.5 py-2.5 rounded-lg"
+            style={{
+              background: tokens.card,
+              border: `1px solid ${tokens.border}`,
+            }}
+          >
             <div className="flex items-baseline justify-between">
-              <span className="text-[15px] font-medium text-color-fg">{m.name}</span>
-              <span className="text-[11px] text-color-secondary uppercase tracking-wider">
+              <span
+                className="text-[13.5px] font-medium"
+                style={{ color: tokens.fg }}
+              >
+                {m.name}
+              </span>
+              <span
+                className="text-[10px] uppercase tracking-[0.14em] font-medium"
+                style={{ color: tokens.fgSubtle }}
+              >
                 {m.id}
               </span>
             </div>
-            <div className="mt-1.5 grid grid-cols-3 gap-1 text-[12px] text-color-secondary">
-              <span>Cleanup: {cleanupLabel(m.cleanup)}</span>
-              <span>Lang: {langLabel(m.language)}</span>
-              <span>Provider: {m.languageModelProvider}</span>
+            <div
+              className="mt-1 grid grid-cols-3 gap-1 text-[11.5px]"
+              style={{ color: tokens.fgMuted }}
+            >
+              <span>{cleanupLabel(m.cleanup)}</span>
+              <span>{langLabel(m.language)}</span>
+              <span>{m.languageModelProvider}</span>
             </div>
-          </Card>
+          </div>
         ))}
       </Section>
     </>

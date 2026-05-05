@@ -1,5 +1,6 @@
 import "@ultravox/design-system/fonts.css";
 import "@ultravox/design-system/tokens.css";
+import "./styles/settings.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";

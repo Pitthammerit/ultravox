@@ -1,40 +1,126 @@
 /**
- * Settings UI primitives — clones bka2brain's settings visual language.
+ * Settings UI primitives — shadcn/ui-inspired. Refined, dense, predictable.
  *
- * Patterns: dark cards with subtle borders, sans-serif bold section headings,
- * pill toggles, white-pill segmented controls, selectable radio cards,
- * nav cards with chevron, compact hotkey chips.
+ * All colors come from CSS variables defined in `styles/settings.css`
+ * (--s-* tokens). Inline styles are used intentionally — they're immune
+ * to Tailwind v4's compilation quirks with token-based utility classes.
  */
-import { useId, type ReactNode } from "react";
+import { useId, type CSSProperties, type ReactNode } from "react";
+
+const T = {
+  page: "var(--s-page)",
+  card: "var(--s-card)",
+  cardHover: "var(--s-card-hover)",
+  border: "var(--s-border)",
+  borderStrong: "var(--s-border-strong)",
+  fg: "var(--s-fg)",
+  fgMuted: "var(--s-fg-muted)",
+  fgSubtle: "var(--s-fg-subtle)",
+  accent: "var(--s-accent)",
+  accentFg: "var(--s-accent-fg)",
+  control: "var(--s-control)",
+  controlHover: "var(--s-control-hover)",
+  warning: "var(--s-warning)",
+} as const;
+
+export const tokens = T;
 
 /* ─────────────────────────────────────────────────────────────
-   TYPOGRAPHY
+   PAGE HEADER  (italic-serif Settings + breadcrumb + back chevron)
    ───────────────────────────────────────────────────────────── */
 
-export function PageTitle({ children }: { children: ReactNode }) {
-  // Settings page header — italic serif (Cormorant) per bka2brain.
+interface PageHeaderProps {
+  breadcrumb?: string | undefined;
+  onBack?: (() => void) | null;
+  right?: ReactNode;
+}
+
+export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
   return (
-    <h1
-      className="text-[34px] leading-none italic text-color-fg"
-      style={{ fontFamily: "var(--font-secondary)" }}
+    <header
+      className="flex items-center justify-between px-5 pt-4 pb-3 border-b"
+      style={{ borderColor: T.border }}
     >
-      {children}
-    </h1>
+      <div className="flex items-center gap-2">
+        {onBack && (
+          <button
+            onClick={onBack}
+            aria-label="Back"
+            className="text-[18px] leading-none -ml-0.5 px-1.5 py-1 rounded-md hover:bg-[var(--s-control)] transition-colors"
+            style={{ color: T.fg }}
+          >
+            ‹
+          </button>
+        )}
+        <div className="flex items-baseline gap-2">
+          <h1
+            className="text-[22px] leading-none italic"
+            style={{ fontFamily: "var(--font-secondary)", color: T.fg }}
+          >
+            Settings
+          </h1>
+          {breadcrumb && (
+            <span className="text-[12px]" style={{ color: T.fgMuted }}>
+              / {breadcrumb}
+            </span>
+          )}
+        </div>
+      </div>
+      {right && <div>{right}</div>}
+    </header>
   );
 }
 
-export function Breadcrumb({ children }: { children: ReactNode }) {
-  return (
-    <div className="text-[13px] text-color-secondary mt-0.5">{children}</div>
-  );
+/* ─────────────────────────────────────────────────────────────
+   SECTION
+   ───────────────────────────────────────────────────────────── */
+
+interface SectionProps {
+  title?: string;
+  label?: string;
+  description?: string;
+  help?: string | undefined;
+  right?: ReactNode;
+  children: ReactNode;
 }
 
-export function SectionTitle({ children }: { children: ReactNode }) {
-  // Sans-serif bold — bka2brain's "Identity", "Visual", "AI Engine" style.
+export function Section({
+  title,
+  label,
+  description,
+  help,
+  right,
+  children,
+}: SectionProps) {
   return (
-    <h2 className="text-[20px] font-semibold text-color-fg tracking-tight mb-3">
-      {children}
-    </h2>
+    <section className="flex flex-col gap-2.5">
+      {title && (
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-[14px] font-semibold tracking-tight"
+            style={{ color: T.fg }}
+          >
+            {title}
+          </h2>
+          {right}
+        </div>
+      )}
+      {label && (
+        <div className="flex items-center justify-between">
+          <SectionLabel help={help}>{label}</SectionLabel>
+          {right}
+        </div>
+      )}
+      {description && (
+        <p
+          className="text-[13px] leading-relaxed -mt-1"
+          style={{ color: T.fgMuted }}
+        >
+          {description}
+        </p>
+      )}
+      <div className="flex flex-col gap-1.5">{children}</div>
+    </section>
   );
 }
 
@@ -43,21 +129,16 @@ export function SectionLabel({
   help,
 }: {
   children: ReactNode;
-  help?: string;
+  help?: string | undefined;
 }) {
   return (
-    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-color-secondary mb-2">
+    <div
+      className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-[0.14em] font-medium"
+      style={{ color: T.fgMuted }}
+    >
       <span>{children}</span>
       {help && <HelpIcon tooltip={help} />}
     </div>
-  );
-}
-
-export function Description({ children }: { children: ReactNode }) {
-  return (
-    <p className="text-[14px] leading-relaxed text-color-secondary">
-      {children}
-    </p>
   );
 }
 
@@ -65,7 +146,11 @@ export function HelpIcon({ tooltip }: { tooltip?: string }) {
   return (
     <span
       title={tooltip}
-      className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-color-secondary/50 text-color-secondary text-[9px] leading-none cursor-help"
+      className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[8.5px] leading-none cursor-help"
+      style={{
+        border: `1px solid ${T.borderStrong}`,
+        color: T.fgSubtle,
+      }}
     >
       ?
     </span>
@@ -73,78 +158,123 @@ export function HelpIcon({ tooltip }: { tooltip?: string }) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   CARDS & ROWS
+   CARD
    ───────────────────────────────────────────────────────────── */
 
-interface CardProps {
+const cardBase: CSSProperties = {
+  background: T.card,
+  border: `1px solid ${T.border}`,
+  borderRadius: 8,
+};
+
+export function Card({
+  children,
+  selected,
+  onClick,
+}: {
   children: ReactNode;
   selected?: boolean;
   onClick?: () => void;
-  className?: string;
-}
-
-export function Card({ children, selected, onClick, className = "" }: CardProps) {
-  const Wrap = onClick ? "button" : "div";
-  const base = "rounded-xl border bg-color-surface px-4 py-3 w-full text-left transition-colors";
-  const ring = selected
-    ? "border-color-primary-on-dark/90"
-    : "border-color-divider-on-dark/40 hover:bg-color-surface-hover";
+}) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <Wrap onClick={onClick} className={`${base} ${ring} ${className}`}>
+    <Tag
+      onClick={onClick}
+      className={`block w-full text-left px-3.5 py-2.5 transition-colors ${onClick ? "hover:bg-[var(--s-card-hover)]" : ""}`}
+      style={{
+        ...cardBase,
+        borderColor: selected ? T.fg : T.border,
+      }}
+    >
       {children}
-    </Wrap>
+    </Tag>
   );
 }
 
-interface NavCardProps {
+/* ─────────────────────────────────────────────────────────────
+   NAV CARD  (title + subtitle + chevron)
+   ───────────────────────────────────────────────────────────── */
+
+export function NavCard({
+  title,
+  subtitle,
+  onClick,
+}: {
   title: string;
   subtitle?: string;
   onClick?: () => void;
-}
-
-export function NavCard({ title, subtitle, onClick }: NavCardProps) {
+}) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-between rounded-xl border border-color-divider-on-dark/40 bg-color-surface hover:bg-color-surface-hover px-4 py-3 transition-colors text-left"
+      className="flex items-center justify-between w-full text-left px-3.5 py-2.5 transition-colors hover:bg-[var(--s-card-hover)]"
+      style={cardBase}
     >
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[16px] font-medium text-color-fg">{title}</span>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-[13.5px] font-medium" style={{ color: T.fg }}>
+          {title}
+        </span>
         {subtitle && (
-          <span className="text-[13px] text-color-secondary">{subtitle}</span>
+          <span className="text-[12px] truncate" style={{ color: T.fgMuted }}>
+            {subtitle}
+          </span>
         )}
       </div>
-      <span className="text-color-secondary text-[18px] leading-none">›</span>
+      <span className="text-[16px] leading-none ml-3" style={{ color: T.fgSubtle }}>
+        ›
+      </span>
     </button>
   );
 }
 
-interface RadioCardProps {
+/* ─────────────────────────────────────────────────────────────
+   RADIO CARD
+   ───────────────────────────────────────────────────────────── */
+
+export function RadioCard({
+  title,
+  subtitle,
+  selected,
+  onClick,
+}: {
   title: string;
   subtitle?: ReactNode;
   selected: boolean;
   onClick: () => void;
-}
-
-export function RadioCard({ title, subtitle, selected, onClick }: RadioCardProps) {
+}) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-start gap-3 rounded-xl border bg-color-surface px-4 py-3 transition-colors text-left ${
-        selected
-          ? "border-color-primary-on-dark/90"
-          : "border-color-divider-on-dark/40 hover:bg-color-surface-hover"
-      }`}
+      className="flex items-start gap-3 w-full text-left px-3.5 py-2.5 transition-colors hover:bg-[var(--s-card-hover)]"
+      style={{ ...cardBase, borderColor: selected ? T.fg : T.border }}
     >
-      <span className="mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full border border-color-primary-on-dark/80 shrink-0">
+      <span
+        className="mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full shrink-0"
+        style={{
+          border: `1.5px solid ${selected ? T.fg : T.borderStrong}`,
+        }}
+      >
         {selected && (
-          <span className="w-2 h-2 rounded-full bg-color-primary-on-dark" />
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ background: T.fg }}
+          />
         )}
       </span>
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[15px] font-medium text-color-fg">{title}</span>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span
+          className="text-[13.5px] font-medium leading-tight"
+          style={{ color: T.fg }}
+        >
+          {title}
+        </span>
         {subtitle && (
-          <span className="text-[13px] text-color-secondary">{subtitle}</span>
+          <span
+            className="text-[12px] leading-tight"
+            style={{ color: T.fgMuted }}
+          >
+            {subtitle}
+          </span>
         )}
       </div>
     </button>
@@ -152,26 +282,39 @@ export function RadioCard({ title, subtitle, selected, onClick }: RadioCardProps
 }
 
 /* ─────────────────────────────────────────────────────────────
-   ROW (label left, control right)
+   ROW  (label left, control right)
    ───────────────────────────────────────────────────────────── */
 
-interface RowProps {
+export function Row({
+  label,
+  description,
+  help,
+  control,
+}: {
   label: ReactNode;
-  help?: string;
   description?: string;
+  help?: string | undefined;
   control: ReactNode;
-}
-
-export function Row({ label, help, description, control }: RowProps) {
+}) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-color-divider-on-dark/40 bg-color-surface px-4 py-3">
-      <div className="flex flex-col gap-0.5">
+    <div
+      className="flex items-center justify-between px-3.5 py-2.5"
+      style={cardBase}
+    >
+      <div className="flex flex-col gap-0.5 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-[15px] font-medium text-color-fg">{label}</span>
+          <span
+            className="text-[13.5px] font-medium"
+            style={{ color: T.fg }}
+          >
+            {label}
+          </span>
           {help && <HelpIcon tooltip={help} />}
         </div>
         {description && (
-          <span className="text-[13px] text-color-secondary">{description}</span>
+          <span className="text-[12px]" style={{ color: T.fgMuted }}>
+            {description}
+          </span>
         )}
       </div>
       <div className="shrink-0 ml-3">{control}</div>
@@ -180,15 +323,16 @@ export function Row({ label, help, description, control }: RowProps) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   TOGGLE  (pill switch — dark off / white circle on)
+   TOGGLE  (pill switch)
    ───────────────────────────────────────────────────────────── */
 
-interface ToggleProps {
+export function Toggle({
+  checked,
+  onChange,
+}: {
   checked: boolean;
   onChange: (next: boolean) => void;
-}
-
-export function Toggle({ checked, onChange }: ToggleProps) {
+}) {
   const id = useId();
   return (
     <button
@@ -196,94 +340,72 @@ export function Toggle({ checked, onChange }: ToggleProps) {
       aria-checked={checked}
       id={id}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex items-center w-10 h-6 rounded-full transition-colors ${
-        checked
-          ? "bg-color-primary-on-dark"
-          : "bg-color-divider-on-dark/40 border border-color-divider-on-dark/60"
-      }`}
+      className="relative inline-flex items-center w-[34px] h-[20px] rounded-full transition-colors"
+      style={{
+        background: checked ? T.fg : T.control,
+      }}
     >
       <span
-        className={`absolute top-0.5 inline-block w-5 h-5 rounded-full transition-transform ${
-          checked ? "translate-x-[18px] bg-color-primary" : "translate-x-0.5 bg-color-primary-on-dark"
-        }`}
+        className="absolute top-[2px] inline-block w-[16px] h-[16px] rounded-full transition-transform"
+        style={{
+          background: checked ? T.accentFg : T.fg,
+          transform: checked ? "translateX(16px)" : "translateX(2px)",
+        }}
       />
     </button>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────
-   TOGGLE-CARD  (toggle + label + description as a full row)
-   ───────────────────────────────────────────────────────────── */
-
-interface ToggleCardProps {
-  label: string;
-  description?: string;
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  highlight?: boolean;
-}
-
-export function ToggleCard({
+export function ToggleRow({
   label,
   description,
   checked,
   onChange,
-  highlight = false,
-}: ToggleCardProps) {
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
   return (
-    <div
-      className={`flex items-start gap-3 rounded-xl border px-4 py-3 transition-colors ${
-        highlight
-          ? "border-color-primary-on-dark/90 bg-color-surface"
-          : "border-color-divider-on-dark/40 bg-color-surface"
-      }`}
-    >
-      <div className="pt-0.5">
-        <Toggle checked={checked} onChange={onChange} />
-      </div>
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="text-[15px] font-medium text-color-fg">{label}</span>
-        {description && (
-          <span className="text-[13px] text-color-secondary">{description}</span>
-        )}
-      </div>
-    </div>
+    <Row
+      label={label}
+      {...(description ? { description } : {})}
+      control={<Toggle checked={checked} onChange={onChange} />}
+    />
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
-   SEGMENTED CONTROL  (white pill highlights active option)
+   SEGMENTED  (white-pill tab control)
    ───────────────────────────────────────────────────────────── */
-
-interface SegmentedOption<T extends string> {
-  id: T;
-  label: ReactNode;
-}
-
-interface SegmentedProps<T extends string> {
-  options: SegmentedOption<T>[];
-  value: T;
-  onChange: (v: T) => void;
-}
 
 export function Segmented<T extends string>({
   options,
   value,
   onChange,
-}: SegmentedProps<T>) {
+}: {
+  options: Array<{ id: T; label: ReactNode }>;
+  value: T;
+  onChange: (v: T) => void;
+}) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-full bg-color-divider-on-dark/30 p-0.5">
+    <div
+      className="inline-flex items-center gap-0.5 rounded-md p-0.5"
+      style={{ background: tokens.control }}
+    >
       {options.map((opt) => {
         const active = opt.id === value;
         return (
           <button
             key={opt.id}
             onClick={() => onChange(opt.id)}
-            className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors flex items-center gap-1.5 ${
-              active
-                ? "bg-color-primary-on-dark text-color-primary"
-                : "text-color-fg hover:text-color-fg/90"
-            }`}
+            className="px-2.5 py-[3px] rounded text-[12px] font-medium transition-colors"
+            style={{
+              background: active ? tokens.card : "transparent",
+              color: active ? tokens.fg : tokens.fgMuted,
+              boxShadow: active ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+            }}
           >
             {opt.label}
           </button>
@@ -294,36 +416,40 @@ export function Segmented<T extends string>({
 }
 
 /* ─────────────────────────────────────────────────────────────
-   PILL BUTTON  (outlined rounded-full)
+   BUTTON  (3 variants × 2 sizes)
    ───────────────────────────────────────────────────────────── */
 
-interface PillButtonProps {
-  children: ReactNode;
-  onClick?: () => void;
-  variant?: "outline" | "solid" | "ghost";
-  disabled?: boolean;
-  size?: "sm" | "md";
-}
-
-export function PillButton({
+export function Button({
   children,
   onClick,
-  variant = "outline",
   disabled,
-  size = "md",
-}: PillButtonProps) {
-  const sizeCls = size === "sm" ? "px-3 py-1 text-[12px]" : "px-4 py-1.5 text-[13px]";
-  const variantCls =
-    variant === "solid"
-      ? "bg-color-primary-on-dark text-color-primary"
+  variant = "outline",
+  size = "sm",
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  variant?: "primary" | "outline" | "ghost";
+  size?: "sm" | "xs";
+}) {
+  const sizeStyle =
+    size === "xs"
+      ? { padding: "3px 10px", fontSize: 11 }
+      : { padding: "5px 12px", fontSize: 12.5 };
+
+  const variantStyle: CSSProperties =
+    variant === "primary"
+      ? { background: tokens.accent, color: tokens.accentFg, border: "1px solid transparent" }
       : variant === "ghost"
-      ? "text-color-fg hover:bg-color-surface"
-      : "border border-color-divider-on-dark/60 text-color-fg hover:bg-color-surface";
+      ? { background: "transparent", color: tokens.fgMuted, border: "1px solid transparent" }
+      : { background: tokens.card, color: tokens.fg, border: `1px solid ${tokens.border}` };
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${sizeCls} ${variantCls}`}
+      className="rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-95"
+      style={{ ...sizeStyle, ...variantStyle, fontWeight: 500 }}
     >
       {children}
     </button>
@@ -331,79 +457,55 @@ export function PillButton({
 }
 
 /* ─────────────────────────────────────────────────────────────
-   HOTKEY CHIP  (gray pill, monospace)
-   ───────────────────────────────────────────────────────────── */
-
-export function HotkeyChip({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex items-center px-3 py-1 rounded-md bg-color-divider-on-dark/30 text-[12px] font-mono text-color-fg">
-      {children}
-    </span>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
    INPUT
    ───────────────────────────────────────────────────────────── */
 
-interface InputProps {
+export function Input({
+  value,
+  onChange,
+  placeholder,
+  autoFocus,
+}: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
-}
-
-export function Input({ value, onChange, placeholder }: InputProps) {
+  autoFocus?: boolean;
+}) {
   return (
     <input
       type="text"
       value={value}
       placeholder={placeholder}
+      autoFocus={autoFocus}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg border border-color-divider-on-dark/40 bg-color-surface text-[14px] text-color-fg placeholder:text-color-secondary/70 focus:outline-none focus:border-color-primary-on-dark/70"
+      className="w-full rounded-md transition-colors focus:outline-none"
+      style={{
+        background: tokens.control,
+        color: tokens.fg,
+        border: `1px solid ${tokens.border}`,
+        padding: "6px 10px",
+        fontSize: 13,
+      }}
     />
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
-   SECTION  (label + content)
+   HOTKEY CHIP
    ───────────────────────────────────────────────────────────── */
 
-interface SectionProps {
-  title?: string;
-  label?: string;
-  help?: string;
-  description?: string;
-  right?: ReactNode;
-  children: ReactNode;
-}
-
-export function Section({
-  title,
-  label,
-  help,
-  description,
-  right,
-  children,
-}: SectionProps) {
+export function HotkeyChip({ children }: { children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-2">
-      {title && <SectionTitle>{title}</SectionTitle>}
-      {(label || right) && (
-        <div className="flex items-center justify-between -mb-1">
-          {label ? (
-            help ? (
-              <SectionLabel help={help}>{label}</SectionLabel>
-            ) : (
-              <SectionLabel>{label}</SectionLabel>
-            )
-          ) : (
-            <span />
-          )}
-          {right}
-        </div>
-      )}
-      {description && <Description>{description}</Description>}
-      <div className="flex flex-col gap-2 mt-1">{children}</div>
-    </section>
+    <span
+      className="inline-flex items-center rounded-md font-mono"
+      style={{
+        background: tokens.control,
+        color: tokens.fg,
+        padding: "3px 8px",
+        fontSize: 11.5,
+      }}
+    >
+      {children}
+    </span>
   );
 }
