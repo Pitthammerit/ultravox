@@ -1,74 +1,79 @@
 import type { AppSettings } from "../lib/store-bridge";
 import { CLEANUP_VARIANTS, LANGUAGES } from "../lib/voiceModes";
-import { Button, RadioCard, Section, tokens } from "../components/ui";
+import { Button, Section, tokens } from "../components/ui";
+import ModeForm from "./ModeEditor";
 
 interface ModesPanelProps {
   settings: AppSettings;
   onChange: (patch: Partial<AppSettings>) => Promise<void>;
-  onEdit: (modeId: string) => void;
 }
 
-export default function ModesPanel({ settings, onChange, onEdit }: ModesPanelProps) {
+export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
+  const activeId = settings.activeModeId;
+  const activeMode =
+    settings.modes.find((m) => m.id === activeId) ?? settings.modes[0]!;
+
   return (
     <>
       <Section
         label="Active mode"
-        help="Used when no app-specific mode is auto-picked."
-      >
-        {settings.modes.map((m) => (
-          <RadioCard
-            key={m.id}
-            title={m.name}
-            subtitle={`${cleanupLabel(m.cleanup)} · ${langLabel(m.language)}`}
-            selected={m.id === settings.activeModeId}
-            onClick={() => onChange({ activeModeId: m.id })}
-          />
-        ))}
-      </Section>
-
-      <Section
-        label="All modes"
-        help="Click a mode to edit its prompt, model, and language."
         right={
-          <Button size="xs" variant="outline" onClick={() => onEdit("__new__")}>
+          <Button size="xs" variant="outline" onClick={() => onChange({ activeModeId: "__new__" })}>
             + New
           </Button>
         }
       >
-        {settings.modes.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => onEdit(m.id)}
-            className="w-full text-left px-3.5 py-2.5 rounded-lg transition-colors hover:bg-[var(--s-card-hover)]"
-            style={{
-              background: tokens.card,
-              border: `1px solid ${tokens.border}`,
-            }}
-          >
-            <div className="flex items-baseline justify-between">
-              <span
-                className="text-[13.5px] font-medium"
-                style={{ color: tokens.fg }}
+        <div className="flex flex-col gap-1">
+          {settings.modes.map((m) => {
+            const selected = m.id === activeId;
+            return (
+              <button
+                key={m.id}
+                onClick={() => onChange({ activeModeId: m.id })}
+                className="flex items-center gap-2 w-full text-left px-3 py-1.5 rounded-lg transition-colors hover:bg-[var(--s-card-hover)]"
+                style={{
+                  background: tokens.card,
+                  border: `1px solid ${selected ? tokens.fg : tokens.border}`,
+                }}
               >
-                {m.name}
-              </span>
-              <span
-                className="text-[10px] uppercase tracking-[0.14em] font-medium"
-                style={{ color: tokens.fgSubtle }}
-              >
-                {m.id}
-              </span>
-            </div>
-            <div
-              className="mt-1 grid grid-cols-3 gap-1 text-[11.5px]"
-              style={{ color: tokens.fgMuted }}
-            >
-              <span>{cleanupLabel(m.cleanup)}</span>
-              <span>{langLabel(m.language)}</span>
-              <span>{m.languageModelProvider}</span>
-            </div>
-          </button>
-        ))}
+                <span
+                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full shrink-0"
+                  style={{
+                    border: `1.5px solid ${selected ? tokens.fg : tokens.borderStrong}`,
+                  }}
+                >
+                  {selected && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: tokens.fg }}
+                    />
+                  )}
+                </span>
+                <span
+                  className="text-[12.5px] font-medium truncate"
+                  style={{ color: tokens.fg }}
+                >
+                  {m.name}
+                </span>
+                <span
+                  className="text-[11px] truncate ml-auto"
+                  style={{ color: tokens.fgMuted }}
+                >
+                  {cleanupLabel(m.cleanup)} · {langLabel(m.language)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
+      <Section label={`Configure — ${activeMode.name}`}>
+        <ModeForm
+          key={activeMode.id}
+          settings={settings}
+          modeId={activeMode.id}
+          onChange={onChange}
+        />
       </Section>
     </>
   );
