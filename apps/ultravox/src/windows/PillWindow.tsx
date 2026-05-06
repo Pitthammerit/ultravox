@@ -208,15 +208,18 @@ export default function PillWindow() {
         // Brief delay so the pill window fully hides and macOS restores focus to the target app.
         await new Promise<void>((r) => setTimeout(r, 120));
         try {
+          const pasteTarget = await getFrontmostApp();
           const pasteStart = performance.now();
           await pasteToFrontmost(result.text);
           logDebug("paste", {
             textLength: result.text.length,
             durationMs: Math.round(performance.now() - pasteStart),
+            message: `→ ${pasteTarget?.localized_name ?? "?"} (${pasteTarget?.bundle_id ?? "?"})`,
           });
         } catch (pasteErr) {
+          const pasteTarget = await getFrontmostApp();
           captureError(pasteErr, { stage: "paste" });
-          logDebug("paste", { error: String((pasteErr as Error).message ?? pasteErr), textLength: result.text.length });
+          logDebug("paste", { error: String((pasteErr as Error).message ?? pasteErr), textLength: result.text.length, message: `→ ${pasteTarget?.localized_name ?? "?"} (${pasteTarget?.bundle_id ?? "?"})` });
           showError(`Paste failed: ${(pasteErr as Error).message ?? pasteErr} — Accessibility access likely denied.`);
           return;
         }
