@@ -42,6 +42,9 @@ const LIST_PAD = 8;
 // Height of the hint footer inside the modes panel.
 const MODES_FOOTER_H = 36;
 
+// Minimum hold duration for PTT — taps shorter than this are ignored.
+const PTT_THRESHOLD_MS = 500;
+
 /** Compute the expanded window height needed to show N modes in the list. */
 function expandedHeight(modeCount: number): number {
   const modesPanelH = modeCount * MODE_ROW_H + LIST_PAD + MODES_FOOTER_H;
@@ -60,6 +63,7 @@ export default function PillWindow() {
   const [modelOverride, setModelOverride] = useState<string | null>(null);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const modelPickerRef = useRef<HTMLDivElement>(null);
+  const pttPressedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadSettings().then((s) => {
@@ -267,12 +271,21 @@ export default function PillWindow() {
     }, [settings, state, startRecord, stopAndTranscribe, recorder]),
   );
 
-  /* ── PTT: key-down → start recording ───────────────────────── */
+  /* ── PTT: key-down → start recording after threshold ───────── */
   useHotkeyEvent(
     "hotkey:ptt-pressed",
     useCallback(() => {
       if (settings?.recordingStyle !== "push-to-talk") return;
-      if (state === "idle") startRecord();
+      if (state !== "idle") return;
+      const pressedAt = Date.now();
+      pttPressedAtRef.current = pressedAt;
+      const delay = PTT_THRESHOLD_MS;
+      setTimeout(() => {
+        // Only start if this press is still the active one (not cancelled by a release)
+        if (pttPressedAtRef.current === pressedAt) {
+          startRecord();
+        }
+      }, delay);
     }, [settings, state, startRecord]),
   );
 
@@ -281,8 +294,11 @@ export default function PillWindow() {
     "hotkey:ptt-released",
     useCallback(() => {
       if (settings?.recordingStyle !== "push-to-talk") return;
+      // Cancel any pending delayed start (tap under threshold)
+      pttPressedAtRef.current = null;
       if (state === "recording") stopAndTranscribe();
       else if (state === "confirming-discard") { recorder.resume(); stopAndTranscribe(); }
+      // if state === "idle": threshold wasn't reached — no-op, don't show pill or start recording
     }, [settings, state, stopAndTranscribe, recorder]),
   );
 
