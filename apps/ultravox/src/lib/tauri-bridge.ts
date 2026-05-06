@@ -29,3 +29,17 @@ export async function getFrontmostApp(): Promise<FrontmostApp | null> {
 export async function registerHotkeys(record: string, modeOverlay: string): Promise<void> {
   await invoke("ultravox_register_hotkeys", { record, modeOverlay });
 }
+
+/** Returns true if the app already has Accessibility permission. */
+export async function checkAccessibilityPermission(): Promise<boolean> {
+  return invoke<boolean>("check_accessibility_permission");
+}
+
+/**
+ * Triggers the macOS "wants to control this computer" system dialog.
+ * Adds the app to the Accessibility list in System Settings if not yet present.
+ * Returns true if access was already granted before the call.
+ */
+export async function requestAccessibilityPermission(): Promise<boolean> {
+  return invoke<boolean>("request_accessibility_permission");
+}

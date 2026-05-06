@@ -1,5 +1,6 @@
 mod hotkey;
 mod paste;
+mod permissions;
 mod tray;
 
 #[cfg(target_os = "macos")]
@@ -31,6 +32,8 @@ pub fn run() {
         hotkey::show_mode_overlay,
         hotkey::hide_mode_overlay,
         hotkey::ultravox_register_hotkeys,
+        permissions::check_accessibility_permission,
+        permissions::request_accessibility_permission,
     ]);
 
     #[cfg(not(target_os = "macos"))]
@@ -41,6 +44,8 @@ pub fn run() {
         hotkey::show_mode_overlay,
         hotkey::hide_mode_overlay,
         hotkey::ultravox_register_hotkeys,
+        permissions::check_accessibility_permission,
+        permissions::request_accessibility_permission,
     ]);
 
     builder
