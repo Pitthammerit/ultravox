@@ -14,9 +14,38 @@ import { playStartChime, playStopChime } from "../lib/chime";
 type PillState = "idle" | "recording" | "transcribing" | "error";
 type PillView = "pill" | "modes";
 
+// Base pill window height (must match tauri.conf.json).
 const PILL_H = 120;
-const MODE_ROW_H = 52;
-const MODE_FOOTER_H = 52;
+
+// Pill inner content height = PILL_H - p-1.5 top - p-1.5 bottom (6px each).
+const PILL_INNER_H = PILL_H - 12;
+
+// Footer height shared by pill chrome and modes submenu.
+const FOOTER_H = 44;
+
+// Waveform area (above footer) in the pill chrome.
+const WAVE_H = PILL_INNER_H - FOOTER_H;
+
+// Each mode button row height.
+const MODE_BTN_H = 36;
+
+// Gap between the pill chrome and the modes panel (px).
+const SUBMENU_GAP = 6;
+
+// Padding inside the modes grid (p-2 = 8px each side → 16px total).
+const GRID_PAD = 16;
+
+// Height of the hint footer inside the modes panel.
+const MODES_FOOTER_H = 36;
+
+/** Compute the expanded window height needed to show N modes in a 2-col grid. */
+function expandedHeight(modeCount: number): number {
+  const rows = Math.ceil(modeCount / 2);
+  const modesPanelH = rows * MODE_BTN_H + GRID_PAD + MODES_FOOTER_H;
+  // Window = pill height + gap + modes panel + container padding for modes (p-1.5 both sides)
+  // The "gap" is rendered as margin-top on the modes panel inside the same container.
+  return PILL_H + SUBMENU_GAP + modesPanelH;
+}
 
 export default function PillWindow() {
   const recorder = useRecorder();
@@ -37,11 +66,9 @@ export default function PillWindow() {
 
   const currentModes = settings?.modes ?? DEFAULT_MODES;
 
-  /* ── Window resize when view changes ───────────────────────── */
+  /* ── Resize pill window when view changes ───────────────────── */
   useEffect(() => {
-    const h = view === "modes"
-      ? Math.min(currentModes.length, 8) * MODE_ROW_H + MODE_FOOTER_H
-      : PILL_H;
+    const h = view === "modes" ? expandedHeight(currentModes.length) : PILL_H;
     setPillHeight(h).catch(() => {});
   }, [view, currentModes.length]);
 
@@ -143,7 +170,8 @@ export default function PillWindow() {
       if (result.text) {
         setState("idle");
         await invoke("hide_pill").catch(() => {});
-        await new Promise<void>((r) => setTimeout(r, 80));
+        // Brief delay so the pill window fully hides and macOS restores focus to the target app.
+        await new Promise<void>((r) => setTimeout(r, 120));
         try {
           await pasteToFrontmost(result.text);
         } catch (pasteErr) {
@@ -185,67 +213,32 @@ export default function PillWindow() {
     if (state === "idle" && view === "pill") invoke("hide_pill").catch(() => {});
   }, [state, view]);
 
-  /* ── Render: Mode list view ─────────────────────────────────── */
-  if (view === "modes") {
-    return (
-      <div className="fixed inset-0 flex flex-col bg-transparent">
-        <div
-          className="flex-1 flex flex-col rounded-[16px] overflow-hidden select-none"
-          style={{ background: "rgba(13,14,18,0.92)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}
-        >
-          {/* Drag region at top */}
-          <div data-tauri-drag-region className="h-3 w-full shrink-0" />
-
-          {/* Mode rows */}
-          <div className="flex-1 flex flex-col px-2 pb-1 gap-0.5 overflow-hidden">
-            {currentModes.map((m, i) => {
-              const active = m.id === mode.id;
-              const hi = i === highlightIdx;
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => pickMode(m)}
-                  onMouseEnter={() => setHighlightIdx(i)}
-                  className="flex items-center gap-3 px-3 rounded-xl transition-colors text-left"
-                  style={{ height: MODE_ROW_H - 6, background: hi ? "rgba(255,255,255,0.07)" : "transparent", border: `1px solid ${hi ? "rgba(255,255,255,0.10)" : "transparent"}` }}
-                >
-                  <ModeIcon cleanup={m.cleanup} />
-                  <span className="flex-1 text-[13px] font-medium" style={{ color: "rgba(230,232,238,0.95)" }}>{m.name}</span>
-                  {active ? <CheckIcon /> : <span style={{ minWidth: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, borderRadius: 5, background: "rgba(255,255,255,0.08)", color: "rgba(230,232,238,0.7)", fontFamily: "monospace" }}>{i + 1}</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Footer hints */}
-          <div className="flex items-center justify-end gap-3 px-4" style={{ height: MODE_FOOTER_H, background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <HintRow label="" keys={["↑", "↓"]} />
-            <HintRow label="Select" keys={["↵"]} />
-            <HintRow label="Back" keys={["Space"]} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Render: Pill view ──────────────────────────────────────── */
   const statusLabel =
     state === "transcribing" ? "Transcribing…"
     : state === "error" ? errorMsg
     : mode.name;
 
+  const pillStyle: React.CSSProperties = {
+    background: "rgba(13,14,18,0.90)",
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
+    border: "1px solid rgba(255,255,255,0.09)",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+  };
+
   return (
-    <div className="fixed inset-0 flex flex-col bg-transparent p-1.5">
+    <div className="fixed inset-0 flex flex-col bg-transparent p-1.5" style={{ gap: view === "modes" ? SUBMENU_GAP : 0 }}>
+
+      {/* ── Pill chrome — always visible ───────────────────────── */}
       <div
-        className="flex-1 flex flex-col rounded-[14px] overflow-hidden select-none"
-        style={{ background: "rgba(13,14,18,0.90)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.09)", boxShadow: "0 8px 32px rgba(0,0,0,0.55)" }}
+        className="flex flex-col rounded-[14px] overflow-hidden select-none shrink-0"
+        style={{ ...pillStyle, height: PILL_INNER_H }}
       >
-        {/* Waveform — also the drag region. Canvas has pointer-events:none
-            so mouse-down events bubble up to this div and initiate the drag. */}
+        {/* Waveform / drag region */}
         <div
           data-tauri-drag-region
-          className="flex-1 w-full"
-          style={{ cursor: "grab" }}
+          className="w-full"
+          style={{ height: WAVE_H, cursor: "grab" }}
         >
           <RollingWaveform
             stream={recorder.stream}
@@ -258,8 +251,8 @@ export default function PillWindow() {
 
         {/* Footer bar */}
         <div
-          className="flex items-center justify-between gap-3 px-4"
-          style={{ height: 44, background: "rgba(0,0,0,0.32)", borderTop: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}
+          className="flex items-center justify-between gap-3 px-4 shrink-0"
+          style={{ height: FOOTER_H, background: "rgba(0,0,0,0.32)", borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
           <div className="flex items-center gap-2 min-w-0">
             <MicIcon state={state} />
@@ -274,11 +267,72 @@ export default function PillWindow() {
             {state === "recording" && <HintRow label="Stop" keys={["⌘", "⇧", ";"]} />}
             {state === "recording" && <HintRow label="Cancel" keys={["⎋"]} />}
             {state === "transcribing" && (
-              <span className="text-[12px]" style={{ color: "rgba(230,232,238,0.50)" }}>Transcribing…</span>
+              <span className="text-[11px]" style={{ color: "rgba(230,232,238,0.45)" }}>Processing…</span>
+            )}
+            {state === "idle" && view === "pill" && (
+              <HintRow label="Modes" keys={["⌥", "⇧", "K"]} />
             )}
           </div>
         </div>
       </div>
+
+      {/* ── Modes submenu — expands below the pill ─────────────── */}
+      {view === "modes" && (
+        <div
+          className="flex flex-col rounded-[14px] overflow-hidden select-none flex-1"
+          style={pillStyle}
+        >
+          {/* Mode grid */}
+          <div
+            data-tauri-drag-region
+            className="flex-1 grid gap-1 p-2"
+            style={{ gridTemplateColumns: "repeat(2, 1fr)", alignContent: "start" }}
+          >
+            {currentModes.map((m, i) => {
+              const active = m.id === mode.id;
+              const hi = i === highlightIdx;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => pickMode(m)}
+                  onMouseEnter={() => setHighlightIdx(i)}
+                  className="flex items-center gap-2 px-2.5 rounded-lg transition-colors text-left"
+                  style={{
+                    height: MODE_BTN_H,
+                    background: hi ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${active ? "rgba(45,173,113,0.4)" : hi ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.04)"}`,
+                  }}
+                >
+                  <ModeIcon cleanup={m.cleanup} />
+                  <span
+                    className="flex-1 text-[12px] font-medium truncate"
+                    style={{ color: "rgba(230,232,238,0.95)" }}
+                  >
+                    {m.name}
+                  </span>
+                  {active
+                    ? <CheckIcon />
+                    : <span style={{ fontSize: 10, minWidth: 16, height: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "rgba(255,255,255,0.08)", color: "rgba(230,232,238,0.6)", fontFamily: "monospace" }}>{i + 1}</span>
+                  }
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Submenu footer */}
+          <div
+            className="flex items-center justify-between px-3 shrink-0"
+            style={{ height: MODES_FOOTER_H, background: "rgba(0,0,0,0.32)", borderTop: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <span className="text-[11px]" style={{ color: "rgba(230,232,238,0.40)" }}>Switch mode</span>
+            <div className="flex items-center gap-3">
+              <HintRow label="" keys={["↑", "↓"]} />
+              <HintRow label="Select" keys={["↵"]} />
+              <HintRow label="Close" keys={["Space"]} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
