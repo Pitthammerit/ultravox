@@ -117,9 +117,19 @@ export default function RollingWaveform({
         levels.push(level);
       }
 
+      // Resolve CSS custom property if present — WebKit's canvas fillStyle
+      // does NOT auto-resolve `var(--x)`, it falls back to black, which is
+      // invisible on dark themes. Read the computed value off the canvas.
+      let fillColor = color;
+      if (color.startsWith("var(")) {
+        const varName = color.slice(4, -1).trim();
+        const resolved = getComputedStyle(canvas).getPropertyValue(varName).trim();
+        if (resolved) fillColor = resolved;
+      }
+
       // Render
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = color;
+      ctx.fillStyle = fillColor;
       const cx = canvas.width;
       const cy = canvas.height;
       const baseline = cy / 2;

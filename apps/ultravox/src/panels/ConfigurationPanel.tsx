@@ -12,13 +12,39 @@ interface ConfigurationPanelProps {
   onChange?: (patch: Partial<AppSettings>) => Promise<void>;
 }
 
+type MicState = "granted" | "denied" | "prompt" | "unknown";
+
+async function checkMicrophonePermission(): Promise<MicState> {
+  // Permissions API: query without prompting. Supported in WKWebView 16+.
+  try {
+    const perm = await navigator.permissions?.query({ name: "microphone" as PermissionName });
+    if (perm) return perm.state as MicState;
+  } catch { /* fall through */ }
+  return "unknown";
+}
+
+async function requestMicrophonePermission(): Promise<boolean> {
+  // Calling getUserMedia triggers the macOS prompt the first time, then
+  // grants/denies on subsequent calls based on the persisted choice.
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
   const [axGranted, setAxGranted] = useState<boolean | null>(null);
   const [axRequesting, setAxRequesting] = useState(false);
+  const [micState, setMicState] = useState<MicState>("unknown");
+  const [micRequesting, setMicRequesting] = useState(false);
   const [resetConfirming, setResetConfirming] = useState(false);
 
   useEffect(() => {
     checkAccessibilityPermission().then(setAxGranted).catch(() => setAxGranted(false));
+    checkMicrophonePermission().then(setMicState);
   }, []);
 
   const grantAx = useCallback(async () => {
@@ -34,6 +60,17 @@ export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
   const recheckAx = useCallback(async () => {
     const granted = await checkAccessibilityPermission().catch(() => false);
     setAxGranted(granted);
+  }, []);
+
+  const grantMic = useCallback(async () => {
+    setMicRequesting(true);
+    const ok = await requestMicrophonePermission();
+    setMicRequesting(false);
+    setMicState(ok ? "granted" : "denied");
+  }, []);
+
+  const recheckMic = useCallback(async () => {
+    setMicState(await checkMicrophonePermission());
   }, []);
 
   const reset = async () => {
@@ -59,8 +96,44 @@ export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
     <>
       <Section
         label="Permissions"
-        help="Required for Ultravox to paste transcriptions into other apps."
+        help="Required for Ultravox to record audio and paste transcriptions into other apps."
       >
+        <Row
+          label="Microphone access"
+          help={
+            micState === "granted"
+              ? "Granted — recording works."
+              : micState === "denied"
+              ? "Denied — open System Settings → Privacy & Security → Microphone and enable Ultravox."
+              : micState === "prompt"
+              ? "Not yet requested — click Grant Access."
+              : "Checking…"
+          }
+          control={
+            micState === "granted" ? (
+              <span className="text-[12px] text-color-accent font-medium">✓ Granted</span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={grantMic}
+                  disabled={micRequesting}
+                >
+                  {micRequesting ? "Waiting…" : "Grant Access"}
+                </Button>
+                {micState === "denied" && !micRequesting && (
+                  <button
+                    onClick={recheckMic}
+                    className="text-[12px] text-color-secondary hover:text-color-primary underline"
+                  >
+                    Refresh
+                  </button>
+                )}
+              </div>
+            )
+          }
+        />
         <Row
           label="Accessibility access"
           help={

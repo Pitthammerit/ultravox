@@ -18,17 +18,18 @@ import { playStartChime, playStopChime } from "../lib/chime";
 type PillState = "idle" | "recording" | "discardConfirm" | "transcribing" | "error";
 type PillView = "pill" | "modes";
 
-// Visible pill chrome height.
-const PILL_CONTENT_H = 76;
+// Visible pill chrome height (original Superwhisper proportions).
+const PILL_CONTENT_H = 108;
 
-// Transparent padding around the pill so the CSS box-shadow has room to render.
-const SHADOW_PAD = 12;
+// Transparent margin around the pill — small now that macOS draws the
+// rounded shadow natively (Tauri `shadow: true`).
+const SHADOW_PAD = 6;
 
 // Total window height (must match tauri.conf.json).
 const PILL_H = PILL_CONTENT_H + SHADOW_PAD * 2;
 
 // Footer height shared by pill chrome and modes submenu.
-const FOOTER_H = 36;
+const FOOTER_H = 44;
 
 // Waveform / ticker area above footer.
 const WAVE_H = PILL_CONTENT_H - FOOTER_H;
@@ -341,7 +342,7 @@ export default function PillWindow() {
             <RollingWaveform
               stream={recorder.stream}
               active={state === "recording"}
-              color="var(--pill-fg)"
+              color="var(--pill-waveform)"
               barWidth={2}
               gap={1.5}
             />

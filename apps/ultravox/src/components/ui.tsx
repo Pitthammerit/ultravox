@@ -42,34 +42,35 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
       className="relative border-b shrink-0 flex items-center"
       style={{ borderColor: T.border, background: T.page, height: 40 }}
     >
-      {/* Left: back button with app name label (iOS pattern) */}
-      <div
-        className="absolute flex items-center gap-0.5"
-        style={{ left: 80, top: 0, bottom: 0, display: "flex", alignItems: "center" }}
-      >
-        {onBack && (
-          <button
-            onClick={onBack}
-            aria-label="Back"
-            className="flex items-center gap-0.5 text-[13px] leading-none px-1 py-0.5 rounded-md hover:bg-[var(--s-control)] transition-colors"
-            style={{ color: T.fgMuted }}
-          >
-            <span style={{ fontSize: 17 }}>‹</span>
-            <span>Ultravox</span>
-          </button>
-        )}
-      </div>
-
-      {/* Center: title — absolute so it's truly centered regardless of left/right content */}
+      {/* Center: app name, always shown */}
       <span
         className="absolute left-1/2 text-[15px] font-semibold pointer-events-none"
-        style={{ transform: "translateX(-50%)", color: T.fg, whiteSpace: "nowrap" }}
+        style={{
+          transform: "translateX(-50%)",
+          color: T.fg,
+          whiteSpace: "nowrap",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
       >
-        {breadcrumb ?? "Ultravox"}
+        Ultravox
       </span>
 
-      {/* Right slot */}
-      {right && (
+      {/* Right: breadcrumb back button — same font/size as the centered title */}
+      {breadcrumb && onBack && (
+        <button
+          onClick={onBack}
+          aria-label={`Back from ${breadcrumb}`}
+          className="absolute flex items-center gap-1 text-[15px] font-semibold transition-opacity hover:opacity-70"
+          style={{ right: 16, top: 0, bottom: 0, color: T.fg, whiteSpace: "nowrap", display: "flex", alignItems: "center" }}
+        >
+          <span style={{ fontSize: 17, lineHeight: 1 }}>‹</span>
+          <span>{breadcrumb}</span>
+        </button>
+      )}
+
+      {/* Right slot — only used when no breadcrumb back button is rendered */}
+      {right && !breadcrumb && (
         <div className="absolute flex items-center" style={{ right: 16, top: 0, bottom: 0, display: "flex", alignItems: "center" }}>
           {right}
         </div>
@@ -153,13 +154,27 @@ export function HelpIcon({ tooltip }: { tooltip?: string }) {
   return (
     <span
       title={tooltip}
-      className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[8.5px] leading-none cursor-help"
-      style={{
-        border: `1px solid ${T.borderStrong}`,
-        color: T.fgSubtle,
-      }}
+      className="inline-flex items-center justify-center cursor-help shrink-0"
+      style={{ width: 13, height: 13, color: T.fgSubtle }}
+      aria-label={tooltip}
     >
-      ?
+      {/* Lucide help-circle — circle + question mark as SVG paths,
+          guaranteed centered regardless of font metrics. */}
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
     </span>
   );
 }
