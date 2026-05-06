@@ -75,8 +75,8 @@ export default function SettingsWindow() {
         onBack={section === "home" ? null : back}
       />
 
-      <div className="flex-1 overflow-y-auto px-5 py-5">
-        <div className="flex flex-col gap-6 max-w-md mx-auto">
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex flex-col gap-4 max-w-md mx-auto">
           {section === "home" && (
             <HomePanel settings={settings} onNavigate={setSection} onChange={update} />
           )}
