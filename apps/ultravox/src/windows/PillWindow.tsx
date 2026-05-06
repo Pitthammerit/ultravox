@@ -51,10 +51,14 @@ function expandedHeight(modeCount: number): number {
   return PILL_H + SUBMENU_GAP + modesPanelH;
 }
 
+// Compact pill window height (footer only, no waveform area).
+const COMPACT_H = FOOTER_H + SHADOW_PAD * 2;
+
 export default function PillWindow() {
   const recorder = useRecorder();
   const [state, setState] = useState<PillState>("idle");
   const [view, setView] = useState<PillView>("pill");
+  const [compact, setCompact] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [mode, setMode] = useState<VoiceMode>(DEFAULT_MODES[0]!);
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -78,11 +82,19 @@ export default function PillWindow() {
 
   const currentModes = settings?.modes ?? DEFAULT_MODES;
 
-  /* ── Resize pill window when view changes ───────────────────── */
+  /* ── Resize pill window when view/compact changes ───────────── */
   useEffect(() => {
-    const h = view === "modes" ? expandedHeight(currentModes.length) : PILL_H;
+    let h: number;
+    if (view === "modes") h = expandedHeight(currentModes.length);
+    else if (compact) h = COMPACT_H;
+    else h = PILL_H;
     setPillHeight(h).catch(() => {});
-  }, [view, currentModes.length]);
+  }, [view, compact, currentModes.length]);
+
+  /* ── Auto-expand when recording starts ──────────────────────── */
+  useEffect(() => {
+    if (state === "recording" && compact) setCompact(false);
+  }, [state, compact]);
 
   /* ── Mode list toggle ───────────────────────────────────────── */
   useHotkeyEvent(
@@ -286,10 +298,10 @@ export default function PillWindow() {
       {/* ── Pill chrome — always visible ───────────────────────── */}
       <div
         className="flex flex-col rounded-[20px] overflow-hidden select-none shrink-0"
-        style={{ ...pillStyle, height: PILL_CONTENT_H }}
+        style={{ ...pillStyle, height: compact ? FOOTER_H : PILL_CONTENT_H }}
       >
-        {/* Top area: waveform / ticker / discard-confirm / error */}
-        {state === "error" ? (
+        {/* Top area: waveform / ticker / discard-confirm / error — hidden when compact */}
+        {!compact && (state === "error" ? (
           <div
             data-tauri-drag-region
             className="w-full flex items-center px-4"
@@ -334,12 +346,16 @@ export default function PillWindow() {
               gap={1.5}
             />
           </div>
-        )}
+        ))}
 
         {/* Footer bar */}
         <div
           className="flex items-center justify-between gap-3 px-4 shrink-0"
-          style={{ height: FOOTER_H, background: "var(--pill-footer)", borderTop: "1px solid var(--pill-border)" }}
+          style={{
+            height: FOOTER_H,
+            background: "var(--pill-footer)",
+            borderTop: compact ? "none" : "1px solid var(--pill-border)",
+          }}
         >
           <div className="flex items-center gap-2 min-w-0">
             <ModeGlyph
@@ -366,8 +382,25 @@ export default function PillWindow() {
             {state === "error" && (
               <HintRow label="Dismiss" keys={["⎋"]} />
             )}
-            {state === "idle" && view === "pill" && (
+            {state === "idle" && view === "pill" && !compact && (
               <HintRow label="Modes" keys={["⌥", "⇧", "K"]} />
+            )}
+            {/* Compact toggle — only shown when idle */}
+            {state === "idle" && view === "pill" && (
+              <button
+                onClick={() => setCompact((c) => !c)}
+                title={compact ? "Expand pill" : "Minimize pill"}
+                style={{
+                  width: 18, height: 18, borderRadius: 4,
+                  background: "var(--pill-icon-bg)",
+                  border: "1px solid var(--pill-border)",
+                  color: "var(--pill-fg-muted)",
+                  fontSize: 10, cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                {compact ? "▲" : "▼"}
+              </button>
             )}
           </div>
         </div>
