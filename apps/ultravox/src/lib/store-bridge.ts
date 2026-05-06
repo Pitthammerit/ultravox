@@ -90,6 +90,7 @@ const MODEL_ID_MIGRATIONS: Record<string, string> = {
   "anthropic/claude-haiku-4-5-20251001": "anthropic/claude-haiku-4.5",
   "anthropic/claude-sonnet-4-6-20251024": "anthropic/claude-sonnet-4.6",
   "anthropic/claude-opus-4-7-20251030": "anthropic/claude-opus-4.7",
+  "anthropic/claude-sonnet-4-5": "anthropic/claude-sonnet-4.5",
 };
 
 function migrateModes(modes: VoiceMode[]): { modes: VoiceMode[]; changed: boolean } {
