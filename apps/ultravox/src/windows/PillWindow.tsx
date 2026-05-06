@@ -15,7 +15,7 @@ import { captureError, track } from "../lib/telemetry";
 import { logDebug } from "../lib/debugLog";
 import { playStartChime, playStopChime } from "../lib/chime";
 
-type PillState = "idle" | "recording" | "transcribing" | "error";
+type PillState = "idle" | "recording" | "transcribing" | "error" | "confirming-discard";
 type PillView = "pill" | "modes";
 
 // Base pill window height (must match tauri.conf.json).
@@ -240,16 +240,30 @@ export default function PillWindow() {
     useCallback(() => {
       if (state === "idle") startRecord();
       else if (state === "recording") stopAndTranscribe();
-    }, [state, startRecord, stopAndTranscribe]),
+      else if (state === "confirming-discard") { recorder.resume(); stopAndTranscribe(); }
+    }, [state, startRecord, stopAndTranscribe, recorder]),
   );
 
-  /* ── Esc cancels recording ──────────────────────────────────── */
+  /* ── Esc during recording → confirming-discard ─────────────── */
   useEffect(() => {
     if (state !== "recording") return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); cancel(); } };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); recorder.pause(); setState("confirming-discard"); }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state, cancel]);
+  }, [state, recorder]);
+
+  /* ── confirming-discard key handlers ───────────────────────── */
+  useEffect(() => {
+    if (state !== "confirming-discard") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter") { e.preventDefault(); cancel(); }
+      else if (e.code === "Space") { e.preventDefault(); recorder.resume(); setState("recording"); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state, cancel, recorder]);
 
   /* ── Hide when idle in pill view ────────────────────────────── */
   useEffect(() => {
@@ -277,7 +291,7 @@ export default function PillWindow() {
         className="flex flex-col rounded-[14px] overflow-hidden select-none shrink-0"
         style={{ ...pillStyle, height: PILL_INNER_H }}
       >
-        {/* Waveform / drag region — replaced by error text in error state */}
+        {/* Waveform / drag region — replaced by error text or discard prompt */}
         {state === "error" ? (
           <div
             data-tauri-drag-region
@@ -289,6 +303,16 @@ export default function PillWindow() {
               style={{ color: "rgb(248,113,113)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
             >
               {errorMsg}
+            </span>
+          </div>
+        ) : state === "confirming-discard" ? (
+          <div
+            data-tauri-drag-region
+            className="w-full flex items-center justify-center px-4"
+            style={{ height: WAVE_H, cursor: "grab" }}
+          >
+            <span className="text-[13px]" style={{ color: "var(--pill-fg)" }}>
+              Discard recording?
             </span>
           </div>
         ) : (
@@ -329,6 +353,8 @@ export default function PillWindow() {
           <div className="flex items-center gap-3 shrink-0">
             {state === "recording" && <HintRow label="Stop" keys={["⌘", "⇧", ";"]} />}
             {state === "recording" && <HintRow label="Cancel" keys={["⎋"]} />}
+            {state === "confirming-discard" && <HintRow label="Discard" keys={["⏎"]} />}
+            {state === "confirming-discard" && <HintRow label="Continue" keys={["Space"]} />}
             {state === "transcribing" && (
               <span className="text-[11px]" style={{ color: "var(--pill-fg-subtle)" }}>Processing…</span>
             )}

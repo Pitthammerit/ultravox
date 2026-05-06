@@ -12,6 +12,8 @@ export interface RecorderControls {
   start: (constraints?: MediaTrackConstraints) => Promise<void>;
   stop: () => Promise<Blob | null>;
   cancel: () => void;
+  pause: () => void;
+  resume: () => void;
 }
 
 /** Pick the best supported mime type for the current engine.
@@ -102,12 +104,20 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
 
   const cancel = useCallback(() => {
     const r = recorderRef.current;
-    if (r && r.state === "recording") r.stop();
+    if (r && (r.state === "recording" || r.state === "paused")) r.stop();
     chunksRef.current = [];
     setAudioBlob(null);
     setState("idle");
     mic.stop();
   }, [mic]);
 
-  return { state, audioBlob, error, stream: mic.stream, start, stop, cancel };
+  const pause = useCallback(() => {
+    if (recorderRef.current?.state === "recording") recorderRef.current.pause();
+  }, []);
+
+  const resume = useCallback(() => {
+    if (recorderRef.current?.state === "paused") recorderRef.current.resume();
+  }, []);
+
+  return { state, audioBlob, error, stream: mic.stream, start, stop, cancel, pause, resume };
 }
