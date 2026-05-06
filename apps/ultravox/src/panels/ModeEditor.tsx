@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import {
   CLEANUP_VARIANTS,
@@ -11,23 +11,20 @@ import {
 } from "../lib/voiceModes";
 import {
   Button,
+  Field,
+  Group,
   Input,
-  Row,
-  Section,
-  Select,
   Segmented,
+  Select,
   Textarea,
-  ToggleRow,
   tokens,
 } from "../components/ui";
 import { MODE_ICON_NAMES, ModeGlyph } from "../components/ModeIcons";
 
-interface ModeEditorProps {
+interface ModeFormProps {
   settings: AppSettings;
-  /** mode id being edited, or "__new__" for a fresh draft. */
   modeId: string;
   onChange: (patch: Partial<AppSettings>) => Promise<void>;
-  onClose: () => void;
 }
 
 function makeBlankMode(): VoiceMode {
@@ -44,16 +41,23 @@ function makeBlankMode(): VoiceMode {
   };
 }
 
-export default function ModeEditor({ settings, modeId, onChange, onClose }: ModeEditorProps) {
+export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) {
   const isNew = modeId === "__new__";
-  const original = isNew
-    ? makeBlankMode()
-    : settings.modes.find((m) => m.id === modeId) ?? makeBlankMode();
+  const original =
+    settings.modes.find((m) => m.id === modeId) ?? makeBlankMode();
 
   const [draft, setDraft] = useState<VoiceMode>(original);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  useEffect(() => {
+    setDraft(original);
+    setConfirmingDelete(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeId]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(original);
-  const usesCleanup = draft.cleanup !== "raw" && draft.languageModelProvider !== "none";
+  const usesCleanup =
+    draft.cleanup !== "raw" && draft.languageModelProvider !== "none";
   const providerModels = LANGUAGE_MODELS[draft.languageModelProvider] ?? [];
 
   const save = async () => {
@@ -62,109 +66,115 @@ export default function ModeEditor({ settings, modeId, onChange, onClose }: Mode
     const next = exists
       ? settings.modes.map((m) => (m.id === draft.id ? draft : m))
       : [...settings.modes, draft];
-    await onChange({ modes: next });
-    onClose();
+    const patch: Partial<AppSettings> = { modes: next };
+    if (!exists) patch.activeModeId = draft.id;
+    await onChange(patch);
   };
 
   const remove = async () => {
     if (isNew) {
-      onClose();
+      await onChange({ activeModeId: settings.modes[0]!.id });
       return;
     }
-    if (settings.modes.length <= 1) {
-      alert("Can't delete the last mode.");
-      return;
-    }
-    if (!confirm(`Delete the "${draft.name}" mode?`)) return;
+    if (settings.modes.length <= 1) return;
+    setConfirmingDelete(true);
+  };
+
+  const confirmDelete = async () => {
     const next = settings.modes.filter((m) => m.id !== draft.id);
     const patch: Partial<AppSettings> = { modes: next };
     if (settings.activeModeId === draft.id) patch.activeModeId = next[0]!.id;
     await onChange(patch);
-    onClose();
+  };
+
+  const handleIconChange = (icon: string | null) => {
+    if (icon === null) {
+      const { icon: _drop, ...rest } = draft;
+      void _drop;
+      setDraft(rest as VoiceMode);
+    } else {
+      setDraft({ ...draft, icon });
+    }
   };
 
   return (
-    <>
-      <Section label="Identity">
-        <Row label="Name" control={<Input value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />} />
-        <Row
-          label="Icon"
-          description="Shown in the mode switcher"
-          control={
-            <IconPicker
-              value={draft.icon ?? null}
-              onChange={(icon) => {
-                if (icon === null) {
-                  const { icon: _drop, ...rest } = draft;
-                  void _drop;
-                  setDraft(rest as VoiceMode);
-                } else {
-                  setDraft({ ...draft, icon });
-                }
-              }}
-            />
-          }
-        />
-        <Row
-          label="ID"
-          description={isNew ? "Auto-generated" : "Read-only"}
-          control={
-            <span className="text-[12px] font-mono px-2 py-1 rounded" style={{ background: tokens.control, color: tokens.fgMuted }}>
-              {draft.id}
-            </span>
-          }
-        />
-      </Section>
+    <div className="flex flex-col gap-2">
+      <Group>
+        <div className="flex items-center gap-2 py-1">
+          <IconPicker
+            value={draft.icon ?? null}
+            onChange={handleIconChange}
+          />
+          <Input
+            value={draft.name}
+            onChange={(name) => setDraft({ ...draft, name })}
+          />
+          <span
+            title="Mode ID (read-only)"
+            className="text-[11px] font-mono px-2 py-1 rounded shrink-0"
+            style={{ background: tokens.control, color: tokens.fgMuted }}
+          >
+            {draft.id}
+          </span>
+        </div>
+      </Group>
 
-      <Section label="Cleanup">
-        <Row
+      <Group>
+        <Field
           label="Style"
+          help={CLEANUP_VARIANTS.find((c) => c.id === draft.cleanup)?.description}
           control={
             <Segmented<VoiceCleanup>
-              options={CLEANUP_VARIANTS.map((c) => ({ id: c.id, label: c.label }))}
+              options={CLEANUP_VARIANTS.map((c) => ({
+                id: c.id,
+                label: c.label,
+              }))}
               value={draft.cleanup}
               onChange={(cleanup) => setDraft({ ...draft, cleanup })}
             />
           }
         />
-        <p className="text-[11.5px] -mt-0.5 px-1" style={{ color: tokens.fgMuted }}>
-          {CLEANUP_VARIANTS.find((c) => c.id === draft.cleanup)?.description}
-        </p>
-      </Section>
-
-      <Section label="Language model" help={usesCleanup ? "Used to clean up the raw transcript." : "Cleanup is disabled — raw Whisper output is used."}>
-        <Row
-          label="Provider"
-          control={
-            <Select<LanguageModelProvider>
-              value={draft.languageModelProvider}
-              onChange={(languageModelProvider) =>
-                setDraft({
-                  ...draft,
-                  languageModelProvider,
-                  languageModel: LANGUAGE_MODELS[languageModelProvider]?.[0]?.id ?? null,
-                })
-              }
-              options={LANGUAGE_MODEL_PROVIDERS.map((p) => ({ id: p.id, label: p.label }))}
-            />
-          }
-        />
-        {usesCleanup && providerModels.length > 0 && (
-          <Row
-            label="Model"
+        {draft.cleanup !== "raw" && (
+          <Field
+            label="Provider"
+            help="Cleanup LLM provider"
             control={
-              <Select<string>
-                value={draft.languageModel ?? providerModels[0]!.id}
-                onChange={(languageModel) => setDraft({ ...draft, languageModel })}
-                options={providerModels.map((m) => ({ id: m.id, label: m.label }))}
+              <Select<LanguageModelProvider>
+                value={draft.languageModelProvider}
+                onChange={(languageModelProvider) =>
+                  setDraft({
+                    ...draft,
+                    languageModelProvider,
+                    languageModel:
+                      LANGUAGE_MODELS[languageModelProvider]?.[0]?.id ?? null,
+                  })
+                }
+                options={LANGUAGE_MODEL_PROVIDERS.map((p) => ({
+                  id: p.id,
+                  label: p.label,
+                }))}
               />
             }
           />
         )}
-      </Section>
-
-      <Section label="Transcription">
-        <Row
+        {usesCleanup && providerModels.length > 0 && (
+          <Field
+            label="Model"
+            control={
+              <Select<string>
+                value={draft.languageModel ?? providerModels[0]!.id}
+                onChange={(languageModel) =>
+                  setDraft({ ...draft, languageModel })
+                }
+                options={providerModels.map((m) => ({
+                  id: m.id,
+                  label: m.label,
+                }))}
+              />
+            }
+          />
+        )}
+        <Field
           label="Language"
           control={
             <Select<string>
@@ -174,16 +184,30 @@ export default function ModeEditor({ settings, modeId, onChange, onClose }: Mode
             />
           }
         />
-        <ToggleRow
+        <Field
           label="Auto-capitalize"
-          description="Server-side capitalize after punctuation"
-          checked={!!draft.autocapitalize}
-          onChange={(autocapitalize) => setDraft({ ...draft, autocapitalize })}
+          help="Server-side capitalize after punctuation"
+          control={
+            <input
+              type="checkbox"
+              checked={!!draft.autocapitalize}
+              onChange={(e) =>
+                setDraft({ ...draft, autocapitalize: e.currentTarget.checked })
+              }
+              style={{ accentColor: tokens.fg, width: 18, height: 18, cursor: "pointer" }}
+            />
+          }
         />
-      </Section>
+      </Group>
 
       {usesCleanup && (
-        <Section label="Custom prompt" help="Appended to the system prompt for this mode.">
+        <div>
+          <div
+            className="text-[10.5px] uppercase tracking-[0.14em] font-medium mb-1 px-1"
+            style={{ color: tokens.fgMuted }}
+          >
+            Custom prompt
+          </div>
           <Textarea
             value={draft.promptSuffix ?? ""}
             onChange={(promptSuffix) =>
@@ -192,27 +216,43 @@ export default function ModeEditor({ settings, modeId, onChange, onClose }: Mode
             placeholder="e.g. Use British spelling. Avoid contractions."
             rows={3}
           />
-        </Section>
+        </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-3 mt-1 border-t" style={{ borderColor: tokens.border }}>
-        <Button variant="ghost" size="xs" onClick={remove}>
-          {isNew ? "Cancel" : "Delete"}
-        </Button>
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="xs" onClick={onClose}>
-            {dirty ? "Discard" : "Close"}
+      {confirmingDelete ? (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="text-[12px]" style={{ color: tokens.fgMuted }}>
+            Delete &ldquo;{draft.name}&rdquo;?
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="xs" onClick={() => setConfirmingDelete(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="xs" onClick={confirmDelete}
+              style={{ background: tokens.warning, color: "#fff" }}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <Button variant="ghost" size="xs" onClick={remove}>
+            {isNew ? "Cancel" : "Delete"}
           </Button>
-          <Button variant="primary" size="xs" disabled={!dirty || !draft.name.trim()} onClick={save}>
+          <Button
+            variant="primary"
+            size="xs"
+            disabled={!dirty || !draft.name.trim()}
+            onClick={save}
+          >
             Save
           </Button>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }
 
-/** Grid of selectable icons. Click to select; click again to clear. */
 function IconPicker({
   value,
   onChange,
@@ -220,36 +260,68 @@ function IconPicker({
   value: string | null;
   onChange: (icon: string | null) => void;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div
-      className="grid gap-1 p-1.5 rounded-md"
-      style={{
-        gridTemplateColumns: "repeat(8, 1fr)",
-        background: tokens.control,
-        border: `1px solid ${tokens.border}`,
-        maxWidth: 280,
-      }}
-    >
-      {MODE_ICON_NAMES.map((name) => {
-        const active = value === name;
-        return (
-          <button
-            key={name}
-            type="button"
-            onClick={() => onChange(active ? null : name)}
-            title={name}
-            className="inline-flex items-center justify-center rounded transition-colors"
-            style={{
-              width: 28,
-              height: 28,
-              background: active ? "var(--color-primary, #224160)" : "transparent",
-              color: active ? "#fff" : tokens.fg,
-            }}
-          >
-            <ModeGlyph name={name} size={15} strokeWidth={1.8} />
-          </button>
-        );
-      })}
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center justify-center rounded transition-colors"
+        style={{
+          width: 28,
+          height: 28,
+          background: tokens.control,
+          border: `1px solid ${tokens.border}`,
+          color: tokens.fg,
+        }}
+        title="Pick icon"
+      >
+        {value ? (
+          <ModeGlyph name={value} size={15} strokeWidth={1.8} />
+        ) : (
+          <span style={{ color: tokens.fgSubtle, fontSize: 14 }}>○</span>
+        )}
+      </button>
+      {open && (
+        <div
+          className="absolute z-30 mt-1 grid gap-1 p-1.5 rounded-md"
+          style={{
+            top: "100%",
+            left: 0,
+            gridTemplateColumns: "repeat(8, 1fr)",
+            background: tokens.card,
+            border: `1px solid ${tokens.borderStrong}`,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            width: 280,
+          }}
+        >
+          {MODE_ICON_NAMES.map((name) => {
+            const active = value === name;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => {
+                  onChange(active ? null : name);
+                  setOpen(false);
+                }}
+                title={name}
+                className="inline-flex items-center justify-center rounded transition-colors"
+                style={{
+                  width: 28,
+                  height: 28,
+                  background: active
+                    ? "var(--color-primary, #224160)"
+                    : "transparent",
+                  color: active ? "#fff" : tokens.fg,
+                }}
+              >
+                <ModeGlyph name={name} size={15} strokeWidth={1.8} />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

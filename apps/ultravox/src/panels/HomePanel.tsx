@@ -19,8 +19,6 @@ interface HomePanelProps {
 }
 
 export default function HomePanel({ settings, onNavigate, onChange }: HomePanelProps) {
-  const activeMode = settings.modes.find((m) => m.id === settings.activeModeId);
-
   /* ── Theme ────────────────────────────────────────────────── */
   const appearance: "light" | "dark" | "auto" =
     settings.theme === "auto"
@@ -73,21 +71,9 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
   return (
     <>
       <Section title="Voice">
-        <NavCard
-          title="Modes"
-          subtitle={`${settings.modes.length} saved · active: ${activeMode?.name ?? "none"}`}
-          onClick={() => onNavigate("modes")}
-        />
-        <NavCard
-          title="Vocabulary"
-          subtitle={`${settings.vocabulary.length} entries · find/replace globally`}
-          onClick={() => onNavigate("vocabulary")}
-        />
-        <NavCard
-          title="Sound & Microphone"
-          subtitle="Input device · auto-gain · sound effects"
-          onClick={() => onNavigate("sound")}
-        />
+        <NavCard title="Modes" onClick={() => onNavigate("modes")} />
+        <NavCard title="Vocabulary" onClick={() => onNavigate("vocabulary")} />
+        <NavCard title="Sound & Microphone" onClick={() => onNavigate("sound")} />
       </Section>
 
       <Section
@@ -116,7 +102,7 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
         />
         <ToggleRow
           label="Push-to-talk"
-          description="Hold the hotkey while speaking instead of toggle"
+          help="Hold the hotkey while speaking instead of toggle"
           checked={settings.recordingStyle === "push-to-talk"}
           onChange={(v) => onChange({ recordingStyle: v ? "push-to-talk" : "toggle" })}
         />
@@ -137,21 +123,9 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
       </Section>
 
       <Section title="App">
-        <NavCard
-          title="Configuration"
-          subtitle="Permissions · reset"
-          onClick={() => onNavigate("configuration")}
-        />
-        <NavCard
-          title="History"
-          subtitle={`${settings.history.length} ${settings.history.length === 1 ? "entry" : "entries"} · cleared each session`}
-          onClick={() => onNavigate("history")}
-        />
+        <NavCard title="Configuration" onClick={() => onNavigate("configuration")} />
+        <NavCard title="History" onClick={() => onNavigate("history")} />
       </Section>
-
-      <p className="text-[11.5px] leading-relaxed pt-1" style={{ color: tokens.fgSubtle }}>
-        Ultravox v0.1.0 · keys are managed server-side · audio is never stored.
-      </p>
     </>
   );
 }

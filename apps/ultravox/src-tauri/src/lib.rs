@@ -30,22 +30,29 @@ pub fn run() {
                 eprintln!("tray creation failed: {e}");
             }
 
-            // Intercept the red-X close on the Settings window so the tray
-            // icon can reopen it. Without this, macOS Tauri destroys the
-            // window on close and `get_webview_window("settings")` returns
-            // None forever after.
-            if let Some(settings) = app.handle().get_webview_window("settings") {
-                let win = settings.clone();
-                settings.on_window_event(move |event| {
+            #[cfg(target_os = "macos")]
+            {
+                pill_window::configure_overlay_windows(app.handle());
+                // Run as a menu-bar / accessory app: no Dock icon, app stays
+                // alive after every window closes. The user opens Settings
+                // from the tray icon.
+                let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
+
+            // Settings window: closing it should hide instead of quit, so the
+            // global hotkey + tray + pill keep working in the background.
+            // Without this, macOS Tauri destroys the window on close and the
+            // tray click can never reopen it.
+            if let Some(settings_win) = app.get_webview_window("settings") {
+                let win_clone = settings_win.clone();
+                settings_win.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
-                        let _ = win.hide();
+                        let _ = win_clone.hide();
                     }
                 });
             }
 
-            #[cfg(target_os = "macos")]
-            pill_window::configure_overlay_windows(app.handle());
             Ok(())
         });
 

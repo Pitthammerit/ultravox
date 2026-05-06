@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import HomePanel from "../panels/HomePanel";
 import ModesPanel from "../panels/ModesPanel";
-import ModeEditor from "../panels/ModeEditor";
 import VocabularyPanel from "../panels/VocabularyPanel";
 import ConfigurationPanel from "../panels/ConfigurationPanel";
 import SoundPanel from "../panels/SoundPanel";
@@ -14,7 +13,6 @@ import { PageHeader, tokens } from "../components/ui";
 type Section =
   | "home"
   | "modes"
-  | "modes-edit"
   | "vocabulary"
   | "configuration"
   | "sound"
@@ -22,17 +20,15 @@ type Section =
 
 const BREADCRUMBS: Record<Section, string> = {
   home: "",
-  modes: "modes",
-  "modes-edit": "modes / edit",
-  vocabulary: "vocabulary",
-  configuration: "configuration",
-  sound: "sound",
-  history: "history",
+  modes: "Modes",
+  vocabulary: "Vocabulary",
+  configuration: "Configuration",
+  sound: "Sound",
+  history: "History",
 };
 
 export default function SettingsWindow() {
   const [section, setSection] = useState<Section>("home");
-  const [editingModeId, setEditingModeId] = useState<string>("");
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useEffect(() => {
@@ -54,15 +50,7 @@ export default function SettingsWindow() {
     if (patch.theme) applyTheme(patch.theme);
   };
 
-  const startEditMode = (modeId: string) => {
-    setEditingModeId(modeId);
-    setSection("modes-edit");
-  };
-
-  const back = () => {
-    if (section === "modes-edit") setSection("modes");
-    else setSection("home");
-  };
+  const back = () => setSection("home");
 
   if (!settings) {
     return (
@@ -79,7 +67,7 @@ export default function SettingsWindow() {
 
   return (
     <main
-      className="min-h-screen flex flex-col"
+      className="h-screen flex flex-col overflow-hidden"
       style={{ background: tokens.page, color: tokens.fg }}
     >
       <PageHeader
@@ -87,21 +75,13 @@ export default function SettingsWindow() {
         onBack={section === "home" ? null : back}
       />
 
-      <div className="flex-1 overflow-y-auto px-5 py-5">
-        <div className="flex flex-col gap-6 max-w-md mx-auto">
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex flex-col gap-4 max-w-md mx-auto">
           {section === "home" && (
             <HomePanel settings={settings} onNavigate={setSection} onChange={update} />
           )}
           {section === "modes" && (
-            <ModesPanel settings={settings} onChange={update} onEdit={startEditMode} />
-          )}
-          {section === "modes-edit" && (
-            <ModeEditor
-              settings={settings}
-              modeId={editingModeId}
-              onChange={update}
-              onClose={() => setSection("modes")}
-            />
+            <ModesPanel settings={settings} onChange={update} />
           )}
           {section === "vocabulary" && (
             <VocabularyPanel settings={settings} onChange={update} />

@@ -23,9 +23,14 @@ fn dispatch_paste_combo(app: &AppHandle) -> Result<(), String> {
                 enigo
                     .key(Key::Meta, Direction::Press)
                     .map_err(|e| e.to_string())?;
+                // Give macOS TSM time to register the modifier before the key
+                // event fires; without this delay the modifier is occasionally
+                // missed and a bare 'v' is typed instead of Cmd+V.
+                std::thread::sleep(Duration::from_millis(30));
                 enigo
                     .key(Key::Unicode('v'), Direction::Click)
                     .map_err(|e| e.to_string())?;
+                std::thread::sleep(Duration::from_millis(10));
                 enigo
                     .key(Key::Meta, Direction::Release)
                     .map_err(|e| e.to_string())?;

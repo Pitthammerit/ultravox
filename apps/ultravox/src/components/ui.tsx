@@ -26,7 +26,7 @@ const T = {
 export const tokens = T;
 
 /* ─────────────────────────────────────────────────────────────
-   PAGE HEADER  (italic-serif Settings + breadcrumb + back chevron)
+   PAGE HEADER  (drag region with traffic-light clearance + breadcrumb)
    ───────────────────────────────────────────────────────────── */
 
 interface PageHeaderProps {
@@ -38,35 +38,43 @@ interface PageHeaderProps {
 export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
   return (
     <header
-      className="flex items-center justify-between px-5 pt-4 pb-3 border-b"
-      style={{ borderColor: T.border }}
+      data-tauri-drag-region
+      className="relative border-b shrink-0 flex items-center"
+      style={{ borderColor: T.border, background: T.page, height: 40 }}
     >
-      <div className="flex items-center gap-2">
-        {onBack && (
-          <button
-            onClick={onBack}
-            aria-label="Back"
-            className="text-[18px] leading-none -ml-0.5 px-1.5 py-1 rounded-md hover:bg-[var(--s-control)] transition-colors"
-            style={{ color: T.fg }}
-          >
-            ‹
-          </button>
-        )}
-        <div className="flex items-baseline gap-2">
-          <h1
-            className="text-[22px] leading-none italic"
-            style={{ fontFamily: "var(--font-secondary)", color: T.fg }}
-          >
-            Settings
-          </h1>
-          {breadcrumb && (
-            <span className="text-[12px]" style={{ color: T.fgMuted }}>
-              / {breadcrumb}
-            </span>
-          )}
+      {/* Center: app name, always shown */}
+      <span
+        className="absolute left-1/2 text-[15px] font-semibold pointer-events-none"
+        style={{
+          transform: "translateX(-50%)",
+          color: T.fg,
+          whiteSpace: "nowrap",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        Ultravox
+      </span>
+
+      {/* Right: breadcrumb back button — same font/size as the centered title */}
+      {breadcrumb && onBack && (
+        <button
+          onClick={onBack}
+          aria-label={`Back from ${breadcrumb}`}
+          className="absolute flex items-center gap-1 text-[15px] font-semibold transition-opacity hover:opacity-70"
+          style={{ right: 16, top: 0, bottom: 0, color: T.fg, whiteSpace: "nowrap", display: "flex", alignItems: "center" }}
+        >
+          <span style={{ fontSize: 17, lineHeight: 1 }}>‹</span>
+          <span>{breadcrumb}</span>
+        </button>
+      )}
+
+      {/* Right slot — only used when no breadcrumb back button is rendered */}
+      {right && !breadcrumb && (
+        <div className="absolute flex items-center" style={{ right: 16, top: 0, bottom: 0, display: "flex", alignItems: "center" }}>
+          {right}
         </div>
-      </div>
-      {right && <div>{right}</div>}
+      )}
     </header>
   );
 }
@@ -93,7 +101,7 @@ export function Section({
   children,
 }: SectionProps) {
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="flex flex-col gap-1.5">
       {title && (
         <div className="flex items-center justify-between">
           <h2
@@ -119,7 +127,7 @@ export function Section({
           {description}
         </p>
       )}
-      <div className="flex flex-col gap-1.5">{children}</div>
+      <div className="flex flex-col gap-1">{children}</div>
     </section>
   );
 }
@@ -146,13 +154,27 @@ export function HelpIcon({ tooltip }: { tooltip?: string }) {
   return (
     <span
       title={tooltip}
-      className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[8.5px] leading-none cursor-help"
-      style={{
-        border: `1px solid ${T.borderStrong}`,
-        color: T.fgSubtle,
-      }}
+      className="inline-flex items-center justify-center cursor-help shrink-0"
+      style={{ width: 13, height: 13, color: T.fgSubtle }}
+      aria-label={tooltip}
     >
-      ?
+      {/* Lucide help-circle — circle + question mark as SVG paths,
+          guaranteed centered regardless of font metrics. */}
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
     </span>
   );
 }
@@ -180,7 +202,7 @@ export function Card({
   return (
     <Tag
       onClick={onClick}
-      className={`block w-full text-left px-3.5 py-2.5 transition-colors ${onClick ? "hover:bg-[var(--s-card-hover)]" : ""}`}
+      className={`block w-full text-left px-3 py-1.5 transition-colors ${onClick ? "hover:bg-[var(--s-card-hover)]" : ""}`}
       style={{
         ...cardBase,
         borderColor: selected ? T.fg : T.border,
@@ -207,7 +229,7 @@ export function NavCard({
   return (
     <button
       onClick={onClick}
-      className="flex items-center justify-between w-full text-left px-3.5 py-2.5 transition-colors hover:bg-[var(--s-card-hover)]"
+      className="flex items-center justify-between w-full text-left px-3 py-1.5 transition-colors hover:bg-[var(--s-card-hover)]"
       style={cardBase}
     >
       <div className="flex flex-col gap-0.5 min-w-0">
@@ -245,7 +267,7 @@ export function RadioCard({
   return (
     <button
       onClick={onClick}
-      className="flex items-start gap-3 w-full text-left px-3.5 py-2.5 transition-colors hover:bg-[var(--s-card-hover)]"
+      className="flex items-start gap-3 w-full text-left px-3 py-1.5 transition-colors hover:bg-[var(--s-card-hover)]"
       style={{ ...cardBase, borderColor: selected ? T.fg : T.border }}
     >
       <span
@@ -298,13 +320,13 @@ export function Row({
 }) {
   return (
     <div
-      className="flex items-center justify-between px-3.5 py-2.5"
+      className="flex items-center justify-between px-3 py-1.5"
       style={cardBase}
     >
-      <div className="flex flex-col gap-0.5 min-w-0">
+      <div className="flex flex-col gap-0 min-w-0">
         <div className="flex items-center gap-1.5">
           <span
-            className="text-[13.5px] font-medium"
+            className="text-[12.5px] font-medium"
             style={{ color: T.fg }}
           >
             {label}
@@ -317,7 +339,53 @@ export function Row({
           </span>
         )}
       </div>
-      <div className="shrink-0 ml-3">{control}</div>
+      <div className="shrink-0 ml-3 flex items-center">{control}</div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   FIELD  (frameless inline label · control · help)
+   Use inside cards/groups to avoid frame-in-frame nesting.
+   ───────────────────────────────────────────────────────────── */
+
+export function Field({
+  label,
+  help,
+  control,
+}: {
+  label: ReactNode;
+  help?: string | undefined;
+  control: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className="text-[12.5px] font-medium truncate"
+          style={{ color: T.fg }}
+        >
+          {label}
+        </span>
+        {help && <HelpIcon tooltip={help} />}
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GROUP  (single framed container holding multiple Fields)
+   Replaces nested Row/Card frames in dense panels.
+   ───────────────────────────────────────────────────────────── */
+
+export function Group({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="flex flex-col gap-0.5 rounded-lg px-3 py-2"
+      style={{ background: T.card, border: `1px solid ${T.border}` }}
+    >
+      {children}
     </div>
   );
 }
@@ -359,11 +427,13 @@ export function Toggle({
 export function ToggleRow({
   label,
   description,
+  help,
   checked,
   onChange,
 }: {
   label: string;
   description?: string;
+  help?: string;
   checked: boolean;
   onChange: (next: boolean) => void;
 }) {
@@ -371,6 +441,7 @@ export function ToggleRow({
     <Row
       label={label}
       {...(description ? { description } : {})}
+      {...(help ? { help } : {})}
       control={<Toggle checked={checked} onChange={onChange} />}
     />
   );
