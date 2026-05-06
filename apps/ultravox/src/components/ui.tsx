@@ -43,8 +43,7 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
       style={{
         borderColor: T.border,
         background: T.page,
-        paddingTop: 10,
-        paddingBottom: 8,
+        height: 40,
         paddingLeft: 80,
         paddingRight: 16,
       }}
