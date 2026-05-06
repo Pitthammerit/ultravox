@@ -8,6 +8,7 @@ import SoundPanel from "../panels/SoundPanel";
 import HistoryPanel from "../panels/HistoryPanel";
 import { loadSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
+import { registerHotkeys } from "../lib/tauri-bridge";
 import { PageHeader, tokens } from "../components/ui";
 
 type Section =
@@ -38,6 +39,10 @@ export default function SettingsWindow() {
     loadSettings().then((s) => {
       setSettings(s);
       applyTheme(s.theme);
+      // Re-register stored hotkeys so they take effect even after a restart.
+      // The Rust side boots with hardcoded defaults; this overwrites them with
+      // whatever the user last saved.
+      registerHotkeys(s.hotkeyRecord, s.hotkeyModeOverlay).catch(() => {});
     });
   }, []);
 

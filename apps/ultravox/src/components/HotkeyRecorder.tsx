@@ -89,7 +89,7 @@ export function HotkeyRecorder({ value, onChange, error }: HotkeyRecorderProps) 
     btnRef.current?.focus();
   };
 
-  const display = recording ? draft || "Press keys…" : value || "Click to record";
+  const display = recording ? draft || "Press keys…" : value ? prettifyShortcut(value) : "Click to record";
   const isPlaceholder = !recording && !value;
 
   return (
@@ -116,22 +116,58 @@ export function HotkeyRecorder({ value, onChange, error }: HotkeyRecorderProps) 
   );
 }
 
+/** Convert stored shortcut string ("Cmd+Shift+Semicolon") to readable display. */
+function prettifyShortcut(s: string): string {
+  return s
+    .split("+")
+    .map((p) => {
+      switch (p) {
+        case "Cmd": return "⌘";
+        case "Ctrl": return "⌃";
+        case "Alt": return "⌥";
+        case "Shift": return "⇧";
+        case "Semicolon": return ";";
+        case "Comma": return ",";
+        case "Period": return ".";
+        case "Slash": return "/";
+        case "Backslash": return "\\";
+        case "Quote": return "'";
+        case "Backquote": return "`";
+        case "Minus": return "-";
+        case "Equal": return "=";
+        case "BracketLeft": return "[";
+        case "BracketRight": return "]";
+        case "Space": return "Space";
+        default: return p;
+      }
+    })
+    .join(" ");
+}
+
 /**
- * Map a KeyboardEvent to a Tauri-shortcut key name.
- * Tauri accepts: A-Z, 0-9, F1-F24, named keys (Space, Enter, Escape, Up, ...),
- * and punctuation (Semicolon, Comma, Period, Slash, ...).
+ * Map a KeyboardEvent to a Tauri-shortcut key name using e.code (physical
+ * key position) instead of e.key (layout-dependent character). This makes
+ * hotkey capture work correctly on non-US keyboards (e.g. German Ö = Semicolon).
  */
 function normalizeKey(e: KeyboardEvent): string | null {
-  // Letters: use uppercase A-Z regardless of layout.
-  if (/^[a-zA-Z]$/.test(e.key)) return e.key.toUpperCase();
-  // Digits: 0-9
-  if (/^[0-9]$/.test(e.key)) return e.key;
-  // Function keys
-  if (/^F\d{1,2}$/.test(e.key)) return e.key;
+  const code = e.code;
 
-  const named: Record<string, string> = {
-    " ": "Space",
+  // Letters: KeyA → "A", KeyZ → "Z"
+  const letterMatch = code.match(/^Key([A-Z])$/);
+  if (letterMatch) return letterMatch[1]!;
+
+  // Digits: Digit0 → "0" … Digit9 → "9"
+  const digitMatch = code.match(/^Digit([0-9])$/);
+  if (digitMatch) return digitMatch[1]!;
+
+  // Function keys: F1-F24
+  if (/^F\d{1,2}$/.test(code)) return code;
+
+  // Named / punctuation — physical key → Tauri name
+  const codeMap: Record<string, string> = {
+    Space: "Space",
     Enter: "Enter",
+    NumpadEnter: "Enter",
     Tab: "Tab",
     ArrowUp: "Up",
     ArrowDown: "Down",
@@ -141,18 +177,17 @@ function normalizeKey(e: KeyboardEvent): string | null {
     End: "End",
     PageUp: "PageUp",
     PageDown: "PageDown",
-    ";": "Semicolon",
-    ":": "Semicolon",
-    ",": "Comma",
-    ".": "Period",
-    "/": "Slash",
-    "\\": "Backslash",
-    "'": "Quote",
-    "`": "Backquote",
-    "-": "Minus",
-    "=": "Equal",
-    "[": "BracketLeft",
-    "]": "BracketRight",
+    Semicolon: "Semicolon",   // physical ; key — shows as Ö on German keyboards
+    Comma: "Comma",
+    Period: "Period",
+    Slash: "Slash",
+    Backslash: "Backslash",
+    Quote: "Quote",
+    Backquote: "Backquote",
+    Minus: "Minus",
+    Equal: "Equal",
+    BracketLeft: "BracketLeft",
+    BracketRight: "BracketRight",
   };
-  return named[e.key] ?? null;
+  return codeMap[code] ?? null;
 }
