@@ -64,6 +64,7 @@ export default function PillWindow() {
   const [mode, setMode] = useState<VoiceMode>(DEFAULT_MODES[0]!);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [highlightIdx, setHighlightIdx] = useState(0);
+  const [transcribeLabel, setTranscribeLabel] = useState("TRANSCRIBING");
 
   useEffect(() => {
     loadSettings().then((s) => {
@@ -96,6 +97,38 @@ export default function PillWindow() {
   useEffect(() => {
     if (state === "recording" && compact) setCompact(false);
   }, [state, compact]);
+
+  /* ── Transcribe label phases ────────────────────────────────────
+     The voice worker exposes one combined endpoint, so we fake the
+     phases with elapsed time:
+       0–1.5 s    TRANSCRIBING
+       1.5–3.5 s  CLEANING UP   (only when mode.cleanup !== "raw")
+       3.5+ s     rotating: I'M ON IT. / ALMOST THERE. / GIVE ME A MOMENT.
+     ──────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (state !== "transcribing") {
+      setTranscribeLabel("TRANSCRIBING");
+      return;
+    }
+    const isCleanup = mode.cleanup !== "raw";
+    const longs = ["I'M ON IT.", "ALMOST THERE.", "GIVE ME A MOMENT."];
+    const cleanupEnd = isCleanup ? 3500 : 1500;
+    const start = Date.now();
+    setTranscribeLabel("TRANSCRIBING");
+
+    const tick = setInterval(() => {
+      const e = Date.now() - start;
+      if (e < 1500) {
+        setTranscribeLabel("TRANSCRIBING");
+      } else if (e < cleanupEnd) {
+        setTranscribeLabel("CLEANING UP");
+      } else {
+        const idx = Math.floor((e - cleanupEnd) / 2500) % longs.length;
+        setTranscribeLabel(longs[idx]!);
+      }
+    }, 250);
+    return () => clearInterval(tick);
+  }, [state, mode.cleanup]);
 
   /* ── Mode list toggle ───────────────────────────────────────── */
   useHotkeyEvent(
@@ -280,9 +313,7 @@ export default function PillWindow() {
   }, [state, view]);
 
   const statusLabel =
-    state === "transcribing" ? "Transcribing…"
-    : state === "discardConfirm" ? mode.name
-    : state === "error" ? "Error"
+    state === "error" ? "Error"
     : mode.name;
 
   const pillStyle: React.CSSProperties = {
@@ -328,10 +359,22 @@ export default function PillWindow() {
         ) : state === "transcribing" ? (
           <div
             data-tauri-drag-region
-            className="w-full flex items-center overflow-hidden"
+            className="w-full flex items-center justify-center"
             style={{ height: WAVE_H, cursor: "grab" }}
           >
-            <TickerTape color="var(--pill-fg)" />
+            <span
+              style={{
+                color: "var(--pill-fg)",
+                fontFamily: "ui-monospace, 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace",
+                fontSize: 20,
+                fontWeight: 700,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {transcribeLabel}
+            </span>
           </div>
         ) : (
           <div
@@ -377,9 +420,6 @@ export default function PillWindow() {
             {state === "recording" && <HintRow label="Discard" keys={["⎋"]} />}
             {state === "discardConfirm" && <HintRow label="Keep recording" keys={["Space"]} />}
             {state === "discardConfirm" && <HintRow label="Discard" keys={["↵"]} />}
-            {state === "transcribing" && (
-              <span className="text-[11px]" style={{ color: "var(--pill-fg-subtle)" }}>Processing…</span>
-            )}
             {state === "error" && (
               <HintRow label="Dismiss" keys={["⎋"]} />
             )}
@@ -482,32 +522,6 @@ export default function PillWindow() {
 }
 
 /* ── Shared sub-components ──────────────────────────────────── */
-
-const TICKER_TEXT = "Transcribing… · Cleaning up… · Pasting… · ";
-
-function TickerTape({ color }: { color: string }) {
-  // Duplicate text so the animation seamlessly loops (50% shift = one copy width).
-  const text = TICKER_TEXT.repeat(6);
-  return (
-    <>
-      <style>{`@keyframes pill-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
-      <div style={{ overflow: "hidden", width: "100%", height: "100%", display: "flex", alignItems: "center", paddingLeft: 16 }}>
-        <span
-          style={{
-            display: "inline-block",
-            whiteSpace: "nowrap",
-            fontSize: 11,
-            fontWeight: 500,
-            color,
-            animation: "pill-ticker 8s linear infinite",
-          }}
-        >
-          {text}
-        </span>
-      </div>
-    </>
-  );
-}
 
 function HintRow({ label, keys }: { label: string; keys: string[] }) {
   return (
