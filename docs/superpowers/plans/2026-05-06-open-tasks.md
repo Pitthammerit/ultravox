@@ -210,6 +210,71 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
+### T11. Pill visible on fullscreen Spaces
+
+**Why:** macOS treats every fullscreen app as its own Space. A regular `alwaysOnTop` window does NOT appear over a fullscreen-mode app — Final Cut, presentations, fullscreen Safari, etc. all hide the pill, breaking dictation in exactly the contexts where users most need it. This is a NSWindow `collectionBehavior` configuration miss, not a layout bug.
+
+**Files:**
+- `apps/ultravox/src-tauri/src/lib.rs` (after-build hook that grabs the pill window and sets the right behavior)
+- Possibly a new `apps/ultravox/src-tauri/src/pill_window.rs` to keep window-config code isolated
+- `apps/ultravox/src-tauri/Cargo.toml` (likely already has `objc2-app-kit`; verify)
+
+**Spec:**
+1. After window creation, on macOS only, walk down to the underlying NSWindow via `tauri::WebviewWindow::ns_window()`.
+2. Apply two pieces of `NSWindowCollectionBehavior`:
+   - `canJoinAllSpaces` — pill appears in every Space
+   - `fullScreenAuxiliary` — pill appears OVER fullscreen apps as a floating accessory (this is the critical flag)
+3. Set window level to `NSPopUpMenuWindowLevel` (or `NSScreenSaverWindowLevel` if `NSPopUpMenuWindowLevel` isn't enough) so the pill sits above menu bar and dock.
+4. Apply the same treatment to the mode-overlay window if it ever gets used standalone in v1.5+.
+
+**Acceptance:**
+- Open Safari → enter fullscreen (Cmd+Ctrl+F). Press Ultravox hotkey. Pill appears over the fullscreen Safari window.
+- Same on Keynote / Final Cut / VLC fullscreen.
+- Pill still appears normally in regular non-fullscreen Spaces.
+- Pill doesn't steal focus on fullscreen apps (existing `focus: false` config respected).
+
+**Complexity:** S · ~30-40 lines, single Rust file, one new command or post-create hook · macOS-only
+
+**Reference:** the `objc2-app-kit` docs for `NSWindowCollectionBehavior` constants and `setLevel:`. Tauri 2 `WebviewWindow::ns_window()` returns a `Cocoa::id` you can cast and message.
+
+---
+
+### T12. Minimized pill variant
+
+**Why:** The current pill is 540×120px with full waveform + status + hint chips — great when the user is paying attention, intrusive when they want to dictate while staying focused on a long video call or a fullscreen editor. Reference visual (user-supplied screenshot): a compact ~140×40px pill with just a small recording-state glyph and a sparse waveform indicator. The user wants a **toggle** to switch between full and mini, plus a setting for the default.
+
+**Files:**
+- `apps/ultravox/src/windows/PillWindow.tsx` (add `compact: boolean` state, conditional render, minimize/expand button)
+- `apps/ultravox/src-tauri/src/hotkey.rs` (extend or replace `set_pill_height` with a `set_pill_size(width, height)` command, since compact mode is also narrower)
+- `apps/ultravox/src/lib/tauri-bridge.ts` (`setPillSize` wrapper)
+- `apps/ultravox/src/lib/store-bridge.ts` (`SoundSettings.compactPill: boolean` for default-state preference)
+- `apps/ultravox/src/panels/HomePanel.tsx` or `SoundPanel.tsx` (toggle: "Minimal pill — show just a small recording indicator")
+
+**Spec:**
+1. New `compact: boolean` state in PillWindow, initialized from `settings.compactPill` (or whichever home it lives in — Recording section feels right).
+2. When `compact === true` AND `view === "pill"`:
+   - Window is resized to 140×40px (full pill is 540×120)
+   - Render: rounded pill with `pillStyle`, left-aligned 24×24 colored circle containing the active mode's `ModeGlyph` (or a red triangle for recording state), then a low-amplitude rolling waveform filling the rest of the width
+   - Single click on the body expands back to full size (clears `compact`)
+   - No footer, no hints, no mode label
+3. When `compact === true` AND `view === "modes"`: forced back to full size (mode picker doesn't fit in compact). Compact resumes after picking a mode.
+4. Add a small expand/collapse button to the top-right of the full pill (the icon in the user's reference screenshot is an inward-arrows "compress" symbol). Click → compact = true.
+5. The compact pill still drags via `data-tauri-drag-region` on the wrapper.
+6. Recording-state visual: when `state === "recording"`, the icon circle is red-tinted and faintly pulses; idle is `var(--pill-icon-bg)`; transcribing is a slow spin or brief shimmer.
+
+**Acceptance:**
+- Toggle in settings: starts every recording in compact mode by default.
+- Expand button on the compact pill grows to full size; minimize button on the full pill shrinks to compact. Both transitions are <100ms (just a window resize).
+- Compact pill respects the same theme tokens (light/dark-ocean/dark-night).
+- Compact pill is also dragable.
+- Pressing ⌥⇧K while compact temporarily expands to full to show the mode list, then snaps back to compact after pick.
+
+**Complexity:** M · ~80-120 lines · one main file plus small Rust command
+
+**Depends on:** none, but visually nicer if T9 lands first (no audio ducking) since dictation while watching a video is the canonical compact-pill use case.
+
+---
+
 ### T6. Auto-updater (`tauri-plugin-updater` + GitHub Releases appcast)
 
 **Why:** v1 needs in-app update notifications. Without this, every fix requires telling users to manually re-download. Implementation plan calls for it (Phase 15) but Cargo.toml doesn't include the plugin yet.
@@ -291,21 +356,25 @@ For reference only; tracked in `docs/implementation-plan.md` "Reference notes / 
 ## Dispatch sequence (recommended)
 
 ```
-T1 (XS, inline) — fix label
+T1  (XS, inline) — fix stale label
    ↓
-T9 (S) — fix audio ducking [URGENT — affects every user]
+T9  (S)  — fix audio ducking          [URGENT — affects every user]
    ↓
-T3 (XS) — paste-time frontmost diagnostic
+T11 (S)  — pill over fullscreen Spaces [URGENT — breaks dictation in fullscreen apps]
    ↓
-T2 (M) — discard-confirm state
+T3  (XS) — paste-time frontmost diagnostic
    ↓
-T10 (M) — pause-media-while-recording toggle
+T2  (M)  — discard-confirm state
    ↓
-T4 (L) — push-to-talk for real
+T10 (M)  — pause-media-while-recording toggle
    ↓
-T5 (S) — PTT timing guards
+T12 (M)  — minimized pill variant
    ↓
-T6 (M) — auto-updater wiring
+T4  (L)  — push-to-talk for real
+   ↓
+T5  (S)  — PTT timing guards (depends on T4)
+   ↓
+T6  (M)  — auto-updater wiring
    ↓
 [gate: T7 needs Apple Dev secrets from user]
    ↓
