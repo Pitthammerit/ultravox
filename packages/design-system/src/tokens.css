@@ -70,6 +70,18 @@
   --color-ink-20: rgba(34, 65, 96, 0.20);
   --color-ink-30: rgba(34, 65, 96, 0.30);
   --color-ink-45: rgba(34, 65, 96, 0.45);
+
+  /* Pill / mode-overlay chrome — translucent, theme-aware. Used by the
+     floating pill window. Light theme: warm cream tint, navy text. */
+  --pill-bg: rgba(252, 250, 245, 0.72);
+  --pill-fg: rgba(34, 65, 96, 0.96);
+  --pill-fg-muted: rgba(34, 65, 96, 0.55);
+  --pill-fg-subtle: rgba(34, 65, 96, 0.40);
+  --pill-border: rgba(34, 65, 96, 0.10);
+  --pill-footer: rgba(34, 65, 96, 0.05);
+  --pill-row-hover: rgba(34, 65, 96, 0.06);
+  --pill-icon-bg: rgba(34, 65, 96, 0.10);
+  --pill-shadow: 0 8px 32px rgba(34, 65, 96, 0.18);
 }
 
 /* ── Shared dark tokens (apply to all dark themes) ───────────────────── */
@@ -128,6 +140,16 @@
   --color-ink-20: rgba(255, 255, 255, 0.26);
   --color-ink-30: rgba(255, 255, 255, 0.36);
   --color-ink-45: rgba(255, 255, 255, 0.60);
+
+  --pill-bg: rgba(13, 24, 38, 0.74);
+  --pill-fg: rgba(240, 242, 248, 0.96);
+  --pill-fg-muted: rgba(230, 232, 238, 0.55);
+  --pill-fg-subtle: rgba(230, 232, 238, 0.40);
+  --pill-border: rgba(255, 255, 255, 0.09);
+  --pill-footer: rgba(0, 0, 0, 0.32);
+  --pill-row-hover: rgba(255, 255, 255, 0.07);
+  --pill-icon-bg: rgba(255, 255, 255, 0.10);
+  --pill-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
 }
 
 /* ── Dark Night — near-black background ──────────────────────────────── */
@@ -148,6 +170,16 @@
   --color-ink-20: rgba(255, 255, 255, 0.20);
   --color-ink-30: rgba(255, 255, 255, 0.30);
   --color-ink-45: rgba(255, 255, 255, 0.55);
+
+  --pill-bg: rgba(8, 8, 10, 0.70);
+  --pill-fg: rgba(240, 242, 248, 0.96);
+  --pill-fg-muted: rgba(230, 232, 238, 0.55);
+  --pill-fg-subtle: rgba(230, 232, 238, 0.40);
+  --pill-border: rgba(255, 255, 255, 0.06);
+  --pill-footer: rgba(0, 0, 0, 0.40);
+  --pill-row-hover: rgba(255, 255, 255, 0.05);
+  --pill-icon-bg: rgba(255, 255, 255, 0.07);
+  --pill-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
 }
 
 /* ─────────────────────────────────────────────────────────────

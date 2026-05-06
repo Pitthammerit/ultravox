@@ -237,11 +237,11 @@ export default function PillWindow() {
     : mode.name;
 
   const pillStyle: React.CSSProperties = {
-    background: "rgba(13,14,18,0.90)",
-    backdropFilter: "blur(24px)",
-    WebkitBackdropFilter: "blur(24px)",
-    border: "1px solid rgba(255,255,255,0.09)",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+    background: "var(--pill-bg)",
+    backdropFilter: "blur(28px) saturate(1.4)",
+    WebkitBackdropFilter: "blur(28px) saturate(1.4)",
+    border: "1px solid var(--pill-border)",
+    boxShadow: "var(--pill-shadow)",
   };
 
   return (
@@ -275,7 +275,7 @@ export default function PillWindow() {
             <RollingWaveform
               stream={recorder.stream}
               active={state === "recording"}
-              color="rgba(230, 232, 238, 0.88)"
+              color="var(--pill-fg)"
               barWidth={2}
               gap={1.5}
             />
@@ -285,13 +285,18 @@ export default function PillWindow() {
         {/* Footer bar */}
         <div
           className="flex items-center justify-between gap-3 px-4 shrink-0"
-          style={{ height: FOOTER_H, background: "rgba(0,0,0,0.32)", borderTop: "1px solid rgba(255,255,255,0.07)" }}
+          style={{ height: FOOTER_H, background: "var(--pill-footer)", borderTop: "1px solid var(--pill-border)" }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <MicIcon state={state} />
+            <ModeGlyph
+              name={mode.icon}
+              size={13}
+              strokeWidth={2}
+              color={state === "recording" ? "var(--color-accent)" : "var(--pill-fg-muted)"}
+            />
             <span
               className="text-[13px] font-medium truncate"
-              style={{ color: state === "error" ? "rgb(248,113,113)" : "rgba(230,232,238,0.92)" }}
+              style={{ color: state === "error" ? "rgb(248,113,113)" : "var(--pill-fg)" }}
             >
               {statusLabel}
             </span>
@@ -300,7 +305,7 @@ export default function PillWindow() {
             {state === "recording" && <HintRow label="Stop" keys={["⌘", "⇧", ";"]} />}
             {state === "recording" && <HintRow label="Cancel" keys={["⎋"]} />}
             {state === "transcribing" && (
-              <span className="text-[11px]" style={{ color: "rgba(230,232,238,0.45)" }}>Processing…</span>
+              <span className="text-[11px]" style={{ color: "var(--pill-fg-subtle)" }}>Processing…</span>
             )}
             {state === "error" && (
               <HintRow label="Dismiss" keys={["⎋"]} />
@@ -335,7 +340,7 @@ export default function PillWindow() {
                   className="flex items-center gap-3 px-2.5 rounded-lg transition-colors text-left w-full"
                   style={{
                     height: MODE_ROW_H,
-                    background: showHighlight ? "rgba(255,255,255,0.07)" : "transparent",
+                    background: showHighlight ? "var(--pill-row-hover)" : "transparent",
                   }}
                 >
                   {/* Circular icon background — accent when active */}
@@ -344,26 +349,26 @@ export default function PillWindow() {
                     style={{
                       width: 30,
                       height: 30,
-                      background: active ? "rgba(45,173,113,0.95)" : "rgba(255,255,255,0.10)",
+                      background: active ? "var(--color-accent)" : "var(--pill-icon-bg)",
                     }}
                   >
                     <ModeGlyph
                       name={m.icon}
                       size={15}
                       strokeWidth={2}
-                      color={active ? "rgb(13,14,18)" : "rgba(230,232,238,0.95)"}
+                      color={active ? "#fff" : "var(--pill-fg)"}
                     />
                   </span>
 
                   <span
                     className="flex-1 text-[14px] font-medium truncate"
-                    style={{ color: "rgba(240,242,248,0.96)" }}
+                    style={{ color: "var(--pill-fg)" }}
                   >
                     {m.name}
                   </span>
 
                   {/* Numeric quick-key — always shown so users learn 1-N */}
-                  <span style={{ fontSize: 10, minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "rgba(255,255,255,0.08)", color: "rgba(230,232,238,0.6)", fontFamily: "monospace" }}>
+                  <span style={{ fontSize: 10, minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "var(--pill-icon-bg)", color: "var(--pill-fg-muted)", fontFamily: "monospace" }}>
                     {i + 1}
                   </span>
                 </button>
@@ -374,9 +379,9 @@ export default function PillWindow() {
           {/* Submenu footer */}
           <div
             className="flex items-center justify-between px-3 shrink-0"
-            style={{ height: MODES_FOOTER_H, background: "rgba(0,0,0,0.32)", borderTop: "1px solid rgba(255,255,255,0.07)" }}
+            style={{ height: MODES_FOOTER_H, background: "var(--pill-footer)", borderTop: "1px solid var(--pill-border)" }}
           >
-            <span className="text-[11px]" style={{ color: "rgba(230,232,238,0.40)" }}>Switch mode</span>
+            <span className="text-[11px]" style={{ color: "var(--pill-fg-subtle)" }}>Switch mode</span>
             <div className="flex items-center gap-3">
               <HintRow label="" keys={["↑", "↓"]} />
               <HintRow label="Select" keys={["↵"]} />
@@ -394,29 +399,15 @@ export default function PillWindow() {
 function HintRow({ label, keys }: { label: string; keys: string[] }) {
   return (
     <div className="flex items-center gap-1.5">
-      {label && <span className="text-[11px]" style={{ color: "rgba(230,232,238,0.50)" }}>{label}</span>}
+      {label && <span className="text-[11px]" style={{ color: "var(--pill-fg-muted)" }}>{label}</span>}
       <div className="flex items-center gap-0.5">
         {keys.map((k) => (
-          <kbd key={k} style={{ minWidth: 18, height: 18, padding: "0 4px", fontSize: 10, borderRadius: 3, background: "rgba(255,255,255,0.10)", color: "rgba(230,232,238,0.90)", border: "1px solid rgba(255,255,255,0.07)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace" }}>
+          <kbd key={k} style={{ minWidth: 18, height: 18, padding: "0 4px", fontSize: 10, borderRadius: 3, background: "var(--pill-icon-bg)", color: "var(--pill-fg)", border: "1px solid var(--pill-border)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace" }}>
             {k}
           </kbd>
         ))}
       </div>
     </div>
-  );
-}
-
-function MicIcon({ state }: { state: PillState }) {
-  const isActive = state === "recording";
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-      stroke={isActive ? "rgba(45,173,113,0.95)" : "rgba(230,232,238,0.70)"}
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <line x1="12" y1="19" x2="12" y2="23" />
-      <line x1="8" y1="23" x2="16" y2="23" />
-    </svg>
   );
 }
 
