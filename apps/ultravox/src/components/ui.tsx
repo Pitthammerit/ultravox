@@ -95,7 +95,7 @@ export function Section({
   children,
 }: SectionProps) {
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="flex flex-col gap-1.5">
       {title && (
         <div className="flex items-center justify-between">
           <h2
@@ -121,7 +121,7 @@ export function Section({
           {description}
         </p>
       )}
-      <div className="flex flex-col gap-1.5">{children}</div>
+      <div className="flex flex-col gap-1">{children}</div>
     </section>
   );
 }
@@ -182,7 +182,7 @@ export function Card({
   return (
     <Tag
       onClick={onClick}
-      className={`block w-full text-left px-3.5 py-2.5 transition-colors ${onClick ? "hover:bg-[var(--s-card-hover)]" : ""}`}
+      className={`block w-full text-left px-3 py-1.5 transition-colors ${onClick ? "hover:bg-[var(--s-card-hover)]" : ""}`}
       style={{
         ...cardBase,
         borderColor: selected ? T.fg : T.border,
@@ -209,7 +209,7 @@ export function NavCard({
   return (
     <button
       onClick={onClick}
-      className="flex items-center justify-between w-full text-left px-3.5 py-2.5 transition-colors hover:bg-[var(--s-card-hover)]"
+      className="flex items-center justify-between w-full text-left px-3 py-1.5 transition-colors hover:bg-[var(--s-card-hover)]"
       style={cardBase}
     >
       <div className="flex flex-col gap-0.5 min-w-0">
@@ -247,7 +247,7 @@ export function RadioCard({
   return (
     <button
       onClick={onClick}
-      className="flex items-start gap-3 w-full text-left px-3.5 py-2.5 transition-colors hover:bg-[var(--s-card-hover)]"
+      className="flex items-start gap-3 w-full text-left px-3 py-1.5 transition-colors hover:bg-[var(--s-card-hover)]"
       style={{ ...cardBase, borderColor: selected ? T.fg : T.border }}
     >
       <span
@@ -300,13 +300,13 @@ export function Row({
 }) {
   return (
     <div
-      className="flex items-center justify-between px-3.5 py-2.5"
+      className="flex items-center justify-between px-3 py-1.5"
       style={cardBase}
     >
-      <div className="flex flex-col gap-0.5 min-w-0">
+      <div className="flex flex-col gap-0 min-w-0">
         <div className="flex items-center gap-1.5">
           <span
-            className="text-[13.5px] font-medium"
+            className="text-[12.5px] font-medium"
             style={{ color: T.fg }}
           >
             {label}
@@ -320,6 +320,52 @@ export function Row({
         )}
       </div>
       <div className="shrink-0 ml-3">{control}</div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   FIELD  (frameless inline label · control · help)
+   Use inside cards/groups to avoid frame-in-frame nesting.
+   ───────────────────────────────────────────────────────────── */
+
+export function Field({
+  label,
+  help,
+  control,
+}: {
+  label: ReactNode;
+  help?: string | undefined;
+  control: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className="text-[12.5px] font-medium truncate"
+          style={{ color: T.fg }}
+        >
+          {label}
+        </span>
+        {help && <HelpIcon tooltip={help} />}
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GROUP  (single framed container holding multiple Fields)
+   Replaces nested Row/Card frames in dense panels.
+   ───────────────────────────────────────────────────────────── */
+
+export function Group({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="flex flex-col gap-0.5 rounded-lg px-3 py-2"
+      style={{ background: T.card, border: `1px solid ${T.border}` }}
+    >
+      {children}
     </div>
   );
 }
@@ -361,11 +407,13 @@ export function Toggle({
 export function ToggleRow({
   label,
   description,
+  help,
   checked,
   onChange,
 }: {
   label: string;
   description?: string;
+  help?: string;
   checked: boolean;
   onChange: (next: boolean) => void;
 }) {
@@ -373,6 +421,7 @@ export function ToggleRow({
     <Row
       label={label}
       {...(description ? { description } : {})}
+      {...(help ? { help } : {})}
       control={<Toggle checked={checked} onChange={onChange} />}
     />
   );
