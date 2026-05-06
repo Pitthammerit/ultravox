@@ -20,6 +20,7 @@ import {
   ToggleRow,
   tokens,
 } from "../components/ui";
+import { MODE_ICON_NAMES, ModeGlyph } from "../components/ModeIcons";
 
 interface ModeEditorProps {
   settings: AppSettings;
@@ -86,6 +87,24 @@ export default function ModeEditor({ settings, modeId, onChange, onClose }: Mode
     <>
       <Section label="Identity">
         <Row label="Name" control={<Input value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />} />
+        <Row
+          label="Icon"
+          description="Shown in the mode switcher"
+          control={
+            <IconPicker
+              value={draft.icon ?? null}
+              onChange={(icon) => {
+                if (icon === null) {
+                  const { icon: _drop, ...rest } = draft;
+                  void _drop;
+                  setDraft(rest as VoiceMode);
+                } else {
+                  setDraft({ ...draft, icon });
+                }
+              }}
+            />
+          }
+        />
         <Row
           label="ID"
           description={isNew ? "Auto-generated" : "Read-only"}
@@ -190,5 +209,47 @@ export default function ModeEditor({ settings, modeId, onChange, onClose }: Mode
         </div>
       </div>
     </>
+  );
+}
+
+/** Grid of selectable icons. Click to select; click again to clear. */
+function IconPicker({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (icon: string | null) => void;
+}) {
+  return (
+    <div
+      className="grid gap-1 p-1.5 rounded-md"
+      style={{
+        gridTemplateColumns: "repeat(8, 1fr)",
+        background: tokens.control,
+        border: `1px solid ${tokens.border}`,
+        maxWidth: 280,
+      }}
+    >
+      {MODE_ICON_NAMES.map((name) => {
+        const active = value === name;
+        return (
+          <button
+            key={name}
+            type="button"
+            onClick={() => onChange(active ? null : name)}
+            title={name}
+            className="inline-flex items-center justify-center rounded transition-colors"
+            style={{
+              width: 28,
+              height: 28,
+              background: active ? "var(--color-primary, #224160)" : "transparent",
+              color: active ? "#fff" : tokens.fg,
+            }}
+          >
+            <ModeGlyph name={name} size={15} strokeWidth={1.8} />
+          </button>
+        );
+      })}
+    </div>
   );
 }

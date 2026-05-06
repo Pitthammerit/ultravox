@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import RollingWaveform from "../components/RollingWaveform";
+import { ModeGlyph } from "../components/ModeIcons";
 import { useRecorder } from "../hooks/useRecorder";
 import { useHotkeyEvent } from "../hooks/useHotkeyEvents";
 import { transcribe } from "../lib/transcribe";
@@ -26,24 +27,21 @@ const FOOTER_H = 44;
 // Waveform area (above footer) in the pill chrome.
 const WAVE_H = PILL_INNER_H - FOOTER_H;
 
-// Each mode button row height.
-const MODE_BTN_H = 36;
+// Each mode row height in the macOS-Focus-style list.
+const MODE_ROW_H = 44;
 
 // Gap between the pill chrome and the modes panel (px).
 const SUBMENU_GAP = 6;
 
-// Padding inside the modes grid (p-2 = 8px each side → 16px total).
-const GRID_PAD = 16;
+// Top + bottom padding inside the modes list (p-1 = 4px each side).
+const LIST_PAD = 8;
 
 // Height of the hint footer inside the modes panel.
 const MODES_FOOTER_H = 36;
 
-/** Compute the expanded window height needed to show N modes in a 2-col grid. */
+/** Compute the expanded window height needed to show N modes in the list. */
 function expandedHeight(modeCount: number): number {
-  const rows = Math.ceil(modeCount / 2);
-  const modesPanelH = rows * MODE_BTN_H + GRID_PAD + MODES_FOOTER_H;
-  // Window = pill height + gap + modes panel + container padding for modes (p-1.5 both sides)
-  // The "gap" is rendered as margin-top on the modes panel inside the same container.
+  const modesPanelH = modeCount * MODE_ROW_H + LIST_PAD + MODES_FOOTER_H;
   return PILL_H + SUBMENU_GAP + modesPanelH;
 }
 
@@ -314,44 +312,60 @@ export default function PillWindow() {
         </div>
       </div>
 
-      {/* ── Modes submenu — expands below the pill ─────────────── */}
+      {/* ── Modes submenu — macOS Focus-style single-column list ─ */}
       {view === "modes" && (
         <div
           className="flex flex-col rounded-[14px] overflow-hidden select-none flex-1"
           style={pillStyle}
         >
-          {/* Mode grid */}
+          {/* Mode list */}
           <div
             data-tauri-drag-region
-            className="flex-1 grid gap-1 p-2"
-            style={{ gridTemplateColumns: "repeat(2, 1fr)", alignContent: "start" }}
+            className="flex-1 flex flex-col p-1"
           >
             {currentModes.map((m, i) => {
               const active = m.id === mode.id;
               const hi = i === highlightIdx;
+              const showHighlight = hi || active;
               return (
                 <button
                   key={m.id}
                   onClick={() => pickMode(m)}
                   onMouseEnter={() => setHighlightIdx(i)}
-                  className="flex items-center gap-2 px-2.5 rounded-lg transition-colors text-left"
+                  className="flex items-center gap-3 px-2.5 rounded-lg transition-colors text-left w-full"
                   style={{
-                    height: MODE_BTN_H,
-                    background: hi ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${active ? "rgba(45,173,113,0.4)" : hi ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.04)"}`,
+                    height: MODE_ROW_H,
+                    background: showHighlight ? "rgba(255,255,255,0.07)" : "transparent",
                   }}
                 >
-                  <ModeIcon cleanup={m.cleanup} />
+                  {/* Circular icon background — accent when active */}
                   <span
-                    className="flex-1 text-[12px] font-medium truncate"
-                    style={{ color: "rgba(230,232,238,0.95)" }}
+                    className="shrink-0 inline-flex items-center justify-center rounded-full"
+                    style={{
+                      width: 30,
+                      height: 30,
+                      background: active ? "rgba(45,173,113,0.95)" : "rgba(255,255,255,0.10)",
+                    }}
+                  >
+                    <ModeGlyph
+                      name={m.icon}
+                      size={15}
+                      strokeWidth={2}
+                      color={active ? "rgb(13,14,18)" : "rgba(230,232,238,0.95)"}
+                    />
+                  </span>
+
+                  <span
+                    className="flex-1 text-[14px] font-medium truncate"
+                    style={{ color: "rgba(240,242,248,0.96)" }}
                   >
                     {m.name}
                   </span>
-                  {active
-                    ? <CheckIcon />
-                    : <span style={{ fontSize: 10, minWidth: 16, height: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "rgba(255,255,255,0.08)", color: "rgba(230,232,238,0.6)", fontFamily: "monospace" }}>{i + 1}</span>
-                  }
+
+                  {/* Numeric quick-key — always shown so users learn 1-N */}
+                  <span style={{ fontSize: 10, minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "rgba(255,255,255,0.08)", color: "rgba(230,232,238,0.6)", fontFamily: "monospace" }}>
+                    {i + 1}
+                  </span>
                 </button>
               );
             })}
@@ -406,30 +420,3 @@ function MicIcon({ state }: { state: PillState }) {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(45,173,113,0.95)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function ModeIcon({ cleanup }: { cleanup: string }) {
-  const isVoice = cleanup === "raw" || cleanup === "prose" || cleanup === "list";
-  if (isVoice) return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(230,232,238,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <line x1="12" y1="19" x2="12" y2="23" />
-      <line x1="8" y1="23" x2="16" y2="23" />
-    </svg>
-  );
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(230,232,238,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="9" y1="13" x2="15" y2="13" />
-      <line x1="9" y1="17" x2="13" y2="17" />
-    </svg>
-  );
-}
