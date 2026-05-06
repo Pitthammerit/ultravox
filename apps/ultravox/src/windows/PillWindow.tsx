@@ -13,17 +13,6 @@ import { playStartChime, playStopChime } from "../lib/chime";
 
 type PillState = "idle" | "recording" | "transcribing" | "error";
 
-/**
- * Floating recording widget — Superwhisper-style.
- *
- * Layout:
- *   ┌────────────────────────────────────────────────┐
- *   │   [rolling waveform fills upper area]      ⤡  │  ← top section, drag region
- *   │                                                 │
- *   ├────────────────────────────────────────────────┤
- *   │  🎙  Mode name        Stop ⌘ Space  Cancel ⎋  │  ← footer hints
- *   └────────────────────────────────────────────────┘
- */
 export default function PillWindow() {
   const recorder = useRecorder();
   const [state, setState] = useState<PillState>("idle");
@@ -38,6 +27,8 @@ export default function PillWindow() {
   const showError = useCallback((msg: string, ms = 4500) => {
     setErrorMsg(msg);
     setState("error");
+    // Re-show pill so the error is visible, then auto-hide.
+    invoke("show_pill").catch(() => {});
     setTimeout(() => {
       setState("idle");
       invoke("hide_pill").catch(() => {});
@@ -67,7 +58,7 @@ export default function PillWindow() {
       const err = e as DOMException;
       const friendly =
         err?.name === "NotAllowedError"
-          ? "Microphone access denied. Open System Settings → Privacy → Microphone and enable Ultravox."
+          ? "Microphone access denied — enable in System Settings → Privacy → Microphone."
           : err?.name === "NotFoundError"
           ? "No microphone found."
           : (e as Error).message || "Couldn't start recording.";
@@ -91,6 +82,7 @@ export default function PillWindow() {
         await invoke("hide_pill").catch(() => {});
         return;
       }
+
       const frontmost = await getFrontmostApp();
       const result = await transcribe(blob, {
         mode,
@@ -98,26 +90,38 @@ export default function PillWindow() {
         tokenEndpoint: TOKEN_ENDPOINT,
       });
       track("transcription.completed", { modeId: mode.id, length: result.text.length });
+
       if (result.text) {
+        // Hide the pill first — this returns focus to the user's previous app.
+        // Since we never stole focus (pill shows without set_focus), the previous
+        // app is already frontmost; hiding the pill just removes the overlay.
+        // A brief pause ensures the OS finishes any window-management bookkeeping.
+        setState("idle");
+        await invoke("hide_pill").catch(() => {});
+        await new Promise<void>((r) => setTimeout(r, 80));
+
         try {
           await pasteToFrontmost(result.text);
         } catch (pasteErr) {
           captureError(pasteErr, { stage: "paste" });
+          showError(
+            "Paste failed — grant Accessibility access in System Settings → Privacy & Security → Accessibility.",
+          );
+          return;
         }
-        try {
-          await appendHistory({
-            id: crypto.randomUUID(),
-            ts: Date.now(),
-            modeId: mode.id,
-            bundleId: frontmost?.bundle_id ?? null,
-            text: result.text,
-          });
-        } catch (histErr) {
-          captureError(histErr, { stage: "history-append" });
-        }
+
+        // Fire-and-forget history write — don't block the happy path.
+        appendHistory({
+          id: crypto.randomUUID(),
+          ts: Date.now(),
+          modeId: mode.id,
+          bundleId: frontmost?.bundle_id ?? null,
+          text: result.text,
+        }).catch((e) => captureError(e, { stage: "history-append" }));
+      } else {
+        setState("idle");
+        await invoke("hide_pill").catch(() => {});
       }
-      setState("idle");
-      await invoke("hide_pill").catch(() => {});
     } catch (e) {
       console.error("[ultravox] transcribe failed:", e);
       captureError(e, { stage: "transcribe" });
@@ -126,8 +130,8 @@ export default function PillWindow() {
   }, [recorder, mode, settings, showError]);
 
   // Toggle record on global hotkey.
-  // NOTE: Rust shows + focuses the pill window before emitting this event,
-  // so getUserMedia runs in a visible, focused WebView (macOS TCC requirement).
+  // Rust shows the pill WITHOUT stealing focus so the user's app stays active,
+  // meaning Cmd+V paste lands in the correct text field.
   useHotkeyEvent(
     "hotkey:toggle-record",
     useCallback(() => {
@@ -176,11 +180,8 @@ export default function PillWindow() {
           boxShadow: "0 12px 32px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.25)",
         }}
       >
-        {/* Top: waveform + drag region */}
-        <div
-          data-tauri-drag-region
-          className="relative flex-1 flex items-center justify-center px-6"
-        >
+        {/* Waveform area — not a drag region; pill is fixed-position */}
+        <div className="relative flex-1 flex items-center justify-center px-6">
           <div className="w-full h-full pointer-events-none">
             <RollingWaveform
               stream={recorder.stream}

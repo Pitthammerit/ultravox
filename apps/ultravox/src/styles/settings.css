@@ -1,56 +1,52 @@
 /*
- * Settings-window palette — shadcn-style zinc tokens, independent of the
- * editorial marketing tokens. Tight, refined, predictable.
+ * Settings-window palette.
  *
- * Why a separate palette: the bka2brain marketing tokens optimise for
- * editorial reading (Cormorant headings, generous spacing, translucent
- * surfaces). The settings UI needs the opposite: dense, neutral, native.
+ * Maps --s-* abstractions to bka2brain design-system tokens.
+ * All three themes (light, dark-ocean, dark-night) are handled automatically
+ * by the token cascade in tokens.css — no overrides needed here.
+ *
+ * Light  : cream page (#EDE7DC), white cards, navy text, steel labels
+ * Dark Ocean : navy page (#224160), dark-navy cards, white text, muted steel labels
+ * Dark Night : near-black page (#0a0a0a), dark-gray cards, white text, muted steel labels
  */
 
 :root {
-  --s-page: #ffffff;
-  --s-card: #ffffff;
-  --s-card-hover: #fafafa;
-  --s-border: rgba(0, 0, 0, 0.08);
-  --s-border-strong: rgba(0, 0, 0, 0.14);
-  --s-fg: #09090b;
-  --s-fg-muted: #52525b;
-  --s-fg-subtle: #a1a1aa;
-  --s-accent: #18181b;
-  --s-accent-fg: #fafafa;
-  --s-control: #f4f4f5;
-  --s-control-hover: #e4e4e7;
-  --s-ring: rgba(24, 24, 27, 0.18);
-  --s-warning: #b91c1c;
+  /* Page background — the page bg token already carries all three palette values */
+  --s-page:          var(--color-bg-light);
+
+  /* Card surface — solid popover bg: white / dark-navy / dark-gray */
+  --s-card:          var(--color-surface-popover);
+
+  /* Card hover — 5 % primary tint mixed into the card */
+  --s-card-hover:    color-mix(in srgb, var(--color-primary) 5%, var(--color-surface-popover));
+
+  /* Borders — ink-tint in light, white-tint in dark */
+  --s-border:        var(--color-ink-15);
+  --s-border-strong: var(--color-ink-30);
+
+  /* Foreground — navy in light (#224160), white in dark (#fff) */
+  --s-fg:            var(--color-fg);
+
+  /* Muted fg — warm taupe in light (#5A5550), warm light-gray in dark (#d4cec3) */
+  --s-fg-muted:      var(--color-text);
+
+  /* Subtle fg — steel blue in both modes (already theme-aware: #7696AD / #8fa3b8) */
+  --s-fg-subtle:     var(--color-secondary);
+
+  /* Primary action button — navy bg + white fg in light; inverts in dark */
+  --s-accent:        var(--color-button-primary-bg);
+  --s-accent-fg:     var(--color-button-primary-fg);
+
+  /* Controls (inputs, toggle tracks, segmented bg) — subtle ink/white tint */
+  --s-control:       var(--color-ink-08);
+  --s-control-hover: var(--color-ink-15);
+
+  /* Destructive / warning */
+  --s-warning:       var(--color-warning);
 }
 
-[data-theme="dark-ocean"],
-[data-theme="dark-night"] {
-  --s-page: #09090b;
-  --s-card: #131316;
-  --s-card-hover: #1a1a1d;
-  --s-border: rgba(255, 255, 255, 0.07);
-  --s-border-strong: rgba(255, 255, 255, 0.14);
-  --s-fg: #fafafa;
-  --s-fg-muted: #a1a1aa;
-  --s-fg-subtle: #71717a;
-  --s-accent: #fafafa;
-  --s-accent-fg: #18181b;
-  --s-control: #27272a;
-  --s-control-hover: #3f3f46;
-  --s-ring: rgba(250, 250, 250, 0.28);
-  --s-warning: #f87171;
-}
-
-/* Subtle ocean tint for the navy variant */
-[data-theme="dark-ocean"] {
-  --s-page: #0d1622;
-  --s-card: #131e2c;
-  --s-card-hover: #1a2738;
-}
-
-/* Smooth focus rings & ring helpers (shadcn-style) */
+/* Focus ring tracks the primary ink colour */
 .s-ring:focus-visible {
-  outline: 2px solid var(--s-ring);
+  outline: 2px solid var(--color-ink-30);
   outline-offset: 1px;
 }
