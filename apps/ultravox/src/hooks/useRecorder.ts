@@ -93,10 +93,12 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
   const stop = useCallback(() => {
     return new Promise<Blob | null>((resolve) => {
       const r = recorderRef.current;
-      if (!r || r.state !== "recording") {
+      if (!r || (r.state !== "recording" && r.state !== "paused")) {
         resolve(null);
         return;
       }
+      // Resume first if paused — MediaRecorder.stop() requires state "recording".
+      if (r.state === "paused") r.resume();
       stopResolveRef.current = resolve;
       r.stop();
     });
