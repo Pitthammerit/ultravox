@@ -6,7 +6,7 @@ import { ModeGlyph } from "../components/ModeIcons";
 import { useRecorder } from "../hooks/useRecorder";
 import { useHotkeyEvent } from "../hooks/useHotkeyEvents";
 import { transcribe } from "../lib/transcribe";
-import { TOKEN_ENDPOINT, pasteToFrontmost, getFrontmostApp, setPillHeight } from "../lib/tauri-bridge";
+import { TOKEN_ENDPOINT, pasteToFrontmost, getFrontmostApp, setPillHeight, mediaPause, mediaResume } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
 import { appendHistory, loadSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
 import { pickAutoMode } from "../lib/autoMode";
@@ -169,6 +169,7 @@ export default function PillWindow() {
       const noiseSuppression = cur?.sound.noiseSuppression ?? true;
       await recorder.start({ autoGainControl: autoGain, noiseSuppression, echoCancellation });
       setState("recording");
+      if (cur?.sound.pauseMediaWhileRecording) mediaPause().catch(() => {});
     } catch (e) {
       captureError(e, { stage: "start" });
       const err = e as DOMException;
@@ -181,15 +182,17 @@ export default function PillWindow() {
   }, [recorder, settings, showError]);
 
   const cancel = useCallback(() => {
+    if (settings?.sound.pauseMediaWhileRecording) mediaResume().catch(() => {});
     recorder.cancel();
     setState("idle");
     invoke("hide_pill").catch(() => {});
-  }, [recorder]);
+  }, [recorder, settings]);
 
   const stopAndTranscribe = useCallback(async () => {
     console.log("[pill] stopAndTranscribe begin");
     setState("transcribing");
     if (settings?.sound.chime) playStopChime(settings.sound.chimeVolume);
+    if (settings?.sound.pauseMediaWhileRecording) mediaResume().catch(() => {});
     try {
       const blob = await recorder.stop();
       console.log("[pill] recorder.stop returned blob:", blob ? `${blob.size} bytes, ${blob.type}` : "null");

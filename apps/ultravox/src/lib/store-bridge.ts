@@ -19,6 +19,8 @@ export interface SoundSettings {
   echoCancellation: boolean;
   /** Noise suppression — reduce background noise (mild quality tradeoff). */
   noiseSuppression: boolean;
+  /** Pause Music and Spotify when a recording starts; resume when it stops. */
+  pauseMediaWhileRecording: boolean;
 }
 
 export interface HistoryEntry {
@@ -72,6 +74,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     chimeVolume: 50,
     echoCancellation: false,
     noiseSuppression: true,
+    pauseMediaWhileRecording: false,
   },
   history: [],
 };

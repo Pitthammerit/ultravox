@@ -7,6 +7,9 @@ mod tray;
 mod frontmost;
 
 #[cfg(target_os = "macos")]
+mod media;
+
+#[cfg(target_os = "macos")]
 mod pill_window;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -29,6 +32,9 @@ pub fn run() {
         });
 
     #[cfg(target_os = "macos")]
+    let builder = builder.manage(media::MediaState::default());
+
+    #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         paste::paste_to_frontmost,
         frontmost::get_frontmost_app,
@@ -40,6 +46,8 @@ pub fn run() {
         hotkey::ultravox_register_hotkeys,
         permissions::check_accessibility_permission,
         permissions::request_accessibility_permission,
+        media::media_pause,
+        media::media_resume,
     ]);
 
     #[cfg(not(target_os = "macos"))]

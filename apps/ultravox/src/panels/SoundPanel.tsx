@@ -69,6 +69,12 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
 
       <Section label="Sound effects">
         <ToggleRow
+          label="Pause music while recording"
+          description="Pause Music and Spotify when a recording starts; resume when it stops."
+          checked={sound.pauseMediaWhileRecording}
+          onChange={(v) => setSound({ pauseMediaWhileRecording: v })}
+        />
+        <ToggleRow
           label="Chime on start/stop"
           description="Brief tone when recording starts and stops"
           checked={sound.chime}

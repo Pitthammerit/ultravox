@@ -47,3 +47,11 @@ export async function requestAccessibilityPermission(): Promise<boolean> {
 export async function setPillHeight(height: number): Promise<void> {
   await invoke("set_pill_height", { height });
 }
+
+export async function mediaPause(): Promise<void> {
+  await invoke("media_pause");
+}
+
+export async function mediaResume(): Promise<void> {
+  await invoke("media_resume");
+}
