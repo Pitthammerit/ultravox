@@ -48,6 +48,18 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
           onChange={(v) => setSound({ autoGain: v })}
         />
         <ToggleRow
+          label="Echo cancellation"
+          description="Avoid feedback when using speakers near the mic. Ducks other system audio while recording — leave off for normal dictation."
+          checked={sound.echoCancellation}
+          onChange={(v) => setSound({ echoCancellation: v })}
+        />
+        <ToggleRow
+          label="Noise suppression"
+          description="Reduce background noise. Mild quality tradeoff."
+          checked={sound.noiseSuppression}
+          onChange={(v) => setSound({ noiseSuppression: v })}
+        />
+        <ToggleRow
           label="Silence removal"
           description="Trim silent passages before upload (v1.1)"
           checked={sound.silenceRemoval}
@@ -118,8 +130,8 @@ function TestRecordingRow({ settings }: { settings: AppSettings }) {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           autoGainControl: settings.sound.autoGain,
-          noiseSuppression: true,
-          echoCancellation: true,
+          noiseSuppression: settings.sound.noiseSuppression,
+          echoCancellation: settings.sound.echoCancellation,
         },
       });
 
@@ -239,8 +251,8 @@ function CompareCleanupRow({ settings }: { settings: AppSettings }) {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           autoGainControl: settings.sound.autoGain,
-          noiseSuppression: true,
-          echoCancellation: true,
+          noiseSuppression: settings.sound.noiseSuppression,
+          echoCancellation: settings.sound.echoCancellation,
         },
       });
       const candidates = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"];

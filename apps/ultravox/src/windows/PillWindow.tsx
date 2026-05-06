@@ -165,7 +165,9 @@ export default function PillWindow() {
       track("recording.started", { modeId: picked.id, bundleId: frontmost?.bundle_id ?? null });
       if (cur?.sound.chime) playStartChime(cur.sound.chimeVolume);
       const autoGain = cur?.sound.autoGain ?? true;
-      await recorder.start({ autoGainControl: autoGain, noiseSuppression: true, echoCancellation: true });
+      const echoCancellation = cur?.sound.echoCancellation ?? false;
+      const noiseSuppression = cur?.sound.noiseSuppression ?? true;
+      await recorder.start({ autoGainControl: autoGain, noiseSuppression, echoCancellation });
       setState("recording");
     } catch (e) {
       captureError(e, { stage: "start" });

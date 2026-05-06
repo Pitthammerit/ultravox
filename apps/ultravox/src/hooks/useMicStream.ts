@@ -14,7 +14,7 @@ export function useMicStream(): MicStreamControls {
     const audio: MediaTrackConstraints = constraints ?? {
       autoGainControl: true,
       noiseSuppression: true,
-      echoCancellation: true,
+      echoCancellation: false,
     };
     const s = await navigator.mediaDevices.getUserMedia({ audio });
     streamRef.current = s;

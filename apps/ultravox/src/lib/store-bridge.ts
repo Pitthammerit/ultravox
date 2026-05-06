@@ -15,6 +15,10 @@ export interface SoundSettings {
   chime: boolean;
   /** 0..100 — chime volume. */
   chimeVolume: number;
+  /** Echo cancellation — avoid feedback when using speakers near the mic, but ducks other system audio. */
+  echoCancellation: boolean;
+  /** Noise suppression — reduce background noise (mild quality tradeoff). */
+  noiseSuppression: boolean;
 }
 
 export interface HistoryEntry {
@@ -66,6 +70,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     silenceRemoval: false,
     chime: false,
     chimeVolume: 50,
+    echoCancellation: false,
+    noiseSuppression: true,
   },
   history: [],
 };
