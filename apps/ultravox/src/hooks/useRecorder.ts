@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useMicStream } from "./useMicStream";
+import { logDebug } from "../lib/debugLog";
 
 export type RecorderState = "idle" | "recording" | "stopped" | "error";
 
@@ -50,9 +51,9 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
         ogg: MediaRecorder.isTypeSupported?.("audio/ogg"),
       });
       const recorder = new MediaRecorder(stream, { mimeType: chosen });
-      console.log("[useRecorder] actual mimeType:", recorder.mimeType);
+      const recordStart = performance.now();
+      logDebug("record-start", { mime: recorder.mimeType || chosen });
       recorder.ondataavailable = (e) => {
-        console.log("[useRecorder] dataavailable, chunk size:", e.data.size);
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
@@ -61,7 +62,12 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
           chunksRef.current.length > 0
             ? new Blob(chunksRef.current, { type: blobType })
             : null;
-        console.log("[useRecorder] stopped — chunks:", chunksRef.current.length, "blob size:", blob?.size ?? 0, "type:", blobType);
+        logDebug("record-stop", {
+          mime: blobType,
+          bytes: blob?.size ?? 0,
+          message: `${chunksRef.current.length} chunks`,
+          durationMs: Math.round(performance.now() - recordStart),
+        });
         setAudioBlob(blob);
         setState("stopped");
         stopResolveRef.current?.(blob);

@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
-import { Button, Row, Section } from "../components/ui";
+import { Button, Row, Section, tokens } from "../components/ui";
 import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission } from "../lib/tauri-bridge";
+import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 
 interface ConfigurationPanelProps {
   /* Kept for API compatibility — settings are no longer rendered here. */
@@ -112,6 +113,126 @@ export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
           }
         />
       </Section>
+
+      <DiagnosticsSection />
     </>
   );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DIAGNOSTICS — recent entries from the record/transcribe/paste
+   pipeline. Renders the last 30 entries from debug-log.json.
+   ───────────────────────────────────────────────────────────── */
+
+function DiagnosticsSection() {
+  const [entries, setEntries] = useState<DebugEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setEntries(await getDebugLog());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const onClear = async () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 4000);
+      return;
+    }
+    setConfirmClear(false);
+    await clearDebugLog();
+    refresh();
+  };
+
+  return (
+    <Section
+      label="Diagnostics"
+      help="Last 30 events from record → transcribe → paste. Use this when transcription fails: the failing stage shows the status code and error body."
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[12px]" style={{ color: tokens.fgMuted }}>
+          {entries.length} entries · newest first
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="xs" onClick={refresh} disabled={loading}>
+            {loading ? "Loading…" : "Refresh"}
+          </Button>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={onClear}
+            style={confirmClear ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : {}}
+          >
+            {confirmClear ? "Click again" : "Clear"}
+          </Button>
+        </div>
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="text-[12px] py-3 text-center" style={{ color: tokens.fgSubtle }}>
+          No events yet — try a recording.
+        </p>
+      ) : (
+        <div
+          className="rounded-md overflow-hidden"
+          style={{ background: tokens.control, border: `1px solid ${tokens.border}` }}
+        >
+          {entries.slice(0, 30).map((e, i) => (
+            <DebugRow key={e.id} entry={e} isLast={i === Math.min(29, entries.length - 1)} />
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function DebugRow({ entry, isLast }: { entry: DebugEntry; isLast: boolean }) {
+  const isError = entry.error || (entry.status && entry.status >= 400);
+  const stageColor = isError
+    ? "var(--color-warning)"
+    : entry.stage === "transcribe-result" || entry.stage === "paste"
+    ? "var(--color-accent)"
+    : tokens.fgMuted;
+
+  const time = new Date(entry.ts).toLocaleTimeString(undefined, { hour12: false });
+  const detail = [
+    entry.status != null ? `${entry.status}` : null,
+    entry.bytes != null ? `${formatBytes(entry.bytes)}` : null,
+    entry.textLength != null ? `${entry.textLength}c` : null,
+    entry.mime,
+    entry.modeId,
+    entry.durationMs != null ? `${entry.durationMs}ms` : null,
+    entry.message,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div
+      className="flex flex-col gap-0.5 px-3 py-2"
+      style={{ borderBottom: isLast ? "none" : `1px solid ${tokens.border}` }}
+    >
+      <div className="flex items-center gap-2 text-[11.5px]">
+        <span className="font-mono shrink-0" style={{ color: tokens.fgSubtle, minWidth: 64 }}>{time}</span>
+        <span className="font-medium shrink-0" style={{ color: stageColor, minWidth: 130 }}>{entry.stage}</span>
+        <span className="font-mono truncate" style={{ color: tokens.fgMuted }}>{detail}</span>
+      </div>
+      {entry.error && (
+        <div
+          className="text-[11px] font-mono pl-[200px] pr-2"
+          style={{ color: "var(--color-warning)", wordBreak: "break-word" }}
+        >
+          {entry.error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatBytes(b: number): string {
+  if (b < 1024) return `${b}B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)}KB`;
+  return `${(b / 1024 / 1024).toFixed(2)}MB`;
 }

@@ -3279,6 +3279,21 @@ git commit -m "docs(ultravox): cross-app paste matrix v1"
 
 ---
 
+## Reference notes / future work TODOs
+
+### Superwhisper architecture comparison — `docs/research/superwhisper-architecture.md`
+
+Notes from inspecting the Superwhisper 2.13.2 binary (no source), captured 2026-05-06. Use this as the primary reference for:
+
+- [ ] **Discard-confirm state** in the pill (`recording → confirmingDiscard → recording|idle`). Superwhisper rebinds the pill's key hints in this state and pauses the audio engine instead of stopping it. Adapt: add the state to `PillState`, swap the waveform area for a "Discard recording?" body, rebind footer hints to ⏎ / Space, call `MediaRecorder.pause()` / `resume()`. ~30 lines.
+- [ ] **Push-to-talk timing guards** when implementing PTT for real: 500ms min hold (different shortcut), 1s min hold (same shortcut), to suppress accidental tap-and-release.
+- [ ] **`text_input_format` per app** in the auto-mode catalog — Superwhisper tags each app with the kind of text it expects (`password`, `audio_metadata`, `design_parameters`, `configuration_settings`, `file_path`) and primes cleanup differently. v1.1+ enrichment for `apps.json`.
+- [ ] **Multiple sound variants** (Start1-4.m4a, Stop1-4.m4a, noResult1-3.m4a) rotated to reduce repetition fatigue. Single chime is fine for v1; revisit if users find repetition annoying.
+- [ ] **Decoupled UI state ↔ audio state.** Even with a single React state enum, treat `MediaRecorder` ops as orthogonal to React rendering; never block render on audio operations.
+- [ ] **Cascading panels** for the mode picker (hover-detail, delete-confirm) — Superwhisper uses sibling `NSPanel`s anchored to the parent. Tauri can do this with multiple windows but the synchronization overhead is real; defer until in-pill submenu hits a usability ceiling.
+
+---
+
 ## Estimated calendar
 
 Allowing for buffer + iteration:

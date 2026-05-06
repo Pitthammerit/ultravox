@@ -12,6 +12,7 @@ import { appendHistory, loadSettings, saveSettings, type AppSettings } from "../
 import { pickAutoMode } from "../lib/autoMode";
 import { invoke } from "@tauri-apps/api/core";
 import { captureError, track } from "../lib/telemetry";
+import { logDebug } from "../lib/debugLog";
 import { playStartChime, playStopChime } from "../lib/chime";
 
 type PillState = "idle" | "recording" | "transcribing" | "error";
@@ -200,11 +201,15 @@ export default function PillWindow() {
         // Brief delay so the pill window fully hides and macOS restores focus to the target app.
         await new Promise<void>((r) => setTimeout(r, 120));
         try {
-          console.log("[pill] calling pasteToFrontmost, text length:", result.text.length);
+          const pasteStart = performance.now();
           await pasteToFrontmost(result.text);
-          console.log("[pill] pasteToFrontmost returned");
+          logDebug("paste", {
+            textLength: result.text.length,
+            durationMs: Math.round(performance.now() - pasteStart),
+          });
         } catch (pasteErr) {
           captureError(pasteErr, { stage: "paste" });
+          logDebug("paste", { error: String((pasteErr as Error).message ?? pasteErr), textLength: result.text.length });
           showError(`Paste failed: ${(pasteErr as Error).message ?? pasteErr} — Accessibility access likely denied.`);
           return;
         }

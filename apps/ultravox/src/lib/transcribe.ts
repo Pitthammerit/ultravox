@@ -1,6 +1,7 @@
 import { buildHintString, getReplacePairs } from "./voiceVocabulary";
 import type { VocabularyEntry } from "./voiceVocabulary";
 import type { VoiceMode } from "./voiceModes";
+import { logDebug } from "./debugLog";
 
 export type { VocabularyEntry };
 
@@ -32,12 +33,15 @@ function deriveApiBase(tokenEndpoint: string): string {
 }
 
 async function fetchToken(endpoint: string): Promise<{ token: string; apiUrl: string }> {
-  console.log("[transcribe] fetching token from", endpoint);
+  const t0 = performance.now();
   const res = await fetch(endpoint);
-  console.log("[transcribe] token response status:", res.status);
   const data = (await res.json()) as TokenResponse;
-  if (!res.ok || !data.ok) throw new Error(data.error ?? `token endpoint ${res.status}`);
-  console.log("[transcribe] token ok, expiresIn:", data.expiresIn);
+  const durationMs = Math.round(performance.now() - t0);
+  if (!res.ok || !data.ok) {
+    logDebug("transcribe-token", { status: res.status, durationMs, error: data.error ?? `HTTP ${res.status}` });
+    throw new Error(data.error ?? `token endpoint ${res.status}`);
+  }
+  logDebug("transcribe-token", { status: res.status, durationMs });
   return { token: data.token, apiUrl: deriveApiBase(endpoint) };
 }
 
@@ -77,21 +81,32 @@ export async function transcribe(
     fd.append("vocabularyReplacements", JSON.stringify(replacements));
   }
 
-  console.log("[transcribe] POST", `${apiUrl}${endpoint}`, "blob:", blob.size, blob.type, "cleanup:", cleanup);
+  const postStart = performance.now();
+  logDebug("transcribe-post", {
+    mime: blob.type,
+    bytes: blob.size,
+    modeId: opts.mode.id,
+    message: `${endpoint} (${cleanup})`,
+  });
   const res = await fetch(`${apiUrl}${endpoint}`, {
     method: "POST",
     body: fd,
     headers: { Authorization: `Bearer ${token}` },
   });
-  console.log("[transcribe] response status:", res.status);
+  const durationMs = Math.round(performance.now() - postStart);
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error("[transcribe] error body:", errText);
+    logDebug("transcribe-result", {
+      status: res.status,
+      durationMs,
+      error: errText.slice(0, 240),
+    });
     throw new Error(`voice worker ${res.status}: ${errText.slice(0, 200)}`);
   }
 
   const data = (await res.json()) as { text?: string };
-  console.log("[transcribe] returned text length:", (data.text ?? "").length);
-  return { text: data.text ?? "" };
+  const text = data.text ?? "";
+  logDebug("transcribe-result", { status: res.status, durationMs, textLength: text.length });
+  return { text };
 }
