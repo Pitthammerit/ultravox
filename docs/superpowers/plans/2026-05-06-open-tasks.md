@@ -381,6 +381,37 @@ For reference only; tracked in `docs/implementation-plan.md` "Reference notes / 
 
 ---
 
+## Subagent model assignment
+
+Per the systematic-debugging skill: match the implementer model to task complexity. Cheap models for mechanical work, capable models for cross-file/cross-language work, reserve the top tier for genuine architectural escalations.
+
+| Task | Implementer model | If iteration #1 fails |
+|---|---|---|
+| T1  | inline (no agent) | — |
+| T9  | **Haiku 4.5** | retry Haiku once, then Sonnet 4.6 |
+| T11 | **Sonnet 4.6** | Opus 4.7 (Rust + objc2 unsafe) |
+| T3  | **Haiku 4.5** | retry Haiku once |
+| T2  | **Sonnet 4.6** | Opus 4.7 (state machine, easy to miss transitions) |
+| T10 | **Sonnet 4.6** | Sonnet retry, then Opus 4.7 |
+| T12 | **Sonnet 4.6** | Sonnet retry — visual polish, judgment-heavy |
+| T13 | **Haiku 4.5** | Sonnet 4.6 |
+| T4  | **Sonnet 4.6** | **Opus 4.7** (cross-language state, hardest in list) |
+| T5  | **Haiku 4.5** | Sonnet 4.6 |
+| T6  | **Sonnet 4.6** | Sonnet retry — config-heavy plugin install |
+| T7  | **Sonnet 4.6** | Opus 4.7 (Apple notarization is a minefield) |
+| T8  | **Haiku 4.5** | — |
+
+**Reviewer models:** the systematic-debugging skill uses two-stage review (spec compliance, then code quality). For both reviewers across all tasks: **Sonnet 4.6**. Reviewers need pattern matching across the spec + code, which Haiku can do but misses subtleties; Opus is overkill for review.
+
+**Distribution if we run all 13 tasks once with no iterations:**
+- Haiku 4.5: 5 implementer dispatches (T9, T3, T13, T5, T8)
+- Sonnet 4.6: 7 implementer dispatches + 26 reviewer dispatches (T11, T2, T10, T12, T4, T6, T7 implementers + 2 reviewers × 13 tasks)
+- Opus 4.7: 0 unless escalation triggers
+
+Realistic with one iteration on T2 and T4: +2 Sonnet dispatches, possibly +1 Opus on T4. Still no need for Opus on the rest.
+
+---
+
 ## Dispatch sequence (recommended)
 
 ```
