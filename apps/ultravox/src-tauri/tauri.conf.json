@@ -74,5 +74,13 @@
     "category": "Productivity",
     "shortDescription": "Voice dictation companion for macOS",
     "longDescription": "Dictate into any focused text field with a global hotkey."
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/Pitthammerit/ultravox/releases/latest/download/latest.json"
+      ],
+      "pubkey": "PLACEHOLDER_REPLACE_WITH_REAL_PUBKEY"
+    }
   }
 }
