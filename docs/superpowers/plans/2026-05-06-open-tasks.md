@@ -14,7 +14,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ## P0 — UX & correctness gaps from this session
 
-### T1. Fix stale "Coming in v1.1" subtitles
+### ~~T1. Fix stale "Coming in v1.1" subtitles~~ ✓ DONE
 
 **Why:** `HistoryPanel.tsx` is fully implemented (129 lines, real list + clear button) but `HomePanel.tsx` still shows "Coming in v1.1" under the History nav card. The label lies to the user.
 
@@ -30,7 +30,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T2. Discard-confirm state in the pill
+### ~~T2. Discard-confirm state in the pill~~ ✓ DONE
 
 **Why:** Esc during recording currently throws away the recording with no second chance — easy to lose work to a hand-twitch. Superwhisper's pattern (documented in `docs/research/superwhisper-architecture.md`) is to enter a `confirmingDiscard` state instead, pause the audio engine, swap the pill body for a prompt, and rebind the footer hints.
 
@@ -60,7 +60,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T3. Capture frontmost-app at paste time in the diagnostic log
+### ~~T3. Capture frontmost-app at paste time in the diagnostic log~~ ✓ DONE
 
 **Why:** When paste went to the wrong window earlier today, we had no record of which app actually received Cmd+V. Capturing it gives one-glance diagnosis on the next paste-misroute incident.
 
@@ -89,7 +89,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T9. Stop the system from ducking other audio while recording
+### ~~T9. Stop the system from ducking other audio while recording~~ ✓ DONE
 
 **Why:** Reported during testing — background music (Spotify/Music/browser audio) gets quieter while Ultravox is recording, and tracks the user's voice volume. Cause is `getUserMedia({ echoCancellation: true })` in [useMicStream.ts:17](apps/ultravox/src/hooks/useMicStream.ts:17): on macOS WebKit, enabling echo cancellation switches the audio engine into Apple's Voice Processing AudioUnit (VPIO) — the same mode Zoom uses for calls — which ducks all other audio so "the call" comes through clearer. Dictation has no echo to cancel (no speaker output feeding back into the mic), so the constraint is purchasing a UX bug for zero benefit.
 
@@ -118,7 +118,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T10. "Pause media while recording" toggle
+### ~~T10. "Pause media while recording" toggle~~ ✓ DONE
 
 **Why:** Common dictation app feature (Wispr Flow, Superwhisper). User wants the option to have Music/Spotify pause when a recording starts and resume when it ends. Independent of T9 (T9 stops ducking; T10 stops the music entirely).
 
@@ -153,7 +153,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ## P1 — v1 distribution & feature completeness
 
-### T4. Push-to-talk: make the toggle do something
+### ~~T4. Push-to-talk: make the toggle do something~~ ✓ DONE
 
 **Why:** The Home panel exposes a "Push-to-talk" toggle (`settings.recordingStyle === "push-to-talk"`) but the global-shortcut handler only fires on `ShortcutState::Pressed`. Toggle does nothing today — false signal to the user.
 
@@ -186,7 +186,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T5. Push-to-talk timing guards
+### ~~T5. Push-to-talk timing guards~~ ✓ DONE
 
 **Why:** Per Superwhisper's PTT debug strings (documented in `docs/research/superwhisper-architecture.md`), accidental tap-and-release of modifier-heavy shortcuts is common. Without a hold-time minimum, PTT records 50ms blips of nothing.
 
@@ -210,7 +210,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T11. Pill visible on fullscreen Spaces
+### ~~T11. Pill visible on fullscreen Spaces~~ ✓ DONE
 
 **Why:** macOS treats every fullscreen app as its own Space. A regular `alwaysOnTop` window does NOT appear over a fullscreen-mode app — Final Cut, presentations, fullscreen Safari, etc. all hide the pill, breaking dictation in exactly the contexts where users most need it. This is a NSWindow `collectionBehavior` configuration miss, not a layout bug.
 
@@ -239,7 +239,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T12. Minimized pill variant
+### ~~T12. Minimized pill variant~~ ✓ DONE
 
 **Why:** The current pill is 540×120px with full waveform + status + hint chips — great when the user is paying attention, intrusive when they want to dictate while staying focused on a long video call or a fullscreen editor. Reference visual (user-supplied screenshot): a compact ~140×40px pill with just a small recording-state glyph and a sparse waveform indicator. The user wants a **toggle** to switch between full and mini, plus a setting for the default.
 
@@ -303,7 +303,7 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T6. Auto-updater (`tauri-plugin-updater` + GitHub Releases appcast)
+### ~~T6. Auto-updater (`tauri-plugin-updater` + GitHub Releases appcast)~~ ✓ DONE
 
 **Why:** v1 needs in-app update notifications. Without this, every fix requires telling users to manually re-download. Implementation plan calls for it (Phase 15) but Cargo.toml doesn't include the plugin yet.
 
