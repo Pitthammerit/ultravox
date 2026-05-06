@@ -67,7 +67,7 @@ export default function SettingsWindow() {
 
   return (
     <main
-      className="min-h-screen flex flex-col"
+      className="h-screen flex flex-col overflow-hidden"
       style={{ background: tokens.page, color: tokens.fg }}
     >
       <PageHeader

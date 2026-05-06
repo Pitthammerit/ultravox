@@ -50,3 +50,10 @@
   outline: 2px solid var(--color-ink-30);
   outline-offset: 1px;
 }
+
+/* Prevent white flash in the titleBarStyle:Overlay area */
+html, body, #root {
+  background: var(--s-page);
+  height: 100%;
+  margin: 0;
+}

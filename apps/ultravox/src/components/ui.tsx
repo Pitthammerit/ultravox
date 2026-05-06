@@ -39,9 +39,10 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
   return (
     <header
       data-tauri-drag-region
-      className="flex items-center justify-between border-b"
+      className="flex items-center justify-between border-b shrink-0"
       style={{
         borderColor: T.border,
+        background: T.page,
         paddingTop: 10,
         paddingBottom: 8,
         paddingLeft: 80,
@@ -59,14 +60,12 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
             ‹
           </button>
         )}
-        {breadcrumb && (
-          <span
-            className="text-[12px]"
-            style={{ color: T.fgMuted }}
-          >
-            {breadcrumb}
-          </span>
-        )}
+        <span
+          className={breadcrumb ? "text-[12px]" : "text-[13px] font-medium"}
+          style={{ color: breadcrumb ? T.fgMuted : T.fg }}
+        >
+          {breadcrumb ?? "Ultravox"}
+        </span>
       </div>
       {right && <div>{right}</div>}
     </header>

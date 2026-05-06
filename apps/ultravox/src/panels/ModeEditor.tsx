@@ -64,10 +64,16 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
     const next = exists
       ? settings.modes.map((m) => (m.id === draft.id ? draft : m))
       : [...settings.modes, draft];
-    await onChange({ modes: next });
+    const patch: Partial<AppSettings> = { modes: next };
+    if (!exists) patch.activeModeId = draft.id;
+    await onChange(patch);
   };
 
   const remove = async () => {
+    if (isNew) {
+      await onChange({ activeModeId: settings.modes[0]!.id });
+      return;
+    }
     if (settings.modes.length <= 1) {
       alert("Can't delete the last mode.");
       return;
@@ -126,31 +132,29 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
             />
           }
         />
-        <Field
-          label="Provider"
-          help={
-            usesCleanup
-              ? "Cleanup LLM provider"
-              : "Cleanup is disabled — raw Whisper output is used"
-          }
-          control={
-            <Select<LanguageModelProvider>
-              value={draft.languageModelProvider}
-              onChange={(languageModelProvider) =>
-                setDraft({
-                  ...draft,
-                  languageModelProvider,
-                  languageModel:
-                    LANGUAGE_MODELS[languageModelProvider]?.[0]?.id ?? null,
-                })
-              }
-              options={LANGUAGE_MODEL_PROVIDERS.map((p) => ({
-                id: p.id,
-                label: p.label,
-              }))}
-            />
-          }
-        />
+        {draft.cleanup !== "raw" && (
+          <Field
+            label="Provider"
+            help="Cleanup LLM provider"
+            control={
+              <Select<LanguageModelProvider>
+                value={draft.languageModelProvider}
+                onChange={(languageModelProvider) =>
+                  setDraft({
+                    ...draft,
+                    languageModelProvider,
+                    languageModel:
+                      LANGUAGE_MODELS[languageModelProvider]?.[0]?.id ?? null,
+                  })
+                }
+                options={LANGUAGE_MODEL_PROVIDERS.map((p) => ({
+                  id: p.id,
+                  label: p.label,
+                }))}
+              />
+            }
+          />
+        )}
         {usesCleanup && providerModels.length > 0 && (
           <Field
             label="Model"
