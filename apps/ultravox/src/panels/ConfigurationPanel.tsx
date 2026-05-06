@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import type { AppSettings } from "../lib/store-bridge";
-import { applyTheme, type ThemeChoice } from "@ultravox/design-system";
+import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
-import { Button, Row, Section, Segmented } from "../components/ui";
-import { HotkeyRecorder } from "../components/HotkeyRecorder";
+import { Button, Row, Section } from "../components/ui";
 import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission } from "../lib/tauri-bridge";
 
 interface ConfigurationPanelProps {
-  settings: AppSettings;
-  onChange: (patch: Partial<AppSettings>) => Promise<void>;
+  /* Kept for API compatibility — settings are no longer rendered here. */
+  settings?: AppSettings;
+  onChange?: (patch: Partial<AppSettings>) => Promise<void>;
 }
 
-export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
+export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
   const [axGranted, setAxGranted] = useState<boolean | null>(null);
   const [axRequesting, setAxRequesting] = useState(false);
   const [resetConfirming, setResetConfirming] = useState(false);
@@ -34,44 +34,6 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
     const granted = await checkAccessibilityPermission().catch(() => false);
     setAxGranted(granted);
   }, []);
-  const appearance: "light" | "dark" | "auto" =
-    settings.theme === "auto"
-      ? "auto"
-      : settings.theme === "light"
-      ? "light"
-      : "dark";
-  const darkVariant: "ocean" | "night" =
-    settings.theme === "dark-night" ? "night" : "ocean";
-
-  const setAppearance = async (next: "light" | "dark" | "auto") => {
-    let theme: ThemeChoice;
-    if (next === "light") theme = "light";
-    else if (next === "auto") theme = "auto";
-    else theme = darkVariant === "night" ? "dark-night" : "dark-ocean";
-    await onChange({ theme });
-    applyTheme(theme);
-  };
-
-  const setDarkVariant = async (next: "ocean" | "night") => {
-    const theme: ThemeChoice = next === "night" ? "dark-night" : "dark-ocean";
-    await onChange({ theme });
-    applyTheme(theme);
-  };
-
-  const recordDup =
-    settings.hotkeyRecord !== "" &&
-    settings.hotkeyRecord === settings.hotkeyModeOverlay;
-
-  const updateHotkey = async (key: "hotkeyRecord" | "hotkeyModeOverlay", v: string) => {
-    const next = { ...settings, [key]: v };
-    await onChange({ [key]: v });
-    // Re-register globally so the new combo takes effect immediately.
-    try {
-      await registerHotkeys(next.hotkeyRecord, next.hotkeyModeOverlay);
-    } catch (e) {
-      console.warn("hotkey register failed:", e);
-    }
-  };
 
   const reset = async () => {
     if (!resetConfirming) {
@@ -94,64 +56,6 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
 
   return (
     <>
-      <Section label="Appearance">
-        <Row
-          label="Theme"
-          control={
-            <Segmented<"light" | "dark" | "auto">
-              options={[
-                { id: "light", label: "Light" },
-                { id: "dark", label: "Dark" },
-                { id: "auto", label: "Auto" },
-              ]}
-              value={appearance}
-              onChange={setAppearance}
-            />
-          }
-        />
-        {appearance !== "light" && (
-          <Row
-            label="Dark variant"
-            control={
-              <Segmented<"ocean" | "night">
-                options={[
-                  { id: "ocean", label: "Ocean" },
-                  { id: "night", label: "Night" },
-                ]}
-                value={darkVariant}
-                onChange={setDarkVariant}
-              />
-            }
-          />
-        )}
-      </Section>
-
-      <Section
-        label="Shortcuts"
-        help="Click a chip to record a new combo. Esc cancels, Backspace clears."
-      >
-        <Row
-          label="Record toggle"
-          control={
-            <HotkeyRecorder
-              value={settings.hotkeyRecord}
-              onChange={(v) => updateHotkey("hotkeyRecord", v)}
-              error={recordDup}
-            />
-          }
-        />
-        <Row
-          label="Mode switcher"
-          control={
-            <HotkeyRecorder
-              value={settings.hotkeyModeOverlay}
-              onChange={(v) => updateHotkey("hotkeyModeOverlay", v)}
-              error={recordDup}
-            />
-          }
-        />
-      </Section>
-
       <Section
         label="Permissions"
         help="Required for Ultravox to paste transcriptions into other apps."
