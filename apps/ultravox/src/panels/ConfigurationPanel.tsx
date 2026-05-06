@@ -201,7 +201,7 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
               variant="outline"
               size="xs"
               onClick={reset}
-              style={resetConfirming ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : undefined}
+              style={resetConfirming ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : {}}
             >
               {resetConfirming ? "Click again to confirm" : "Reset"}
             </Button>

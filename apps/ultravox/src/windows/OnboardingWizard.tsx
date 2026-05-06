@@ -126,7 +126,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
               status={axStatus}
               grantedLabel="Access granted"
               deniedLabel={
-                axStatus === "idle" && axStatus !== "granted"
+                axStatus === "idle"
                   ? "Enable Ultravox in the list that just opened, then click Refresh below."
                   : "Not yet granted"
               }
