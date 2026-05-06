@@ -203,6 +203,7 @@ export default function PillWindow() {
 
   const stopAndTranscribe = useCallback(async () => {
     console.log("[pill] stopAndTranscribe begin");
+    setShowModelPicker(false);
     setState("transcribing");
     if (settings?.sound.chime) playStopChime(settings.sound.chimeVolume);
     if (settings?.sound.pauseMediaWhileRecording) mediaResume().catch(() => {});
@@ -268,7 +269,7 @@ export default function PillWindow() {
   useEffect(() => {
     if (state !== "recording") return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); recorder.pause(); setState("confirming-discard"); }
+      if (e.key === "Escape") { e.preventDefault(); setShowModelPicker(false); recorder.pause(); setState("confirming-discard"); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -372,9 +373,8 @@ export default function PillWindow() {
       >
         {/* Waveform / drag region — replaced by error text, discard prompt, or model picker */}
         {showModelPicker ? (
-          <div className="absolute inset-0 flex flex-col justify-end pb-0" style={{ zIndex: 10 }}>
+          <div ref={modelPickerRef} className="absolute inset-0 flex flex-col justify-end pb-0" style={{ zIndex: 10 }}>
             <div
-              ref={modelPickerRef}
               className="mx-2 mb-1 rounded-[10px] overflow-hidden"
               style={{ background: "var(--pill-footer)", border: "1px solid var(--pill-border)" }}
             >
