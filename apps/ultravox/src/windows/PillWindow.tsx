@@ -422,7 +422,7 @@ export default function PillWindow() {
               className="mx-2 mb-1 rounded-[10px] overflow-hidden"
               style={{ background: "var(--pill-footer)", border: "1px solid var(--pill-border)" }}
             >
-              {LANGUAGE_MODELS.openrouter.map((m) => {
+              {(LANGUAGE_MODELS.openrouter ?? []).map((m) => {
                 const isActive = (modelOverride ?? mode.languageModel) === m.id;
                 return (
                   <button
@@ -534,7 +534,7 @@ export default function PillWindow() {
             </span>
             {modelOverride && (
               <span className="text-[10px] px-1 rounded shrink-0" style={{ background: "var(--color-accent)", color: "var(--color-primary-on-dark)" }}>
-                {LANGUAGE_MODELS.openrouter.find(m => m.id === modelOverride)?.label?.split(' ').slice(0, 2).join(' ')}
+                {(LANGUAGE_MODELS.openrouter ?? []).find(m => m.id === modelOverride)?.label?.split(' ').slice(0, 2).join(' ')}
               </span>
             )}
           </button>
