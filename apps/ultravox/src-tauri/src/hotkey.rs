@@ -133,17 +133,23 @@ fn register_hotkeys_inner<R: Runtime>(
 
     let app_a = app.clone();
     gs.on_shortcut(record_shortcut, move |_app, _shortcut, event| {
-        if event.state() == ShortcutState::Pressed {
-            // Show the pill window WITHOUT stealing focus so the user's active
-            // app stays frontmost. alwaysOnTop keeps the pill visible on top.
-            // Keeping the previous app focused means Cmd+V paste lands there
-            // correctly once transcription finishes.
-            // getUserMedia works fine from a non-focused window once macOS has
-            // granted the microphone permission.
-            if let Some(win) = app_a.get_webview_window("pill") {
-                let _ = win.show();
+        match event.state() {
+            ShortcutState::Pressed => {
+                // Show the pill window WITHOUT stealing focus so the user's active
+                // app stays frontmost. alwaysOnTop keeps the pill visible on top.
+                // Keeping the previous app focused means Cmd+V paste lands there
+                // correctly once transcription finishes.
+                // getUserMedia works fine from a non-focused window once macOS has
+                // granted the microphone permission.
+                if let Some(win) = app_a.get_webview_window("pill") {
+                    let _ = win.show();
+                }
+                let _ = app_a.emit("hotkey:toggle-record", ());
+                let _ = app_a.emit("hotkey:ptt-pressed", ());
             }
-            let _ = app_a.emit("hotkey:toggle-record", ());
+            ShortcutState::Released => {
+                let _ = app_a.emit("hotkey:ptt-released", ());
+            }
         }
     })
     .map_err(|e| e.to_string())?;

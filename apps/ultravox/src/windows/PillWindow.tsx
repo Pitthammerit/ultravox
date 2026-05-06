@@ -265,6 +265,25 @@ export default function PillWindow() {
     }, [state, startRecord, stopAndTranscribe, recorder]),
   );
 
+  /* ── PTT: key-down → start recording ───────────────────────── */
+  useHotkeyEvent(
+    "hotkey:ptt-pressed",
+    useCallback(() => {
+      if (settings?.recordingStyle !== "push-to-talk") return;
+      if (state === "idle") startRecord();
+    }, [settings, state, startRecord]),
+  );
+
+  /* ── PTT: key-up → stop and transcribe ─────────────────────── */
+  useHotkeyEvent(
+    "hotkey:ptt-released",
+    useCallback(() => {
+      if (settings?.recordingStyle !== "push-to-talk") return;
+      if (state === "recording") stopAndTranscribe();
+      else if (state === "confirming-discard") { recorder.resume(); stopAndTranscribe(); }
+    }, [settings, state, stopAndTranscribe, recorder]),
+  );
+
   /* ── Esc during recording → confirming-discard ─────────────── */
   useEffect(() => {
     if (state !== "recording") return;
@@ -588,4 +607,3 @@ function HintRow({ label, keys }: { label: string; keys: string[] }) {
     </div>
   );
 }
-
