@@ -62,6 +62,7 @@ export default function PillWindow() {
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [modelOverride, setModelOverride] = useState<string | null>(null);
   const [showModelPicker, setShowModelPicker] = useState(false);
+  const [transcribePhase, setTranscribePhase] = useState<"transcribing" | "cleaning">("transcribing");
   const modelPickerRef = useRef<HTMLDivElement>(null);
   const pttPressedAtRef = useRef<number | null>(null);
 
@@ -208,6 +209,7 @@ export default function PillWindow() {
   const stopAndTranscribe = useCallback(async () => {
     console.log("[pill] stopAndTranscribe begin");
     setShowModelPicker(false);
+    setTranscribePhase("transcribing");
     setState("transcribing");
     if (settings?.sound.chime) playStopChime(settings.sound.chimeVolume);
     if (settings?.sound.pauseMediaWhileRecording) mediaResume().catch(() => {});
@@ -222,7 +224,12 @@ export default function PillWindow() {
       const frontmost = await getFrontmostApp();
       console.log("[pill] frontmost app:", frontmost);
       const effectiveMode = modelOverride ? { ...mode, languageModel: modelOverride } : mode;
-      const result = await transcribe(blob, { mode: effectiveMode, vocabulary: settings?.vocabulary ?? [], tokenEndpoint: TOKEN_ENDPOINT });
+      const result = await transcribe(blob, {
+        mode: effectiveMode,
+        vocabulary: settings?.vocabulary ?? [],
+        tokenEndpoint: TOKEN_ENDPOINT,
+        onProgress: (phase) => setTranscribePhase(phase),
+      });
       console.log("[pill] transcribe result.text length:", result.text.length);
       track("transcription.completed", { modeId: mode.id, length: result.text.length });
       setModelOverride(null);
@@ -420,12 +427,13 @@ export default function PillWindow() {
                 return (
                   <button
                     key={m.id}
-                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:opacity-80 transition-opacity"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:opacity-80 transition-opacity"
                     style={{ background: "none", border: "none", cursor: "pointer" }}
                     onClick={() => { setModelOverride(m.id === mode.languageModel ? null : m.id); setShowModelPicker(false); }}
                   >
-                    <span className="text-[12px]" style={{ color: "var(--pill-fg)" }}>{m.label}</span>
-                    {isActive && <span className="text-[11px]" style={{ color: "var(--color-accent)" }}>✓</span>}
+                    <span className="text-[12px] flex-1" style={{ color: "var(--pill-fg)" }}>{m.label}</span>
+                    <span className="text-[10px] shrink-0" style={{ color: "var(--pill-fg-subtle, var(--pill-fg-muted))" }}>{m.speed}</span>
+                    {isActive && <span className="text-[11px] shrink-0" style={{ color: "var(--color-accent)" }}>✓</span>}
                   </button>
                 );
               })}
@@ -452,6 +460,19 @@ export default function PillWindow() {
           >
             <span className="text-[13px]" style={{ color: "var(--pill-fg)" }}>
               Discard recording?
+            </span>
+          </div>
+        ) : state === "transcribing" ? (
+          <div
+            data-tauri-drag-region
+            className="w-full flex flex-col items-center justify-center gap-1 px-4"
+            style={{ height: WAVE_H, cursor: "grab" }}
+          >
+            <span className="text-[13px] font-medium" style={{ color: "var(--pill-fg)" }}>
+              {transcribePhase === "cleaning" ? "Cleaning up…" : "Transcribing…"}
+            </span>
+            <span className="text-[11px] text-center" style={{ color: "var(--pill-fg-muted)" }}>
+              Point cursor where you want to paste.
             </span>
           </div>
         ) : (
@@ -523,7 +544,9 @@ export default function PillWindow() {
             {state === "confirming-discard" && <HintRow label="Discard" keys={["⏎"]} />}
             {state === "confirming-discard" && <HintRow label="Continue" keys={["Space"]} />}
             {state === "transcribing" && (
-              <span className="text-[11px]" style={{ color: "var(--pill-fg-subtle)" }}>Processing…</span>
+              <span className="text-[11px]" style={{ color: "var(--pill-fg-muted)" }}>
+                {transcribePhase === "cleaning" ? "Cleaning up…" : "Transcribing…"}
+              </span>
             )}
             {state === "error" && (
               <HintRow label="Dismiss" keys={["⎋"]} />

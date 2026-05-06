@@ -22,26 +22,37 @@ const baseMode: VoiceMode = {
 };
 
 describe("transcribe", () => {
-  it("fetches token then POSTs to /v1/audio/clean for prose cleanup", async () => {
+  it("fetches token, POSTs to /v1/audio/transcriptions then /v1/audio/clean for prose cleanup", async () => {
+    const phases: string[] = [];
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      // Phase 1: Whisper
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw hello" }) })
+      // Phase 2: LLM cleanup
       .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "hello world" }) });
 
     const result = await transcribe(blob, {
       mode: baseMode,
       vocabulary: [],
       tokenEndpoint: "/api/voice/token",
+      onProgress: (p) => phases.push(p),
     });
 
     expect(result.text).toBe("hello world");
+    expect(phases).toEqual(["transcribing", "cleaning"]);
     expect(fetchMock).toHaveBeenCalledWith("/api/voice/token");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/v1/audio/transcriptions"),
+      expect.any(Object),
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/v1/audio/clean"),
       expect.any(Object),
     );
   });
 
-  it("POSTs to /v1/audio/transcriptions for raw cleanup", async () => {
+  it("POSTs to /v1/audio/transcriptions only for raw cleanup", async () => {
+    const phases: string[] = [];
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw text" }) });
@@ -50,9 +61,12 @@ describe("transcribe", () => {
       mode: { ...baseMode, cleanup: "raw" },
       vocabulary: [],
       tokenEndpoint: "/api/voice/token",
+      onProgress: (p) => phases.push(p),
     });
 
     expect(result.text).toBe("raw text");
+    expect(phases).toEqual(["transcribing"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // token + whisper only
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/v1/audio/transcriptions"),
       expect.any(Object),
@@ -71,10 +85,21 @@ describe("transcribe", () => {
     ).rejects.toThrow("service unavailable");
   });
 
-  it("throws on non-ok worker response", async () => {
+  it("throws on non-ok whisper response", async () => {
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
       .mockResolvedValueOnce({ ok: false, status: 500, text: async () => "oops" });
+
+    await expect(
+      transcribe(blob, { mode: baseMode, vocabulary: [], tokenEndpoint: "/api/voice/token" }),
+    ).rejects.toThrow("voice worker 500");
+  });
+
+  it("throws on non-ok cleanup response", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw" }) })
+      .mockResolvedValueOnce({ ok: false, status: 500, text: async () => "cleanup error" });
 
     await expect(
       transcribe(blob, { mode: baseMode, vocabulary: [], tokenEndpoint: "/api/voice/token" }),
