@@ -26,7 +26,7 @@ const T = {
 export const tokens = T;
 
 /* ─────────────────────────────────────────────────────────────
-   PAGE HEADER  (italic-serif Settings + breadcrumb + back chevron)
+   PAGE HEADER  (drag region with traffic-light clearance + breadcrumb)
    ───────────────────────────────────────────────────────────── */
 
 interface PageHeaderProps {
@@ -38,33 +38,35 @@ interface PageHeaderProps {
 export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
   return (
     <header
-      className="flex items-center justify-between px-5 pt-4 pb-3 border-b"
-      style={{ borderColor: T.border }}
+      data-tauri-drag-region
+      className="flex items-center justify-between border-b"
+      style={{
+        borderColor: T.border,
+        paddingTop: 10,
+        paddingBottom: 8,
+        paddingLeft: 80,
+        paddingRight: 16,
+      }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {onBack && (
           <button
             onClick={onBack}
             aria-label="Back"
-            className="text-[18px] leading-none -ml-0.5 px-1.5 py-1 rounded-md hover:bg-[var(--s-control)] transition-colors"
-            style={{ color: T.fg }}
+            className="text-[16px] leading-none px-1 py-0.5 rounded-md hover:bg-[var(--s-control)] transition-colors"
+            style={{ color: T.fgMuted }}
           >
             ‹
           </button>
         )}
-        <div className="flex items-baseline gap-2">
-          <h1
-            className="text-[22px] leading-none italic"
-            style={{ fontFamily: "var(--font-secondary)", color: T.fg }}
+        {breadcrumb && (
+          <span
+            className="text-[12px]"
+            style={{ color: T.fgMuted }}
           >
-            Settings
-          </h1>
-          {breadcrumb && (
-            <span className="text-[12px]" style={{ color: T.fgMuted }}>
-              / {breadcrumb}
-            </span>
-          )}
-        </div>
+            {breadcrumb}
+          </span>
+        )}
       </div>
       {right && <div>{right}</div>}
     </header>
