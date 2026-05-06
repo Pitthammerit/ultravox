@@ -425,12 +425,14 @@ export function Button({
   disabled,
   variant = "outline",
   size = "sm",
+  style: styleProp,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   variant?: "primary" | "outline" | "ghost";
   size?: "sm" | "xs";
+  style?: CSSProperties;
 }) {
   const sizeStyle =
     size === "xs"
@@ -449,7 +451,7 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       className="rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-95"
-      style={{ ...sizeStyle, ...variantStyle, fontWeight: 500 }}
+      style={{ ...sizeStyle, ...variantStyle, fontWeight: 500, ...styleProp }}
     >
       {children}
     </button>

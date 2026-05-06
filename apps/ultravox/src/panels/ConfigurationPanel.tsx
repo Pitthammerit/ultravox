@@ -14,6 +14,7 @@ interface ConfigurationPanelProps {
 export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
   const [axGranted, setAxGranted] = useState<boolean | null>(null);
   const [axRequesting, setAxRequesting] = useState(false);
+  const [resetConfirming, setResetConfirming] = useState(false);
 
   useEffect(() => {
     checkAccessibilityPermission().then(setAxGranted).catch(() => setAxGranted(false));
@@ -73,8 +74,13 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
   };
 
   const reset = async () => {
-    if (!confirm("Reset all settings to defaults? This won't clear your history."))
+    if (!resetConfirming) {
+      setResetConfirming(true);
+      // Auto-cancel after 4 s if the user doesn't confirm.
+      setTimeout(() => setResetConfirming(false), 4000);
       return;
+    }
+    setResetConfirming(false);
     await resetSettings();
     applyTheme(DEFAULT_SETTINGS.theme);
     try {
@@ -83,7 +89,6 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
         DEFAULT_SETTINGS.hotkeyModeOverlay,
       );
     } catch { /* ignore */ }
-    // Force a reload so the React state mirrors disk.
     window.location.reload();
   };
 
@@ -192,8 +197,13 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
           label="Reset to defaults"
           description="Restore all preferences. History is preserved."
           control={
-            <Button variant="outline" size="xs" onClick={reset}>
-              Reset
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={reset}
+              style={resetConfirming ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : undefined}
+            >
+              {resetConfirming ? "Click again to confirm" : "Reset"}
             </Button>
           }
         />
