@@ -81,6 +81,31 @@ function getStore(): LazyStore {
 }
 
 /**
+ * Migrate model IDs that don't exist on OpenRouter to the equivalents that do.
+ * Older builds wrote anthropic/claude-haiku-4-5-20251001 (the dashed Anthropic
+ * SDK form) into the store; OpenRouter only accepts the dotted form. This
+ * runs on every load — no-op once the settings file is clean.
+ */
+const MODEL_ID_MIGRATIONS: Record<string, string> = {
+  "anthropic/claude-haiku-4-5-20251001": "anthropic/claude-haiku-4.5",
+  "anthropic/claude-sonnet-4-6-20251024": "anthropic/claude-sonnet-4.6",
+  "anthropic/claude-opus-4-7-20251030": "anthropic/claude-opus-4.7",
+};
+
+function migrateModes(modes: VoiceMode[]): { modes: VoiceMode[]; changed: boolean } {
+  let changed = false;
+  const next = modes.map((m) => {
+    const target = m.languageModel ? MODEL_ID_MIGRATIONS[m.languageModel] : undefined;
+    if (target) {
+      changed = true;
+      return { ...m, languageModel: target };
+    }
+    return m;
+  });
+  return { modes: next, changed };
+}
+
+/**
  * Merge stored partial settings with DEFAULT_SETTINGS. Deep-merge for nested
  * objects (sound) so older saves missing newer fields still produce a valid
  * AppSettings without nuking user-set values.
@@ -100,7 +125,18 @@ function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): App
 export async function loadSettings(): Promise<AppSettings> {
   const store = getStore();
   const stored = await store.get<Partial<AppSettings>>(SETTINGS_KEY);
-  return mergeWithDefaults(stored ?? null);
+  const merged = mergeWithDefaults(stored ?? null);
+  // One-time data migration: rewrite any obsolete model IDs to current ones,
+  // then persist so the next read is a no-op.
+  const { modes, changed } = migrateModes(merged.modes);
+  if (changed) {
+    const next = { ...merged, modes };
+    await store.set(SETTINGS_KEY, next);
+    await store.save();
+    console.log("[store-bridge] migrated obsolete model IDs in stored modes");
+    return next;
+  }
+  return merged;
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
