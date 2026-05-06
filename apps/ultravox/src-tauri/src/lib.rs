@@ -6,6 +6,9 @@ mod tray;
 #[cfg(target_os = "macos")]
 mod frontmost;
 
+#[cfg(target_os = "macos")]
+mod pill_window;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -20,6 +23,8 @@ pub fn run() {
             if let Err(e) = tray::create_tray(app.handle()) {
                 eprintln!("tray creation failed: {e}");
             }
+            #[cfg(target_os = "macos")]
+            pill_window::configure_pill_window(app.handle());
             Ok(())
         });
 
