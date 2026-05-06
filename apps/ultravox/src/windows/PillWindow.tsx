@@ -62,7 +62,6 @@ export default function PillWindow() {
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [modelOverride, setModelOverride] = useState<string | null>(null);
   const [showModelPicker, setShowModelPicker] = useState(false);
-  const [transcribePhase, setTranscribePhase] = useState<"transcribing" | "cleaning">("transcribing");
   const modelPickerRef = useRef<HTMLDivElement>(null);
   const pttPressedAtRef = useRef<number | null>(null);
 
@@ -209,7 +208,6 @@ export default function PillWindow() {
   const stopAndTranscribe = useCallback(async () => {
     console.log("[pill] stopAndTranscribe begin");
     setShowModelPicker(false);
-    setTranscribePhase("transcribing");
     setState("transcribing");
     if (settings?.sound.chime) playStopChime(settings.sound.chimeVolume);
     if (settings?.sound.pauseMediaWhileRecording) mediaResume().catch(() => {});
@@ -228,7 +226,7 @@ export default function PillWindow() {
         mode: effectiveMode,
         vocabulary: settings?.vocabulary ?? [],
         tokenEndpoint: TOKEN_ENDPOINT,
-        onProgress: (phase) => setTranscribePhase(phase),
+        onProgress: () => {},
       });
       console.log("[pill] transcribe result.text length:", result.text.length);
       track("transcription.completed", { modeId: mode.id, length: result.text.length });
@@ -469,7 +467,7 @@ export default function PillWindow() {
             style={{ height: WAVE_H, cursor: "grab" }}
           >
             <span className="text-[13px] font-medium" style={{ color: "var(--pill-fg)" }}>
-              {transcribePhase === "cleaning" ? "Cleaning up…" : "Transcribing…"}
+              {"Transcribing…"}
             </span>
             <span className="text-[11px] text-center" style={{ color: "var(--pill-fg-muted)" }}>
               Point cursor where you want to paste.
@@ -545,7 +543,7 @@ export default function PillWindow() {
             {state === "confirming-discard" && <HintRow label="Continue" keys={["Space"]} />}
             {state === "transcribing" && (
               <span className="text-[11px]" style={{ color: "var(--pill-fg-muted)" }}>
-                {transcribePhase === "cleaning" ? "Cleaning up…" : "Transcribing…"}
+                {"Transcribing…"}
               </span>
             )}
             {state === "error" && (

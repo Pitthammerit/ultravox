@@ -1,13 +1,13 @@
 #[cfg(target_os = "macos")]
-pub fn configure_pill_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+fn configure_overlay<R: tauri::Runtime>(app: &tauri::AppHandle<R>, label: &str) {
     use tauri::Manager;
     use objc2::runtime::AnyObject;
     use objc2::msg_send;
 
-    let win = match app.get_webview_window("pill") {
+    let win = match app.get_webview_window(label) {
         Some(w) => w,
         None => {
-            eprintln!("pill_window: 'pill' window not found");
+            eprintln!("overlay_window: '{label}' window not found");
             return;
         }
     };
@@ -15,7 +15,7 @@ pub fn configure_pill_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let raw_ptr: *mut std::ffi::c_void = match win.ns_window() {
         Ok(ptr) => ptr,
         Err(e) => {
-            eprintln!("pill_window: ns_window() failed: {e}");
+            eprintln!("overlay_window: ns_window() failed for '{label}': {e}");
             return;
         }
     };
@@ -32,4 +32,15 @@ pub fn configure_pill_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     unsafe {
         let _: () = msg_send![&*ns_win, setLevel: 101_i64];
     }
+}
+
+/// Configure all transient overlay windows (pill + mode-overlay) so they
+/// float above fullscreen Spaces and other apps. macOS' `alwaysOnTop` flag
+/// alone does NOT traverse fullscreen Spaces — the underlying NSWindow
+/// needs `canJoinAllSpaces | fullScreenAuxiliary` and a level above the
+/// normal floating-panel level.
+#[cfg(target_os = "macos")]
+pub fn configure_overlay_windows<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    configure_overlay(app, "pill");
+    configure_overlay(app, "mode-overlay");
 }

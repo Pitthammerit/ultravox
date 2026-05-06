@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 mod hotkey;
 mod paste;
 mod permissions;
@@ -27,8 +29,23 @@ pub fn run() {
             if let Err(e) = tray::create_tray(app.handle()) {
                 eprintln!("tray creation failed: {e}");
             }
+
+            // Intercept the red-X close on the Settings window so the tray
+            // icon can reopen it. Without this, macOS Tauri destroys the
+            // window on close and `get_webview_window("settings")` returns
+            // None forever after.
+            if let Some(settings) = app.handle().get_webview_window("settings") {
+                let win = settings.clone();
+                settings.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = win.hide();
+                    }
+                });
+            }
+
             #[cfg(target_os = "macos")]
-            pill_window::configure_pill_window(app.handle());
+            pill_window::configure_overlay_windows(app.handle());
             Ok(())
         });
 

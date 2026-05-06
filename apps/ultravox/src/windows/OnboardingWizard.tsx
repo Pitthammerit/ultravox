@@ -4,33 +4,161 @@ import {
   checkAccessibilityPermission,
   requestAccessibilityPermission,
 } from "../lib/tauri-bridge";
+import { loadSettings, saveSettings } from "../lib/store-bridge";
 
 interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
 type PermStatus = "idle" | "requesting" | "granted" | "denied";
+type Lang = "en" | "de";
+
+const TOTAL_STEPS = 4;
+
+/**
+ * Onboarding always renders in the light theme regardless of the user's
+ * Settings → Theme choice. The wizard is a one-time first-run flow and
+ * benefits from a single, predictable visual treatment.
+ */
+const LIGHT_BG = "#EDE7DC";
+const FG_PRIMARY = "#224160";
+const FG_BODY = "#5A5550";
+const FG_MUTED = "#7696AD";
+const ACCENT = "#2DAD71";
+const WARNING = "#DC2626";
+const SURFACE = "#FFFFFF";
+const SURFACE_BORDER = "color-mix(in srgb, #224160 12%, transparent)";
+const TRACK_INACTIVE = "color-mix(in srgb, #224160 14%, transparent)";
+
+/**
+ * Body copy is hand-tuned to land within ~125–145 characters per page so
+ * the wizard reads with a consistent rhythm. Titles use Cormorant Garamond
+ * (the serif token from the design system) for the launch screen.
+ */
+const COPY: Record<Lang, {
+  welcomeTitle: string;
+  welcomeBody: string;
+  micTitle: string;
+  micBody: string;
+  axTitle: string;
+  axBody: string;
+  doneTitle: string;
+  doneBody: (kbd: React.ReactNode) => React.ReactNode;
+  getStarted: string;
+  continueBtn: string;
+  allowMic: string;
+  allowAx: string;
+  tryAgain: string;
+  skip: string;
+  back: string;
+  refresh: string;
+  open: string;
+  waiting: string;
+  micLabel: string;
+  axLabel: string;
+  granted: string;
+  micDenied: string;
+  axIdleHint: string;
+  axNotGranted: string;
+  awaitingDialog: string;
+}> = {
+  en: {
+    welcomeTitle: `Welcome to ${BRANDING.appName}`,
+    welcomeBody: "Voice-dictate into any text field on your Mac. Press a hotkey, speak, press again — the text appears wherever your cursor is.",
+    micTitle: "Allow microphone access",
+    micBody: "Ultravox records your voice locally and sends only audio to the transcription service. macOS will ask once — click Allow when prompted.",
+    axTitle: "Allow accessibility access",
+    axBody: "Ultravox needs Accessibility permission to paste the transcribed text into any focused app — the same permission DeepL uses for its overlay.",
+    doneTitle: "You're all set",
+    doneBody: (kbd) => (<>Click into any text field — Notes, Mail, a browser — place your cursor, press {kbd} to record, press it again to stop.</>),
+    getStarted: "Get started",
+    continueBtn: "Continue",
+    allowMic: "Allow Microphone Access",
+    allowAx: "Allow Accessibility Access",
+    tryAgain: "Try again",
+    skip: "Skip onboarding",
+    back: "← Back",
+    refresh: "I've enabled it — Refresh",
+    open: `Open ${BRANDING.appName}`,
+    waiting: "Waiting…",
+    micLabel: "Microphone",
+    axLabel: "Accessibility",
+    granted: "Access granted",
+    micDenied: "Access denied — open System Settings → Privacy → Microphone",
+    axIdleHint: "Enable Ultravox in the list that just opened, then click Refresh below.",
+    axNotGranted: "Not yet granted",
+    awaitingDialog: "Waiting for system dialog…",
+  },
+  de: {
+    welcomeTitle: `Willkommen bei ${BRANDING.appName}`,
+    welcomeBody: "Diktiere in jedes Textfeld auf deinem Mac. Hotkey drücken, sprechen, erneut drücken — der Text erscheint dort, wo dein Cursor ist.",
+    micTitle: "Mikrofonzugriff erlauben",
+    micBody: "Ultravox nimmt deine Stimme lokal auf und sendet nur Audio zur Transkription. macOS fragt einmal — klicke auf Erlauben im Dialog.",
+    axTitle: "Bedienungshilfen erlauben",
+    axBody: "Ultravox benötigt Bedienungshilfen, um den transkribierten Text in jede fokussierte App einzufügen — dieselbe Berechtigung wie bei DeepL.",
+    doneTitle: "Alles bereit",
+    doneBody: (kbd) => (<>Klicke in ein Textfeld — Notizen, Mail, Browser — Cursor platzieren, {kbd} zum Aufnehmen drücken, erneut drücken zum Stoppen.</>),
+    getStarted: "Los geht's",
+    continueBtn: "Weiter",
+    allowMic: "Mikrofon erlauben",
+    allowAx: "Bedienungshilfen erlauben",
+    tryAgain: "Erneut versuchen",
+    skip: "Überspringen",
+    back: "← Zurück",
+    refresh: "Aktiviert — aktualisieren",
+    open: `${BRANDING.appName} öffnen`,
+    waiting: "Warte…",
+    micLabel: "Mikrofon",
+    axLabel: "Bedienungshilfen",
+    granted: "Zugriff erlaubt",
+    micDenied: "Zugriff verweigert — Systemeinstellungen → Datenschutz → Mikrofon öffnen",
+    axIdleHint: "Aktiviere Ultravox in der geöffneten Liste, dann unten auf Aktualisieren klicken.",
+    axNotGranted: "Noch nicht erlaubt",
+    awaitingDialog: "Warte auf Systemdialog…",
+  },
+};
+
+function detectInitialLang(): Lang {
+  const nav = typeof navigator !== "undefined" ? navigator.language ?? "" : "";
+  return nav.toLowerCase().startsWith("de") ? "de" : "en";
+}
 
 export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState(0);
+  const [lang, setLang] = useState<Lang>(detectInitialLang);
   const [micStatus, setMicStatus] = useState<PermStatus>("idle");
   const [axStatus, setAxStatus] = useState<PermStatus>("idle");
+  const t = COPY[lang];
 
-  // Check existing permissions on mount so steps already show ✓ if granted.
+  // Hydrate language from saved settings (overrides browser-detect).
+  useEffect(() => {
+    loadSettings().then((s) => { if (s.uiLanguage) setLang(s.uiLanguage); }).catch(() => {});
+  }, []);
+
+  // Check existing permissions on mount.
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then((s) => { s.getTracks().forEach((t) => t.stop()); setMicStatus("granted"); })
-      .catch(() => {}); // leave as idle — don't auto-deny
+      .catch(() => {});
     checkAccessibilityPermission()
       .then((ok) => { if (ok) setAxStatus("granted"); })
       .catch(() => {});
   }, []);
 
-  /* ── Microphone ────────────────────────────────────────────── */
+  // Persist language whenever the user toggles it.
+  const switchLang = useCallback(async (next: Lang) => {
+    setLang(next);
+    try {
+      const current = await loadSettings();
+      await saveSettings({ ...current, uiLanguage: next });
+    } catch (e) {
+      console.warn("[onboarding] failed to persist uiLanguage:", e);
+    }
+  }, []);
+
   const requestMic = useCallback(async () => {
     setMicStatus("requesting");
     try {
-      // getUserMedia from the focused settings window triggers the macOS mic dialog.
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((t) => t.stop());
       setMicStatus("granted");
@@ -39,155 +167,137 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
     }
   }, []);
 
-  /* ── Accessibility ─────────────────────────────────────────── */
   const requestAx = useCallback(async () => {
     setAxStatus("requesting");
-    // This calls AXIsProcessTrustedWithOptions which:
-    // 1. Adds the app to the Accessibility list in System Settings
-    // 2. Shows the system "wants to control this computer" dialog
-    const alreadyGranted = await requestAccessibilityPermission().catch(() => false);
-    setAxStatus(alreadyGranted ? "granted" : "idle");
+    const ok = await requestAccessibilityPermission().catch(() => false);
+    setAxStatus(ok ? "granted" : "idle");
   }, []);
 
   const recheckAx = useCallback(async () => {
-    const granted = await checkAccessibilityPermission().catch(() => false);
-    setAxStatus(granted ? "granted" : "idle");
+    const ok = await checkAccessibilityPermission().catch(() => false);
+    setAxStatus(ok ? "granted" : "idle");
   }, []);
 
-  /* ── Navigation ────────────────────────────────────────────── */
-  const TOTAL = 4;
   const next = () => {
-    if (step === TOTAL - 1) onComplete();
+    if (step === TOTAL_STEPS - 1) onComplete();
     else setStep((s) => s + 1);
   };
   const back = () => setStep((s) => Math.max(0, s - 1));
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-color-bg-light p-8">
-      <div className="max-w-md w-full flex flex-col gap-8">
+    <main
+      className="min-h-screen flex flex-col items-center justify-center p-8"
+      style={{ background: LIGHT_BG, color: FG_BODY }}
+    >
+      <div className="w-full max-w-sm flex flex-col items-stretch gap-8 relative">
+
+        {/* Language toggle — only on first page */}
+        {step === 0 && (
+          <div className="absolute -top-2 right-0 flex gap-1">
+            <LangBtn active={lang === "en"} onClick={() => switchLang("en")}>EN</LangBtn>
+            <LangBtn active={lang === "de"} onClick={() => switchLang("de")}>DE</LangBtn>
+          </div>
+        )}
 
         {/* Progress dots */}
         <div className="flex gap-2 justify-center">
-          {Array.from({ length: TOTAL }).map((_, i) => (
+          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 w-10 rounded-full transition-colors ${
-                i <= step ? "bg-color-primary" : "bg-color-ink-15"
-              }`}
+              className="h-1.5 flex-1 rounded-full transition-colors"
+              style={{
+                background: i <= step ? FG_PRIMARY : TRACK_INACTIVE,
+                maxWidth: 56,
+              }}
             />
           ))}
         </div>
 
-        {/* ── Step 0: Welcome ── */}
         {step === 0 && (
-          <Step
-            title={`Welcome to ${BRANDING.appName}`}
-            body="Voice-dictate into any text field on your Mac. Press a hotkey, speak, press again — the transcribed text appears wherever your cursor is."
-          >
-            <PrimaryBtn onClick={next}>Get started</PrimaryBtn>
+          <Step title={t.welcomeTitle} serif>
+            <Body>{t.welcomeBody}</Body>
+            <PrimaryBtn onClick={next}>{t.getStarted}</PrimaryBtn>
           </Step>
         )}
 
-        {/* ── Step 1: Microphone ── */}
         {step === 1 && (
-          <Step
-            title="Allow microphone access"
-            body="Ultravox records your voice locally. macOS will ask once — click Allow when the dialog appears."
-          >
+          <Step title={t.micTitle}>
+            <Body>{t.micBody}</Body>
             <PermRow
               icon="🎙"
-              label="Microphone"
+              label={t.micLabel}
               status={micStatus}
-              grantedLabel="Access granted"
-              deniedLabel="Access denied — open System Settings → Privacy → Microphone"
+              grantedLabel={t.granted}
+              deniedLabel={t.micDenied}
+              awaitingLabel={t.awaitingDialog}
             />
-            <div className="flex gap-3 justify-center mt-2">
-              {micStatus !== "granted" && (
-                <PrimaryBtn onClick={requestMic} loading={micStatus === "requesting"}>
-                  {micStatus === "denied" ? "Try again" : "Allow Microphone Access"}
-                </PrimaryBtn>
-              )}
-              <GhostBtn onClick={next}>
-                {micStatus === "granted" ? "Continue" : "Skip for now"}
-              </GhostBtn>
-            </div>
+            {micStatus !== "granted" ? (
+              <PrimaryBtn onClick={requestMic} loading={micStatus === "requesting"} loadingLabel={t.waiting}>
+                {micStatus === "denied" ? t.tryAgain : t.allowMic}
+              </PrimaryBtn>
+            ) : (
+              <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>
+            )}
           </Step>
         )}
 
-        {/* ── Step 2: Accessibility ── */}
         {step === 2 && (
-          <Step
-            title="Allow accessibility access"
-            body="Ultravox uses macOS Accessibility to paste the transcription into any focused text field — the same permission used by Superwhisper, DeepL, and macrowhisper."
-          >
+          <Step title={t.axTitle}>
+            <Body>{t.axBody}</Body>
             <PermRow
               icon="⌨️"
-              label="Accessibility"
+              label={t.axLabel}
               status={axStatus}
-              grantedLabel="Access granted"
-              deniedLabel={
-                axStatus === "idle"
-                  ? "Enable Ultravox in the list that just opened, then click Refresh below."
-                  : "Not yet granted"
-              }
+              grantedLabel={t.granted}
+              deniedLabel={axStatus === "idle" ? t.axIdleHint : t.axNotGranted}
+              awaitingLabel={t.awaitingDialog}
             />
-
-            <div className="flex flex-col gap-2 items-center mt-2">
-              {axStatus !== "granted" && (
-                <PrimaryBtn onClick={requestAx} loading={axStatus === "requesting"}>
-                  Allow Accessibility Access
-                </PrimaryBtn>
-              )}
-              {/* After the system dialog appears the user goes to System Settings;
-                  they come back and click Refresh to confirm. */}
-              {axStatus === "idle" && (
-                <button
-                  onClick={recheckAx}
-                  className="text-[13px] text-color-secondary hover:text-color-primary underline"
-                >
-                  I've enabled it — Refresh
-                </button>
-              )}
-              <GhostBtn onClick={next}>
-                {axStatus === "granted" ? "Continue" : "Skip for now"}
-              </GhostBtn>
-            </div>
-          </Step>
-        )}
-
-        {/* ── Step 3: Try it ── */}
-        {step === 3 && (
-          <Step
-            title="You're all set"
-            body={
+            {axStatus !== "granted" ? (
               <>
-                Click into any other app — TextEdit, Notes, a browser — place your cursor
-                in a text field, then press <Kbd>⌘ ⇧ ;</Kbd> to start recording. Press it
-                again to stop. The transcription is pasted where your cursor is.
+                <PrimaryBtn onClick={requestAx} loading={axStatus === "requesting"} loadingLabel={t.waiting}>
+                  {t.allowAx}
+                </PrimaryBtn>
+                {axStatus === "idle" && (
+                  <button
+                    onClick={recheckAx}
+                    className="text-[13px] underline text-center"
+                    style={{ color: FG_MUTED, background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    {t.refresh}
+                  </button>
+                )}
               </>
-            }
-          >
-            <PrimaryBtn onClick={onComplete}>Open {BRANDING.appName}</PrimaryBtn>
+            ) : (
+              <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>
+            )}
           </Step>
         )}
 
-        {/* Back + skip */}
+        {step === 3 && (
+          <Step title={t.doneTitle}>
+            <Body>{t.doneBody(<Kbd>⌘ ⇧ ;</Kbd>)}</Body>
+            <PrimaryBtn onClick={onComplete}>{t.open}</PrimaryBtn>
+          </Step>
+        )}
+
         <div className="flex justify-between items-center">
           {step > 0 ? (
             <button
               onClick={back}
-              className="text-[13px] text-color-secondary hover:text-color-primary"
+              className="text-[12px] hover:opacity-80 transition-opacity"
+              style={{ color: FG_MUTED, background: "none", border: "none", cursor: "pointer" }}
             >
-              ← Back
+              {t.back}
             </button>
           ) : (
             <span />
           )}
           <button
             onClick={onComplete}
-            className="text-[12px] text-color-secondary hover:underline"
+            className="text-[12px] hover:underline"
+            style={{ color: FG_MUTED, background: "none", border: "none", cursor: "pointer" }}
           >
-            Skip onboarding
+            {t.skip}
           </button>
         </div>
       </div>
@@ -199,19 +309,70 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
 
 function Step({
   title,
-  body,
   children,
+  serif,
 }: {
   title: string;
-  body: React.ReactNode;
+  children: React.ReactNode;
+  serif?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-stretch gap-5">
+      <h1
+        className="text-center"
+        style={{
+          color: FG_PRIMARY,
+          fontSize: serif ? 32 : 24,
+          fontWeight: 400,
+          lineHeight: 1.15,
+          fontFamily: serif ? '"Cormorant Garamond", serif' : undefined,
+          letterSpacing: serif ? "0.01em" : undefined,
+        }}
+      >
+        {title}
+      </h1>
+      {children}
+    </div>
+  );
+}
+
+function Body({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      className="text-center leading-relaxed"
+      style={{ color: FG_BODY, fontSize: 14, minHeight: 64 }}
+    >
+      {children}
+    </p>
+  );
+}
+
+function LangBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-5 text-center">
-      <h1 className="typography-h3 text-color-primary">{title}</h1>
-      <p className="typography-body-narrative text-color-text leading-relaxed">{body}</p>
-      <div className="flex flex-col gap-3">{children}</div>
-    </div>
+    <button
+      onClick={onClick}
+      className="rounded transition-opacity"
+      style={{
+        fontSize: 11,
+        fontWeight: 500,
+        padding: "3px 8px",
+        background: active ? FG_PRIMARY : "transparent",
+        color: active ? "#FFFFFF" : FG_MUTED,
+        border: `1px solid ${active ? FG_PRIMARY : SURFACE_BORDER}`,
+        cursor: "pointer",
+        letterSpacing: "0.04em",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -221,19 +382,17 @@ function PermRow({
   status,
   grantedLabel,
   deniedLabel,
+  awaitingLabel,
 }: {
   icon: string;
   label: string;
   status: PermStatus;
   grantedLabel: string;
   deniedLabel: React.ReactNode;
+  awaitingLabel: string;
 }) {
-  const dot =
-    status === "granted"
-      ? "text-color-accent"
-      : status === "denied"
-      ? "text-color-warning"
-      : "text-color-secondary";
+  const accent =
+    status === "granted" ? ACCENT : status === "denied" ? WARNING : FG_MUTED;
 
   const sub =
     status === "granted"
@@ -241,25 +400,22 @@ function PermRow({
       : status === "denied"
       ? deniedLabel
       : status === "requesting"
-      ? "Waiting for system dialog…"
+      ? awaitingLabel
       : null;
 
   return (
     <div
       className="flex items-start gap-3 px-4 py-3 rounded-xl text-left"
-      style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-surface-border)",
-      }}
+      style={{ background: SURFACE, border: `1px solid ${SURFACE_BORDER}` }}
     >
       <span className="text-[20px] mt-0.5 shrink-0">{icon}</span>
       <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-        <span className="text-[14px] font-medium text-color-primary">{label}</span>
+        <span style={{ fontSize: 14, fontWeight: 500, color: FG_PRIMARY }}>{label}</span>
         {sub && (
-          <span className={`text-[12px] leading-tight ${dot}`}>{sub}</span>
+          <span style={{ fontSize: 12, lineHeight: 1.3, color: accent }}>{sub}</span>
         )}
       </div>
-      <span className={`text-[18px] shrink-0 mt-0.5 ${dot}`}>
+      <span style={{ fontSize: 18, color: accent, marginTop: 2 }} className="shrink-0">
         {status === "granted" ? "✓" : status === "denied" ? "✕" : "○"}
       </span>
     </div>
@@ -270,35 +426,30 @@ function PrimaryBtn({
   onClick,
   children,
   loading,
+  loadingLabel,
 }: {
   onClick: () => void;
   children: React.ReactNode;
   loading?: boolean;
+  loadingLabel?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={loading}
-      className="px-6 py-2.5 rounded-lg bg-color-primary text-primary-on-dark typography-menu-text disabled:opacity-60 transition-opacity"
+      className="w-full rounded-lg transition-opacity disabled:opacity-60"
+      style={{
+        background: FG_PRIMARY,
+        color: "#FFFFFF",
+        fontSize: 13,
+        fontWeight: 500,
+        letterSpacing: "0.02em",
+        padding: "10px 20px",
+        border: "none",
+        cursor: loading ? "wait" : "pointer",
+      }}
     >
-      {loading ? "Waiting…" : children}
-    </button>
-  );
-}
-
-function GhostBtn({
-  onClick,
-  children,
-}: {
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="text-[13px] text-color-secondary hover:text-color-primary transition-colors"
-    >
-      {children}
+      {loading ? loadingLabel ?? "…" : children}
     </button>
   );
 }
@@ -306,11 +457,12 @@ function GhostBtn({
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
     <kbd
-      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] font-mono"
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-mono"
       style={{
-        background: "var(--color-ink-08)",
-        border: "1px solid var(--color-ink-15)",
-        color: "var(--color-primary)",
+        background: TRACK_INACTIVE,
+        border: `1px solid ${SURFACE_BORDER}`,
+        color: FG_PRIMARY,
+        fontSize: 12,
       }}
     >
       {children}

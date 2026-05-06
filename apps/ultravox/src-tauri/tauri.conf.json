@@ -75,7 +75,8 @@
     "shortDescription": "Voice dictation companion for macOS",
     "longDescription": "Dictate into any focused text field with a global hotkey.",
     "macOS": {
-      "signingIdentity": "Developer ID Application: Benjamin Kurtz Academy LLC (3VP6Q6ZXN8)"
+      "signingIdentity": "Developer ID Application: Benjamin Kurtz Academy LLC (3VP6Q6ZXN8)",
+      "entitlements": "Entitlements.plist"
     }
   },
   "plugins": {

@@ -48,6 +48,8 @@ export interface AppSettings {
   vocabulary: VocabularyEntry[];
   /** Theme choice: 'auto' | 'light' | 'dark-ocean' | 'dark-night'. */
   theme: "auto" | "light" | "dark-ocean" | "dark-night";
+  /** UI language preference (chosen during onboarding). */
+  uiLanguage: "en" | "de";
   /** Push-to-talk vs toggle. */
   recordingStyle: "toggle" | "push-to-talk";
   /** Onboarding seen flag — gates the first-run wizard. */
@@ -67,6 +69,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   modes: DEFAULT_MODES,
   vocabulary: [],
   theme: "auto",
+  uiLanguage: "en",
   recordingStyle: "toggle",
   onboardingComplete: false,
   sound: {
