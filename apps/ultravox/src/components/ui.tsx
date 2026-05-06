@@ -317,7 +317,7 @@ export function Row({
           </span>
         )}
       </div>
-      <div className="shrink-0 ml-3">{control}</div>
+      <div className="shrink-0 ml-3 flex items-center">{control}</div>
     </div>
   );
 }
