@@ -309,7 +309,7 @@ export default function PillWindow() {
           >
             <span
               className="text-[11px] leading-snug"
-              style={{ color: "rgb(248,113,113)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+              style={{ color: "var(--color-warning)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
             >
               {errorMsg}
             </span>
@@ -366,7 +366,7 @@ export default function PillWindow() {
             />
             <span
               className="text-[13px] font-medium truncate"
-              style={{ color: state === "error" ? "rgb(248,113,113)" : "var(--pill-fg)" }}
+              style={{ color: state === "error" ? "var(--color-warning)" : "var(--pill-fg)" }}
             >
               {statusLabel}
             </span>
