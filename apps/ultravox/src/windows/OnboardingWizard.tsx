@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { BRANDING } from "../branding";
 import {
   checkAccessibilityPermission,
@@ -15,6 +15,16 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   const [step, setStep] = useState(0);
   const [micStatus, setMicStatus] = useState<PermStatus>("idle");
   const [axStatus, setAxStatus] = useState<PermStatus>("idle");
+
+  // Check existing permissions on mount so steps already show ✓ if granted.
+  useEffect(() => {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((s) => { s.getTracks().forEach((t) => t.stop()); setMicStatus("granted"); })
+      .catch(() => {}); // leave as idle — don't auto-deny
+    checkAccessibilityPermission()
+      .then((ok) => { if (ok) setAxStatus("granted"); })
+      .catch(() => {});
+  }, []);
 
   /* ── Microphone ────────────────────────────────────────────── */
   const requestMic = useCallback(async () => {
@@ -151,8 +161,9 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
             title="You're all set"
             body={
               <>
-                Press <Kbd>⌘ ⇧ ;</Kbd> anywhere to start recording. Press it again to stop
-                and paste the transcription.
+                Click into any other app — TextEdit, Notes, a browser — place your cursor
+                in a text field, then press <Kbd>⌘ ⇧ ;</Kbd> to start recording. Press it
+                again to stop. The transcription is pasted where your cursor is.
               </>
             }
           >
