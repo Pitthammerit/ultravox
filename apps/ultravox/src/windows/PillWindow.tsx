@@ -394,11 +394,14 @@ export default function PillWindow() {
           </div>
         ))}
 
-        {/* Footer bar — no background tint and no border, so the pill reads
-            as a single seamless frame with only the outer rounded edge. */}
+        {/* Footer bar — divider + slight tint distinguish status from waveform. */}
         <div
           className="flex items-center justify-between gap-3 px-4 shrink-0"
-          style={{ height: FOOTER_H }}
+          style={{
+            height: FOOTER_H,
+            background: "var(--pill-footer)",
+            borderTop: compact ? "none" : "1px solid var(--pill-border)",
+          }}
         >
           <div className="flex items-center gap-2 min-w-0">
             <ModeGlyph
