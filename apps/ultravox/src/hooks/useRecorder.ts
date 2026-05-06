@@ -27,8 +27,21 @@ export function useRecorder(mimeType = "audio/webm"): RecorderControls {
     try {
       const stream = await mic.start(constraints);
       chunksRef.current = [];
+      // Diagnostic: WKWebView on macOS may not support every mimeType.
+      // Log what's supported so we can see in devtools whether the
+      // requested type matches WebKit's reality.
+      const supportProbe = {
+        requested: mimeType,
+        webm: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.("audio/webm"),
+        webmOpus: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus"),
+        mp4: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.("audio/mp4"),
+        ogg: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.("audio/ogg"),
+      };
+      console.log("[useRecorder] mimeType support:", supportProbe);
       const recorder = new MediaRecorder(stream, { mimeType });
+      console.log("[useRecorder] MediaRecorder created — actual mimeType:", recorder.mimeType);
       recorder.ondataavailable = (e) => {
+        console.log("[useRecorder] dataavailable, chunk size:", e.data.size);
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
@@ -36,6 +49,7 @@ export function useRecorder(mimeType = "audio/webm"): RecorderControls {
           chunksRef.current.length > 0
             ? new Blob(chunksRef.current, { type: mimeType })
             : null;
+        console.log("[useRecorder] stopped — chunks:", chunksRef.current.length, "blob size:", blob?.size ?? 0);
         setAudioBlob(blob);
         setState("stopped");
         stopResolveRef.current?.(blob);

@@ -1,0 +1,5 @@
+lsof -ti :1420 | xargs kill -9 && ./dev.sh
+
+
+lsof -ti :1420 | xargs kill -9 && ./dev.sh
+lsof -ti :1420 | xargs kill -9 && ./dev.sh

@@ -32,9 +32,12 @@ function deriveApiBase(tokenEndpoint: string): string {
 }
 
 async function fetchToken(endpoint: string): Promise<{ token: string; apiUrl: string }> {
+  console.log("[transcribe] fetching token from", endpoint);
   const res = await fetch(endpoint);
+  console.log("[transcribe] token response status:", res.status);
   const data = (await res.json()) as TokenResponse;
   if (!res.ok || !data.ok) throw new Error(data.error ?? `token endpoint ${res.status}`);
+  console.log("[transcribe] token ok, expiresIn:", data.expiresIn);
   return { token: data.token, apiUrl: deriveApiBase(endpoint) };
 }
 
@@ -68,17 +71,21 @@ export async function transcribe(
     fd.append("vocabularyReplacements", JSON.stringify(replacements));
   }
 
+  console.log("[transcribe] POST", `${apiUrl}${endpoint}`, "blob:", blob.size, blob.type, "cleanup:", cleanup);
   const res = await fetch(`${apiUrl}${endpoint}`, {
     method: "POST",
     body: fd,
     headers: { Authorization: `Bearer ${token}` },
   });
+  console.log("[transcribe] response status:", res.status);
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    throw new Error(`voice worker ${res.status}: ${errText}`);
+    console.error("[transcribe] error body:", errText);
+    throw new Error(`voice worker ${res.status}: ${errText.slice(0, 200)}`);
   }
 
   const data = (await res.json()) as { text?: string };
+  console.log("[transcribe] returned text length:", (data.text ?? "").length);
   return { text: data.text ?? "" };
 }

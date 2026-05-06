@@ -119,13 +119,25 @@ export default function PillWindow() {
     if (state === "idle") invoke("hide_pill").catch(() => {});
   }, [settings, state]);
 
-  /* ── Error display ──────────────────────────────────────────── */
-  const showError = useCallback((msg: string, ms = 4500) => {
+  /* ── Error display — sticky until user dismisses with Esc ───── */
+  const showError = useCallback((msg: string) => {
+    console.error("[pill] showError:", msg);
     setErrorMsg(msg);
     setState("error");
     invoke("show_pill").catch(() => {});
-    setTimeout(() => { setState("idle"); invoke("hide_pill").catch(() => {}); }, ms);
+    // No auto-hide. User dismisses by pressing Esc (handled below)
+    // or by triggering a new recording.
   }, []);
+
+  /* Esc dismisses the error pill */
+  useEffect(() => {
+    if (state !== "error") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); setState("idle"); invoke("hide_pill").catch(() => {}); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state]);
 
   /* ── Recording ──────────────────────────────────────────────── */
   const startRecord = useCallback(async () => {
@@ -159,13 +171,20 @@ export default function PillWindow() {
   }, [recorder]);
 
   const stopAndTranscribe = useCallback(async () => {
+    console.log("[pill] stopAndTranscribe begin");
     setState("transcribing");
     if (settings?.sound.chime) playStopChime(settings.sound.chimeVolume);
     try {
       const blob = await recorder.stop();
-      if (!blob) { setState("idle"); await invoke("hide_pill").catch(() => {}); return; }
+      console.log("[pill] recorder.stop returned blob:", blob ? `${blob.size} bytes, ${blob.type}` : "null");
+      if (!blob || blob.size === 0) {
+        showError(blob ? "Recording produced 0 bytes — mimeType not supported by WebKit?" : "No audio captured.");
+        return;
+      }
       const frontmost = await getFrontmostApp();
+      console.log("[pill] frontmost app:", frontmost);
       const result = await transcribe(blob, { mode, vocabulary: settings?.vocabulary ?? [], tokenEndpoint: TOKEN_ENDPOINT });
+      console.log("[pill] transcribe result.text length:", result.text.length);
       track("transcription.completed", { modeId: mode.id, length: result.text.length });
       if (result.text) {
         setState("idle");
@@ -173,21 +192,22 @@ export default function PillWindow() {
         // Brief delay so the pill window fully hides and macOS restores focus to the target app.
         await new Promise<void>((r) => setTimeout(r, 120));
         try {
+          console.log("[pill] calling pasteToFrontmost, text length:", result.text.length);
           await pasteToFrontmost(result.text);
+          console.log("[pill] pasteToFrontmost returned");
         } catch (pasteErr) {
           captureError(pasteErr, { stage: "paste" });
-          showError("Paste failed — grant Accessibility access in System Settings → Privacy & Security → Accessibility.");
+          showError(`Paste failed: ${(pasteErr as Error).message ?? pasteErr} — Accessibility access likely denied.`);
           return;
         }
         appendHistory({ id: crypto.randomUUID(), ts: Date.now(), modeId: mode.id, bundleId: frontmost?.bundle_id ?? null, text: result.text })
           .catch((e) => captureError(e, { stage: "history-append" }));
       } else {
-        setState("idle");
-        await invoke("hide_pill").catch(() => {});
+        showError("Transcription returned empty text — silence detected, or the worker didn't decode the audio.");
       }
     } catch (e) {
       captureError(e, { stage: "transcribe" });
-      showError((e as Error).message || "Transcription failed.");
+      showError(`Transcribe error: ${(e as Error).message || e}`);
     }
   }, [recorder, mode, settings, showError]);
 
@@ -215,7 +235,7 @@ export default function PillWindow() {
 
   const statusLabel =
     state === "transcribing" ? "Transcribing…"
-    : state === "error" ? errorMsg
+    : state === "error" ? "Error"
     : mode.name;
 
   const pillStyle: React.CSSProperties = {
@@ -234,20 +254,35 @@ export default function PillWindow() {
         className="flex flex-col rounded-[14px] overflow-hidden select-none shrink-0"
         style={{ ...pillStyle, height: PILL_INNER_H }}
       >
-        {/* Waveform / drag region */}
-        <div
-          data-tauri-drag-region
-          className="w-full"
-          style={{ height: WAVE_H, cursor: "grab" }}
-        >
-          <RollingWaveform
-            stream={recorder.stream}
-            active={state === "recording"}
-            color="rgba(230, 232, 238, 0.88)"
-            barWidth={2}
-            gap={1.5}
-          />
-        </div>
+        {/* Waveform / drag region — replaced by error text in error state */}
+        {state === "error" ? (
+          <div
+            data-tauri-drag-region
+            className="w-full flex items-center px-4"
+            style={{ height: WAVE_H, cursor: "grab" }}
+          >
+            <span
+              className="text-[12px] leading-snug"
+              style={{ color: "rgb(248,113,113)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
+            >
+              {errorMsg}
+            </span>
+          </div>
+        ) : (
+          <div
+            data-tauri-drag-region
+            className="w-full"
+            style={{ height: WAVE_H, cursor: "grab" }}
+          >
+            <RollingWaveform
+              stream={recorder.stream}
+              active={state === "recording"}
+              color="rgba(230, 232, 238, 0.88)"
+              barWidth={2}
+              gap={1.5}
+            />
+          </div>
+        )}
 
         {/* Footer bar */}
         <div
@@ -268,6 +303,9 @@ export default function PillWindow() {
             {state === "recording" && <HintRow label="Cancel" keys={["⎋"]} />}
             {state === "transcribing" && (
               <span className="text-[11px]" style={{ color: "rgba(230,232,238,0.45)" }}>Processing…</span>
+            )}
+            {state === "error" && (
+              <HintRow label="Dismiss" keys={["⎋"]} />
             )}
             {state === "idle" && view === "pill" && (
               <HintRow label="Modes" keys={["⌥", "⇧", "K"]} />
