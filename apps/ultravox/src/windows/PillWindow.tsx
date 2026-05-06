@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { applyTheme, type ThemeChoice } from "@ultravox/design-system";
 import RollingWaveform from "../components/RollingWaveform";
@@ -7,7 +7,7 @@ import { useRecorder } from "../hooks/useRecorder";
 import { useHotkeyEvent } from "../hooks/useHotkeyEvents";
 import { transcribe } from "../lib/transcribe";
 import { TOKEN_ENDPOINT, pasteToFrontmost, getFrontmostApp, setPillHeight, setPillSize, mediaPause, mediaResume } from "../lib/tauri-bridge";
-import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
+import { DEFAULT_MODES, LANGUAGE_MODELS, type VoiceMode } from "../lib/voiceModes";
 import { appendHistory, loadSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
 import { pickAutoMode } from "../lib/autoMode";
 import { invoke } from "@tauri-apps/api/core";
@@ -57,6 +57,9 @@ export default function PillWindow() {
   const [mode, setMode] = useState<VoiceMode>(DEFAULT_MODES[0]!);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [highlightIdx, setHighlightIdx] = useState(0);
+  const [modelOverride, setModelOverride] = useState<string | null>(null);
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const modelPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadSettings().then((s) => {
@@ -193,6 +196,7 @@ export default function PillWindow() {
   const cancel = useCallback(() => {
     if (settings?.sound.pauseMediaWhileRecording) mediaResume().catch(() => {});
     recorder.cancel();
+    setModelOverride(null);
     setState("idle");
     invoke("hide_pill").catch(() => {});
   }, [recorder, settings]);
@@ -206,14 +210,17 @@ export default function PillWindow() {
       const blob = await recorder.stop();
       console.log("[pill] recorder.stop returned blob:", blob ? `${blob.size} bytes, ${blob.type}` : "null");
       if (!blob || blob.size === 0) {
+        setModelOverride(null);
         showError(blob ? "Recording produced 0 bytes — mimeType not supported by WebKit?" : "No audio captured.");
         return;
       }
       const frontmost = await getFrontmostApp();
       console.log("[pill] frontmost app:", frontmost);
-      const result = await transcribe(blob, { mode, vocabulary: settings?.vocabulary ?? [], tokenEndpoint: TOKEN_ENDPOINT });
+      const effectiveMode = modelOverride ? { ...mode, languageModel: modelOverride } : mode;
+      const result = await transcribe(blob, { mode: effectiveMode, vocabulary: settings?.vocabulary ?? [], tokenEndpoint: TOKEN_ENDPOINT });
       console.log("[pill] transcribe result.text length:", result.text.length);
       track("transcription.completed", { modeId: mode.id, length: result.text.length });
+      setModelOverride(null);
       if (result.text) {
         setState("idle");
         await invoke("hide_pill").catch(() => {});
@@ -242,9 +249,10 @@ export default function PillWindow() {
       }
     } catch (e) {
       captureError(e, { stage: "transcribe" });
+      setModelOverride(null);
       showError(`Transcribe error: ${(e as Error).message || e}`);
     }
-  }, [recorder, mode, settings, showError]);
+  }, [recorder, mode, modelOverride, settings, showError]);
 
   /* ── Hotkey: toggle record ──────────────────────────────────── */
   useHotkeyEvent(
@@ -270,7 +278,7 @@ export default function PillWindow() {
   useEffect(() => {
     if (state !== "confirming-discard") return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter") { e.preventDefault(); cancel(); }
+      if (e.key === "Enter") { e.preventDefault(); setModelOverride(null); cancel(); }
       else if (e.code === "Space") { e.preventDefault(); recorder.resume(); setState("recording"); }
     };
     window.addEventListener("keydown", onKey);
@@ -281,6 +289,25 @@ export default function PillWindow() {
   useEffect(() => {
     if (state === "idle" && view === "pill") invoke("hide_pill").catch(() => {});
   }, [state, view]);
+
+  /* ── Model picker: close on click-outside or Escape ────────── */
+  useEffect(() => {
+    if (!showModelPicker) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); setShowModelPicker(false); }
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
+        setShowModelPicker(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onMouseDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [showModelPicker]);
 
   const statusLabel =
     state === "transcribing" ? "Transcribing…"
@@ -340,11 +367,34 @@ export default function PillWindow() {
 
       {/* ── Pill chrome — always visible ───────────────────────── */}
       <div
-        className="flex flex-col rounded-[14px] overflow-hidden select-none shrink-0"
+        className="flex flex-col rounded-[14px] overflow-hidden select-none shrink-0 relative"
         style={{ ...pillStyle, height: PILL_INNER_H }}
       >
-        {/* Waveform / drag region — replaced by error text or discard prompt */}
-        {state === "error" ? (
+        {/* Waveform / drag region — replaced by error text, discard prompt, or model picker */}
+        {showModelPicker ? (
+          <div className="absolute inset-0 flex flex-col justify-end pb-0" style={{ zIndex: 10 }}>
+            <div
+              ref={modelPickerRef}
+              className="mx-2 mb-1 rounded-[10px] overflow-hidden"
+              style={{ background: "var(--pill-footer)", border: "1px solid var(--pill-border)" }}
+            >
+              {LANGUAGE_MODELS.openrouter.map((m) => {
+                const isActive = (modelOverride ?? mode.languageModel) === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:opacity-80 transition-opacity"
+                    style={{ background: "none", border: "none", cursor: "pointer" }}
+                    onClick={() => { setModelOverride(m.id === mode.languageModel ? null : m.id); setShowModelPicker(false); }}
+                  >
+                    <span className="text-[12px]" style={{ color: "var(--pill-fg)" }}>{m.label}</span>
+                    {isActive && <span className="text-[11px]" style={{ color: "var(--color-accent)" }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : state === "error" ? (
           <div
             data-tauri-drag-region
             className="w-full flex items-center px-4"
@@ -400,7 +450,18 @@ export default function PillWindow() {
           className="flex items-center justify-between gap-3 px-4 shrink-0"
           style={{ height: FOOTER_H, background: "var(--pill-footer)", borderTop: "1px solid var(--pill-border)" }}
         >
-          <div className="flex items-center gap-2 min-w-0">
+          <button
+            className="flex items-center gap-2 min-w-0"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: (state === "idle" || state === "recording") ? "pointer" : "default",
+              opacity: (state === "idle" || state === "recording") ? 1 : 0.8,
+            }}
+            onClick={() => {
+              if (state === "idle" || state === "recording") setShowModelPicker(true);
+            }}
+          >
             <ModeGlyph
               name={mode.icon}
               size={13}
@@ -413,7 +474,12 @@ export default function PillWindow() {
             >
               {statusLabel}
             </span>
-          </div>
+            {modelOverride && (
+              <span className="text-[10px] px-1 rounded shrink-0" style={{ background: "var(--color-accent)", color: "var(--color-primary-on-dark)" }}>
+                {LANGUAGE_MODELS.openrouter.find(m => m.id === modelOverride)?.label?.split(' ').slice(0, 2).join(' ')}
+              </span>
+            )}
+          </button>
           <div className="flex items-center gap-3 shrink-0">
             {state === "recording" && <HintRow label="Stop" keys={["⌘", "⇧", ";"]} />}
             {state === "recording" && <HintRow label="Cancel" keys={["⎋"]} />}
