@@ -275,13 +275,13 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
-### T13. One-shot model override from the pill
+### ~~T13. One-shot model override from the pill~~ ✓ DONE
 
 **Why:** The mode→model relationship today is that each saved mode bundles one specific LLM. To experiment ("what does this same dictation look like through Sonnet?") the user has to open Settings, edit the mode, save, dictate, edit again. Tedious. Click-on-pill model override gives one-tap experimentation without polluting the modes list with model variants.
 
 **Files:**
-- `apps/ultravox/src/windows/PillWindow.tsx` (clickable mode label + popover render + override state)
-- `apps/ultravox/src/lib/transcribe.ts` (already accepts a `mode: VoiceMode` arg — pass override-applied mode instead of the saved one)
+- ✓ `apps/ultravox/src/windows/PillWindow.tsx` (clickable mode label + popover render + override state)
+- ✓ `apps/ultravox/src/lib/transcribe.ts` (already accepts a `mode: VoiceMode` arg — pass override-applied mode instead of the saved one)
 
 **Spec:**
 1. New PillWindow state: `modelOverride: string | null` (null = use mode's saved model, else this OpenRouter model ID for the next recording).
