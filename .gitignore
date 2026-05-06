@@ -36,3 +36,6 @@ package-lock.json
 
 # OS
 Thumbs.db
+
+# Git worktrees
+.worktrees/
