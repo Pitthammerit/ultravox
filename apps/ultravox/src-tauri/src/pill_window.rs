@@ -22,8 +22,8 @@ pub fn configure_pill_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
     let ns_win = raw_ptr as *mut AnyObject;
 
-    // canJoinAllSpaces (1 << 0) | fullScreenAuxiliary (1 << 7)
-    let behavior: u64 = (1 << 0) | (1 << 7);
+    // canJoinAllSpaces (1 << 0) | fullScreenAuxiliary (1 << 8)
+    let behavior: u64 = (1 << 0) | (1 << 8);
     unsafe {
         let _: () = msg_send![&*ns_win, setCollectionBehavior: behavior];
     }
