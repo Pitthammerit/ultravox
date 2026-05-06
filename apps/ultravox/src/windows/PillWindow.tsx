@@ -259,10 +259,12 @@ export default function PillWindow() {
   useHotkeyEvent(
     "hotkey:toggle-record",
     useCallback(() => {
+      // PTT mode uses ptt-pressed/released instead; skip to avoid double-start race.
+      if (settings?.recordingStyle === "push-to-talk") return;
       if (state === "idle") startRecord();
       else if (state === "recording") stopAndTranscribe();
       else if (state === "confirming-discard") { recorder.resume(); stopAndTranscribe(); }
-    }, [state, startRecord, stopAndTranscribe, recorder]),
+    }, [settings, state, startRecord, stopAndTranscribe, recorder]),
   );
 
   /* ── PTT: key-down → start recording ───────────────────────── */
