@@ -67,11 +67,11 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         </div>
       </Section>
 
-      <Section label={`Configure — ${activeMode.name}`}>
+      <Section label={activeId === "__new__" ? "New mode" : `Configure — ${activeMode.name}`}>
         <ModeForm
-          key={activeMode.id}
+          key={activeId}
           settings={settings}
-          modeId={activeMode.id}
+          modeId={activeId}
           onChange={onChange}
         />
       </Section>
