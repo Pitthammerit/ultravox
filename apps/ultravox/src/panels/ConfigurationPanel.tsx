@@ -1,9 +1,10 @@
+import { useState, useEffect, useCallback } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme, type ThemeChoice } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
 import { Button, Row, Section, Segmented } from "../components/ui";
 import { HotkeyRecorder } from "../components/HotkeyRecorder";
-import { registerHotkeys } from "../lib/tauri-bridge";
+import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission } from "../lib/tauri-bridge";
 
 interface ConfigurationPanelProps {
   settings: AppSettings;
@@ -11,6 +12,27 @@ interface ConfigurationPanelProps {
 }
 
 export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
+  const [axGranted, setAxGranted] = useState<boolean | null>(null);
+  const [axRequesting, setAxRequesting] = useState(false);
+
+  useEffect(() => {
+    checkAccessibilityPermission().then(setAxGranted).catch(() => setAxGranted(false));
+  }, []);
+
+  const grantAx = useCallback(async () => {
+    setAxRequesting(true);
+    const already = await requestAccessibilityPermission().catch(() => false);
+    setAxRequesting(false);
+    if (already) {
+      setAxGranted(true);
+    }
+    // If not already granted, user must go to System Settings and then click Refresh.
+  }, []);
+
+  const recheckAx = useCallback(async () => {
+    const granted = await checkAccessibilityPermission().catch(() => false);
+    setAxGranted(granted);
+  }, []);
   const appearance: "light" | "dark" | "auto" =
     settings.theme === "auto"
       ? "auto"
@@ -121,6 +143,46 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
               onChange={(v) => updateHotkey("hotkeyModeOverlay", v)}
               error={recordDup}
             />
+          }
+        />
+      </Section>
+
+      <Section
+        label="Permissions"
+        help="Required for Ultravox to paste transcriptions into other apps."
+      >
+        <Row
+          label="Accessibility access"
+          description={
+            axGranted === true
+              ? "Granted — paste works correctly."
+              : axGranted === false
+              ? "Not granted — transcriptions can't be pasted."
+              : "Checking…"
+          }
+          control={
+            axGranted ? (
+              <span className="text-[12px] text-color-accent font-medium">✓ Granted</span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={grantAx}
+                  disabled={axRequesting}
+                >
+                  {axRequesting ? "Waiting…" : "Grant Access"}
+                </Button>
+                {axGranted === false && !axRequesting && (
+                  <button
+                    onClick={recheckAx}
+                    className="text-[12px] text-color-secondary hover:text-color-primary underline"
+                  >
+                    Refresh
+                  </button>
+                )}
+              </div>
+            )
           }
         />
       </Section>
