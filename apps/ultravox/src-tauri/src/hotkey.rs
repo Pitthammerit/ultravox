@@ -134,6 +134,13 @@ fn register_hotkeys_inner<R: Runtime>(
     let app_a = app.clone();
     gs.on_shortcut(record_shortcut, move |_app, _shortcut, event| {
         if event.state() == ShortcutState::Pressed {
+            // Show the pill window and bring it to front BEFORE emitting the
+            // event so that getUserMedia runs inside a visible, focused
+            // WebView — macOS TCC won't prompt from a hidden background window.
+            if let Some(win) = app_a.get_webview_window("pill") {
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
             let _ = app_a.emit("hotkey:toggle-record", ());
         }
     })

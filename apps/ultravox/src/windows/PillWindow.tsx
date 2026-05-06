@@ -125,12 +125,13 @@ export default function PillWindow() {
     }
   }, [recorder, mode, settings, showError]);
 
-  // Toggle record on global hotkey
+  // Toggle record on global hotkey.
+  // NOTE: Rust shows + focuses the pill window before emitting this event,
+  // so getUserMedia runs in a visible, focused WebView (macOS TCC requirement).
   useHotkeyEvent(
     "hotkey:toggle-record",
     useCallback(() => {
       if (state === "idle") {
-        invoke("show_pill").catch(() => {});
         startRecord();
       } else if (state === "recording") {
         stopAndTranscribe();

@@ -73,6 +73,11 @@
     ],
     "category": "Productivity",
     "shortDescription": "Voice dictation companion for macOS",
-    "longDescription": "Dictate into any focused text field with a global hotkey."
+    "longDescription": "Dictate into any focused text field with a global hotkey.",
+    "macOS": {
+      "infoPlistKeyValuePairs": {
+        "NSMicrophoneUsageDescription": "Ultravox records your voice to transcribe dictation into any text field."
+      }
+    }
   }
 }
