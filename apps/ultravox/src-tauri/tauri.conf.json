@@ -73,14 +73,17 @@
     ],
     "category": "Productivity",
     "shortDescription": "Voice dictation companion for macOS",
-    "longDescription": "Dictate into any focused text field with a global hotkey."
+    "longDescription": "Dictate into any focused text field with a global hotkey.",
+    "macOS": {
+      "signingIdentity": "Developer ID Application: Benjamin Kurtz Academy LLC (3VP6Q6ZXN8)"
+    }
   },
   "plugins": {
     "updater": {
       "endpoints": [
         "https://github.com/Pitthammerit/ultravox/releases/latest/download/latest.json"
       ],
-      "pubkey": "PLACEHOLDER_REPLACE_WITH_REAL_PUBKEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRGQkNCMDU0QjNDOEMzMDcKUldRSHc4aXpWTEM4VDFhUzI5U3pLUUozdm9nb1hyY25abVNyckRxZGRkUVpLQWZGN0RuWkdoUk4K"
     }
   }
 }
