@@ -22,14 +22,10 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
 
   return (
     <>
-      <Section label="Microphone">
-        <p
-          className="text-[12.5px] leading-relaxed"
-          style={{ color: tokens.fgMuted }}
-        >
-          Ultravox uses your system default microphone. Per-device selection
-          comes in v1.1.
-        </p>
+      <Section
+        label="Microphone"
+        help="Ultravox uses your system default microphone. Per-device selection comes in v1.1."
+      >
         <TestRecordingRow settings={settings} />
       </Section>
 
@@ -43,13 +39,13 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
       <Section label="Input processing">
         <ToggleRow
           label="Auto-gain"
-          description="Browser auto-adjusts microphone level"
+          help="Browser auto-adjusts microphone level"
           checked={sound.autoGain}
           onChange={(v) => setSound({ autoGain: v })}
         />
         <ToggleRow
           label="Silence removal"
-          description="Trim silent passages before upload (v1.1)"
+          help="Trim silent passages before upload (v1.1)"
           checked={sound.silenceRemoval}
           onChange={(v) => setSound({ silenceRemoval: v })}
         />
@@ -58,7 +54,7 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
       <Section label="Sound effects">
         <ToggleRow
           label="Chime on start/stop"
-          description="Brief tone when recording starts and stops"
+          help="Brief tone when recording starts and stops"
           checked={sound.chime}
           onChange={(v) => setSound({ chime: v })}
         />
@@ -172,7 +168,7 @@ function TestRecordingRow({ settings }: { settings: AppSettings }) {
   return (
     <Row
       label="Round-trip test"
-      description="Record 2s, send to the worker, show the response. Tests the pipeline in isolation — no hotkey, no paste."
+      help="Record 2s, send to the worker, show the response. Tests the pipeline in isolation — no hotkey, no paste."
       control={
         <div className="flex flex-col gap-1 items-end" style={{ minWidth: 220 }}>
           <Button variant="primary" size="xs" onClick={run} disabled={busy}>
@@ -310,11 +306,7 @@ function CompareCleanupRow({ settings }: { settings: AppSettings }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[12.5px]" style={{ color: tokens.fgMuted }}>
-          Speak ~6s of natural dictation. Each model receives the exact same
-          audio with this mode's cleanup style and prompt.
-        </span>
+      <div className="flex justify-end">
         <Button variant="primary" size="xs" onClick={run} disabled={busy}>
           {buttonLabel}
         </Button>
