@@ -1,10 +1,10 @@
+import { useEffect, useRef, useState } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme, type ThemeChoice } from "@ultravox/design-system";
 import {
   NavCard,
   Row,
   Section,
-  Segmented,
   ToggleRow,
   tokens,
 } from "../components/ui";
@@ -119,32 +119,14 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
         <Row
           label="Theme"
           control={
-            <Segmented<"light" | "dark" | "auto">
-              options={[
-                { id: "light", label: "Light" },
-                { id: "dark", label: "Dark" },
-                { id: "auto", label: "Auto" },
-              ]}
-              value={appearance}
-              onChange={setAppearance}
+            <ThemePicker
+              appearance={appearance}
+              darkVariant={darkVariant}
+              onAppearanceChange={setAppearance}
+              onDarkVariantChange={setDarkVariant}
             />
           }
         />
-        {appearance === "dark" && (
-          <Row
-            label="Dark variant"
-            control={
-              <Segmented<"ocean" | "night">
-                options={[
-                  { id: "ocean", label: "Ocean" },
-                  { id: "night", label: "Night" },
-                ]}
-                value={darkVariant}
-                onChange={setDarkVariant}
-              />
-            }
-          />
-        )}
       </Section>
 
       <Section title="App">
@@ -164,5 +146,177 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
         Ultravox v0.1.0 · keys are managed server-side · audio is never stored.
       </p>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   THEME PICKER — segmented Light/Dark/Auto with a popover
+   under "Dark" for choosing Ocean / Night.
+   ───────────────────────────────────────────────────────────── */
+
+type Appearance = "light" | "dark" | "auto";
+type DarkVariant = "ocean" | "night";
+
+function ThemePicker({
+  appearance,
+  darkVariant,
+  onAppearanceChange,
+  onDarkVariantChange,
+}: {
+  appearance: Appearance;
+  darkVariant: DarkVariant;
+  onAppearanceChange: (a: Appearance) => void;
+  onDarkVariantChange: (v: DarkVariant) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Click outside or Esc closes the popover.
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const handleSegment = (next: Appearance) => {
+    if (next === "dark") {
+      // First click on Dark also opens the variant menu; second click toggles it.
+      if (appearance !== "dark") onAppearanceChange("dark");
+      setOpen((o) => !o);
+    } else {
+      onAppearanceChange(next);
+      setOpen(false);
+    }
+  };
+
+  const SegBtn = ({
+    id,
+    label,
+    children,
+  }: {
+    id: Appearance;
+    label?: string;
+    children?: React.ReactNode;
+  }) => {
+    const active = id === appearance;
+    return (
+      <button
+        onClick={() => handleSegment(id)}
+        className="px-2.5 py-[3px] rounded text-[12px] font-medium transition-colors inline-flex items-center gap-1"
+        style={{
+          background: active ? tokens.card : "transparent",
+          color: active ? tokens.fg : tokens.fgMuted,
+          boxShadow: active ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+        }}
+      >
+        {label}
+        {children}
+      </button>
+    );
+  };
+
+  return (
+    <div ref={wrapRef} className="relative inline-block">
+      <div
+        className="inline-flex items-center gap-0.5 rounded-md p-0.5"
+        style={{ background: tokens.control }}
+      >
+        <SegBtn id="light" label="Light" />
+        <SegBtn id="dark" label="Dark">
+          <Caret open={open} />
+        </SegBtn>
+        <SegBtn id="auto" label="Auto" />
+      </div>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute z-30 mt-1 rounded-md p-1 flex flex-col"
+          style={{
+            top: "100%",
+            left: "33%",
+            transform: "translateX(-50%)",
+            minWidth: 120,
+            background: tokens.card,
+            border: `1px solid ${tokens.borderStrong}`,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+          }}
+        >
+          <PopItem
+            label="Ocean"
+            active={darkVariant === "ocean"}
+            onClick={() => { onDarkVariantChange("ocean"); setOpen(false); }}
+          />
+          <PopItem
+            label="Night"
+            active={darkVariant === "night"}
+            onClick={() => { onDarkVariantChange("night"); setOpen(false); }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Caret({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="9"
+      height="9"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        transform: open ? "rotate(180deg)" : "rotate(0deg)",
+        transition: "transform 120ms ease",
+        opacity: 0.7,
+      }}
+      aria-hidden
+    >
+      <polyline points="3 4.5 6 7.5 9 4.5" />
+    </svg>
+  );
+}
+
+function PopItem({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      role="menuitemradio"
+      aria-checked={active}
+      onClick={onClick}
+      className="flex items-center justify-between px-2.5 py-1.5 rounded text-[12px] font-medium transition-colors text-left"
+      style={{
+        color: tokens.fg,
+        background: "transparent",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = tokens.controlHover)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      <span>{label}</span>
+      {active && (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )}
+    </button>
   );
 }
