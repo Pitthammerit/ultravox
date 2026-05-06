@@ -164,6 +164,7 @@ export default function PillWindow() {
       setMode(picked);
       track("recording.started", { modeId: picked.id, bundleId: frontmost?.bundle_id ?? null });
       if (cur?.sound.chime) playStartChime(cur.sound.chimeVolume);
+      if (cur?.sound.pauseMediaWhileRecording) mediaPause().catch(() => {});
       const autoGain = cur?.sound.autoGain ?? true;
       const echoCancellation = cur?.sound.echoCancellation ?? false;
       const noiseSuppression = cur?.sound.noiseSuppression ?? true;
