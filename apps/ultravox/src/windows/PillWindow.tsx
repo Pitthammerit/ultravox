@@ -151,7 +151,12 @@ export default function PillWindow() {
   /* ── Recording ──────────────────────────────────────────────── */
   const startRecord = useCallback(async () => {
     try {
-      const cur = settings ?? null;
+      // Re-load settings every recording so edits made in the Settings window
+      // (different WebView, separate React state) take effect on the next press
+      // — without needing to restart the pill.
+      const fresh = await loadSettings().catch(() => settings);
+      if (fresh) setSettings(fresh);
+      const cur = fresh ?? settings ?? null;
       const frontmost = await getFrontmostApp();
       const modes = cur?.modes ?? DEFAULT_MODES;
       const fallbackId = cur?.activeModeId ?? modes[0]!.id;
