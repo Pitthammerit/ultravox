@@ -392,13 +392,12 @@ export default function PillWindow() {
           </div>
         ))}
 
-        {/* Footer bar */}
+        {/* Footer bar — no inner divider; only the outer rounded frame remains. */}
         <div
           className="flex items-center justify-between gap-3 px-4 shrink-0"
           style={{
             height: FOOTER_H,
             background: "var(--pill-footer)",
-            borderTop: compact ? "none" : "1px solid var(--pill-border)",
           }}
         >
           <div className="flex items-center gap-2 min-w-0">

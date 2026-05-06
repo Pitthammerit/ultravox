@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 mod hotkey;
 mod paste;
 mod permissions;
@@ -21,7 +23,25 @@ pub fn run() {
                 eprintln!("tray creation failed: {e}");
             }
             #[cfg(target_os = "macos")]
-            setup_pill_spaces(app.handle());
+            {
+                setup_pill_spaces(app.handle());
+                // Run as a menu-bar / accessory app: no Dock icon, app stays
+                // alive after every window closes. The user opens Settings
+                // from the tray icon.
+                let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
+
+            // Settings window: closing it should hide instead of quit, so the
+            // global hotkey + tray + pill keep working in the background.
+            if let Some(settings_win) = app.get_webview_window("settings") {
+                let win_clone = settings_win.clone();
+                settings_win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = win_clone.hide();
+                    }
+                });
+            }
             Ok(())
         });
 
@@ -66,7 +86,6 @@ pub fn run() {
 fn setup_pill_spaces(app: &tauri::AppHandle) {
     use objc2::msg_send;
     use objc2::runtime::AnyObject;
-    use tauri::Manager;
 
     let Some(win) = app.get_webview_window("pill") else { return };
     let Ok(ns_win_ptr) = win.ns_window() else { return };
