@@ -21,9 +21,11 @@ type PillView = "pill" | "modes";
 // Visible pill chrome height (original Superwhisper proportions).
 const PILL_CONTENT_H = 108;
 
-// Transparent margin around the pill — small now that macOS draws the
-// rounded shadow natively (Tauri `shadow: true`).
-const SHADOW_PAD = 6;
+// Transparent margin around the pill so the CSS box-shadow has room to
+// render around the rounded corners. macOS native shadow is disabled
+// (`shadow: false`) because it draws around the rectangular WINDOW bounds,
+// not the alpha mask — that produced a visible square frame.
+const SHADOW_PAD = 14;
 
 // Total window height (must match tauri.conf.json).
 const PILL_H = PILL_CONTENT_H + SHADOW_PAD * 2;
