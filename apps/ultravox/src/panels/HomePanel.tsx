@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { emit } from "@tauri-apps/api/event";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme, type ThemeChoice } from "@ultravox/design-system";
 import {
@@ -30,19 +31,25 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
   const darkVariant: "ocean" | "night" =
     settings.theme === "dark-night" ? "night" : "ocean";
 
+  const broadcastTheme = (theme: ThemeChoice) => {
+    applyTheme(theme);
+    // Tell other Tauri windows (pill, mode-overlay) to repaint with the new theme.
+    emit("theme:changed", theme).catch(() => {});
+  };
+
   const setAppearance = async (next: "light" | "dark" | "auto") => {
     let theme: ThemeChoice;
     if (next === "light") theme = "light";
     else if (next === "auto") theme = "auto";
     else theme = darkVariant === "night" ? "dark-night" : "dark-ocean";
     await onChange({ theme });
-    applyTheme(theme);
+    broadcastTheme(theme);
   };
 
   const setDarkVariant = async (next: "ocean" | "night") => {
     const theme: ThemeChoice = next === "night" ? "dark-night" : "dark-ocean";
     await onChange({ theme });
-    applyTheme(theme);
+    broadcastTheme(theme);
   };
 
   /* ── Shortcuts ────────────────────────────────────────────── */

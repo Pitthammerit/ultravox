@@ -51,7 +51,13 @@ export async function transcribe(
   const endpoint = cleanup === "raw" ? "/v1/audio/transcriptions" : "/v1/audio/clean";
 
   const fd = new FormData();
-  fd.append("file", blob, "audio.webm");
+  // Filename extension matters for some backends — derive it from the blob type
+  // produced by MediaRecorder (mp4 on WebKit, webm on Chromium).
+  const ext = /mp4|m4a|aac/.test(blob.type) ? "m4a"
+            : /ogg/.test(blob.type) ? "ogg"
+            : /wav/.test(blob.type) ? "wav"
+            : "webm";
+  fd.append("file", blob, `audio.${ext}`);
   if (opts.mode.language && opts.mode.language !== "auto") {
     fd.append("language", opts.mode.language);
   }

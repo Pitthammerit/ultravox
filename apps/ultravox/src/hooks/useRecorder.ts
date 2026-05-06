@@ -13,7 +13,22 @@ export interface RecorderControls {
   cancel: () => void;
 }
 
-export function useRecorder(mimeType = "audio/webm"): RecorderControls {
+/** Pick the best supported mime type for the current engine.
+ *  WebKit/WKWebView records mp4 natively; Whisper decodes mp4 reliably,
+ *  whereas the WebM/Opus that Chrome produces can fail decoding on
+ *  Cloudflare Workers AI Whisper (error 3030). Prefer mp4 first. */
+function pickMimeType(preferred?: string): string {
+  if (typeof MediaRecorder === "undefined") return preferred || "audio/webm";
+  const candidates = preferred
+    ? [preferred, "audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"]
+    : ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"];
+  for (const c of candidates) {
+    if (MediaRecorder.isTypeSupported?.(c)) return c;
+  }
+  return preferred || "audio/webm";
+}
+
+export function useRecorder(preferredMimeType?: string): RecorderControls {
   const mic = useMicStream();
   const [state, setState] = useState<RecorderState>("idle");
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -27,29 +42,26 @@ export function useRecorder(mimeType = "audio/webm"): RecorderControls {
     try {
       const stream = await mic.start(constraints);
       chunksRef.current = [];
-      // Diagnostic: WKWebView on macOS may not support every mimeType.
-      // Log what's supported so we can see in devtools whether the
-      // requested type matches WebKit's reality.
-      const supportProbe = {
-        requested: mimeType,
-        webm: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.("audio/webm"),
-        webmOpus: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus"),
-        mp4: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.("audio/mp4"),
-        ogg: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.("audio/ogg"),
-      };
-      console.log("[useRecorder] mimeType support:", supportProbe);
-      const recorder = new MediaRecorder(stream, { mimeType });
-      console.log("[useRecorder] MediaRecorder created — actual mimeType:", recorder.mimeType);
+      const chosen = pickMimeType(preferredMimeType);
+      console.log("[useRecorder] chosen mimeType:", chosen, {
+        webm: MediaRecorder.isTypeSupported?.("audio/webm"),
+        webmOpus: MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus"),
+        mp4: MediaRecorder.isTypeSupported?.("audio/mp4"),
+        ogg: MediaRecorder.isTypeSupported?.("audio/ogg"),
+      });
+      const recorder = new MediaRecorder(stream, { mimeType: chosen });
+      console.log("[useRecorder] actual mimeType:", recorder.mimeType);
       recorder.ondataavailable = (e) => {
         console.log("[useRecorder] dataavailable, chunk size:", e.data.size);
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
+        const blobType = recorder.mimeType || chosen;
         const blob =
           chunksRef.current.length > 0
-            ? new Blob(chunksRef.current, { type: mimeType })
+            ? new Blob(chunksRef.current, { type: blobType })
             : null;
-        console.log("[useRecorder] stopped — chunks:", chunksRef.current.length, "blob size:", blob?.size ?? 0);
+        console.log("[useRecorder] stopped — chunks:", chunksRef.current.length, "blob size:", blob?.size ?? 0, "type:", blobType);
         setAudioBlob(blob);
         setState("stopped");
         stopResolveRef.current?.(blob);
@@ -68,7 +80,7 @@ export function useRecorder(mimeType = "audio/webm"): RecorderControls {
       setState("error");
       throw err; // re-throw so callers know recording never started
     }
-  }, [mic, mimeType]);
+  }, [mic, preferredMimeType]);
 
   const stop = useCallback(() => {
     return new Promise<Blob | null>((resolve) => {

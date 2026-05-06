@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { applyTheme, type ThemeChoice } from "@ultravox/design-system";
 import RollingWaveform from "../components/RollingWaveform";
 import { ModeGlyph } from "../components/ModeIcons";
 import { useRecorder } from "../hooks/useRecorder";
@@ -59,7 +61,15 @@ export default function PillWindow() {
       setSettings(s);
       const found = (s.modes ?? DEFAULT_MODES).find((m) => m.id === s.activeModeId);
       if (found) setMode(found);
+      // Apply the user's theme — the pill is a separate WebView, so it must
+      // call applyTheme itself; main.tsx only theme-applies the Settings App.
+      applyTheme(s.theme);
     }).catch(() => setSettings(null));
+
+    // Repaint when Settings broadcasts a theme change.
+    let unsub: (() => void) | undefined;
+    listen<ThemeChoice>("theme:changed", (e) => applyTheme(e.payload)).then((u) => { unsub = u; });
+    return () => { unsub?.(); };
   }, []);
 
   const currentModes = settings?.modes ?? DEFAULT_MODES;
@@ -323,11 +333,8 @@ export default function PillWindow() {
           className="flex flex-col rounded-[14px] overflow-hidden select-none flex-1"
           style={pillStyle}
         >
-          {/* Mode list */}
-          <div
-            data-tauri-drag-region
-            className="flex-1 flex flex-col p-1"
-          >
+          {/* Mode list — NOT a drag region so buttons receive clicks reliably. */}
+          <div className="flex-1 flex flex-col p-1">
             {currentModes.map((m, i) => {
               const active = m.id === mode.id;
               const hi = i === highlightIdx;

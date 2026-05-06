@@ -18,7 +18,7 @@ const baseMode: VoiceMode = {
   language: "auto",
   cleanup: "prose",
   languageModelProvider: "openrouter",
-  languageModel: "anthropic/claude-haiku-4-5-20251001",
+  languageModel: "anthropic/claude-haiku-4.5",
 };
 
 describe("transcribe", () => {

@@ -286,7 +286,7 @@ async function cleanupText(
   let systemPrompt = CLEANUP_PROMPTS[cleanup] ?? CLEANUP_PROMPTS.prose;
   if (promptSuffix.trim()) systemPrompt += `\n\nAdditional context:\n${promptSuffix.trim()}`;
 
-  const effectiveModel = model || 'anthropic/claude-haiku-4-5-20251001';
+  const effectiveModel = model || 'anthropic/claude-haiku-4.5';
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 

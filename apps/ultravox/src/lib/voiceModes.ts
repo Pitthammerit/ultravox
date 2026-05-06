@@ -12,7 +12,7 @@ export const LANGUAGE_MODEL_PROVIDERS: Array<{ id: LanguageModelProvider; label:
 
 export const LANGUAGE_MODELS: Record<string, Array<{ id: string; label: string; speed: string; accuracy: string }>> = {
   openrouter: [
-    { id: "anthropic/claude-haiku-4-5-20251001", label: "Claude Haiku 4.5",  speed: "fast",    accuracy: "high" },
+    { id: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5",  speed: "fast",    accuracy: "high" },
     { id: "anthropic/claude-sonnet-4-5",         label: "Claude Sonnet 4.5", speed: "medium",  accuracy: "highest" },
     { id: "openai/gpt-4o-mini",                  label: "GPT-4o mini",       speed: "fast",    accuracy: "high" },
     { id: "google/gemini-2.5-flash",             label: "Gemini 2.5 Flash",  speed: "fastest", accuracy: "medium" },
@@ -77,7 +77,7 @@ export const DEFAULT_MODES: VoiceMode[] = [
     language: "auto",
     cleanup: "prose",
     languageModelProvider: "openrouter",
-    languageModel: "anthropic/claude-haiku-4-5-20251001",
+    languageModel: "anthropic/claude-haiku-4.5",
     autocapitalize: true,
     insertion: "paste",
   },
@@ -89,7 +89,7 @@ export const DEFAULT_MODES: VoiceMode[] = [
     language: "auto",
     cleanup: "prose",
     languageModelProvider: "openrouter",
-    languageModel: "anthropic/claude-haiku-4-5-20251001",
+    languageModel: "anthropic/claude-haiku-4.5",
     autocapitalize: true,
     insertion: "paste",
   },
@@ -101,7 +101,7 @@ export const DEFAULT_MODES: VoiceMode[] = [
     language: "auto",
     cleanup: "note",
     languageModelProvider: "openrouter",
-    languageModel: "anthropic/claude-haiku-4-5-20251001",
+    languageModel: "anthropic/claude-haiku-4.5",
     autocapitalize: true,
     insertion: "paste",
   },
