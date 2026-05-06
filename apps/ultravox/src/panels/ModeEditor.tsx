@@ -192,7 +192,7 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
               onChange={(e) =>
                 setDraft({ ...draft, autocapitalize: e.currentTarget.checked })
               }
-              style={{ accentColor: tokens.fg }}
+              style={{ accentColor: tokens.fg, width: 18, height: 18, cursor: "pointer" }}
             />
           }
         />
