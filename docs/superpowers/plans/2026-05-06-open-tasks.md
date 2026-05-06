@@ -89,6 +89,68 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
+### T9. Stop the system from ducking other audio while recording
+
+**Why:** Reported during testing — background music (Spotify/Music/browser audio) gets quieter while Ultravox is recording, and tracks the user's voice volume. Cause is `getUserMedia({ echoCancellation: true })` in [useMicStream.ts:17](apps/ultravox/src/hooks/useMicStream.ts:17): on macOS WebKit, enabling echo cancellation switches the audio engine into Apple's Voice Processing AudioUnit (VPIO) — the same mode Zoom uses for calls — which ducks all other audio so "the call" comes through clearer. Dictation has no echo to cancel (no speaker output feeding back into the mic), so the constraint is purchasing a UX bug for zero benefit.
+
+**Files:**
+- `apps/ultravox/src/hooks/useMicStream.ts` (default constraints)
+- `apps/ultravox/src/windows/PillWindow.tsx` (the explicit constraints passed to `recorder.start`)
+- `apps/ultravox/src/panels/SoundPanel.tsx` (already in the input-processing section — Auto-gain toggle lives here; add the new toggles next to it)
+- `apps/ultravox/src/lib/store-bridge.ts` (extend `SoundSettings` with the new flags, default both to `false`)
+
+**Spec:**
+1. Default `echoCancellation` to `false` everywhere. The constraint is currently set in TWO places — the hook's default and PillWindow's explicit `recorder.start({ ... })` call — fix both.
+2. Add `echoCancellation: boolean` and `noiseSuppression: boolean` to `SoundSettings`, defaulting to `false` and `true` respectively.
+3. Sound panel "Input processing" section grows two ToggleRow entries:
+   - **Echo cancellation** — description: "Avoid feedback when using speakers near the mic. Ducks other system audio while recording — leave off for normal dictation."
+   - **Noise suppression** — description: "Reduce background noise. Mild quality tradeoff."
+4. PillWindow `recorder.start({...})` reads from `settings.sound.echoCancellation` / `noiseSuppression` instead of hardcoding.
+5. Round-trip test in Sound panel and Compare panel mirror the same values.
+6. Migration: add a `mergeWithDefaults` line so existing users who don't have these fields get the new defaults.
+
+**Acceptance:**
+- Default install: Spotify volume does NOT change while Ultravox records.
+- User who toggles echo cancellation back on: ducking returns (expected — it's their choice).
+- Round-trip test still produces accurate transcription with the new defaults.
+
+**Complexity:** S · ~30 lines spread across 4 files
+
+---
+
+### T10. "Pause media while recording" toggle
+
+**Why:** Common dictation app feature (Wispr Flow, Superwhisper). User wants the option to have Music/Spotify pause when a recording starts and resume when it ends. Independent of T9 (T9 stops ducking; T10 stops the music entirely).
+
+**Files:**
+- `apps/ultravox/src-tauri/src/media.rs` NEW — Rust wrapper that runs AppleScript via `osascript` to pause/resume Music + Spotify
+- `apps/ultravox/src-tauri/src/lib.rs` — register two new commands `media_pause` and `media_resume`
+- `apps/ultravox/src-tauri/capabilities/default.json` — allow the new commands
+- `apps/ultravox/src-tauri/Cargo.toml` (likely no new deps; use `std::process::Command` to invoke `osascript`)
+- `apps/ultravox/src/lib/tauri-bridge.ts` — TS wrappers for the new commands
+- `apps/ultravox/src/lib/store-bridge.ts` — `SoundSettings.pauseMediaWhileRecording: boolean`, default `false`
+- `apps/ultravox/src/panels/SoundPanel.tsx` — toggle in Sound effects section
+- `apps/ultravox/src/windows/PillWindow.tsx` — call `media_pause` in `startRecord`, `media_resume` in both `stopAndTranscribe` and `cancel` and the discard-confirm Enter path
+
+**Spec:**
+1. Rust commands shell out to `osascript -e 'tell application "Music" to pause'` and the Spotify equivalent. Both should be best-effort: if Music isn't running, the command fails silently. Implementation should call BOTH apps in sequence (parallel via `tokio::spawn` if speed matters).
+2. `media_pause` returns the list of apps that were actually playing before pause, so `media_resume` knows what to restart. Persist this list in the Rust process state for the duration of the recording (a `Mutex<Vec<String>>` in app state).
+3. Toggle in Sound panel: "Pause music while recording — Pause Music and Spotify when a recording starts; resume when it stops."
+4. PillWindow only calls these commands when `settings.sound.pauseMediaWhileRecording === true`.
+5. Resume MUST happen on every exit path: successful stop, error, cancel, discard-confirm-discard.
+
+**Acceptance:**
+- With toggle off: behavior unchanged.
+- With toggle on, Music playing: hotkey → Music pauses, recording starts. Stop → Music resumes from where it was.
+- With toggle on, nothing playing: no-ops cleanly, no error.
+- With toggle on, recording errors out: Music still resumes (don't strand the user with silence).
+
+**Complexity:** M · ~120 lines, mostly Rust+config
+
+**Depends on:** T2 (discard-confirm) for the Enter-to-discard resume path. Can be implemented before T2 with a `// TODO: also resume on discard-confirm` comment.
+
+---
+
 ## P1 — v1 distribution & feature completeness
 
 ### T4. Push-to-talk: make the toggle do something
@@ -231,9 +293,13 @@ For reference only; tracked in `docs/implementation-plan.md` "Reference notes / 
 ```
 T1 (XS, inline) — fix label
    ↓
+T9 (S) — fix audio ducking [URGENT — affects every user]
+   ↓
 T3 (XS) — paste-time frontmost diagnostic
    ↓
 T2 (M) — discard-confirm state
+   ↓
+T10 (M) — pause-media-while-recording toggle
    ↓
 T4 (L) — push-to-talk for real
    ↓
@@ -248,6 +314,6 @@ T7 (signing + notarization)
 [gate: T8 needs Sentry DSN from user, or strip placeholders]
 ```
 
-T1 is small enough to do inline before the first subagent dispatch. T2-T6 each become their own subagent dispatch following the standard implementer → spec-reviewer → code-quality-reviewer loop.
+T1 is small enough to do inline before the first subagent dispatch. T9 is also small but should be its own dispatch because it touches multiple files and adds new settings fields — worth a real reviewer pass. T2-T6 + T10 each become their own subagent dispatch following the standard implementer → spec-reviewer → code-quality-reviewer loop.
 
 After T6 lands, the v1 codebase is functionally complete and the only remaining gates are external (Apple Dev account secrets + Sentry signup). At that point we can also re-evaluate whether to defer T8 entirely and ship without telemetry.
