@@ -58,7 +58,7 @@ export default function App() {
           style={{
             background: "var(--color-primary)",
             color: "var(--color-primary-on-dark)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+            boxShadow: "0 4px 16px color-mix(in srgb, var(--color-primary) 40%, transparent)",
             minWidth: 280,
           }}
         >
