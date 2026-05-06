@@ -392,13 +392,11 @@ export default function PillWindow() {
           </div>
         ))}
 
-        {/* Footer bar — no inner divider; only the outer rounded frame remains. */}
+        {/* Footer bar — no background tint and no border, so the pill reads
+            as a single seamless frame with only the outer rounded edge. */}
         <div
           className="flex items-center justify-between gap-3 px-4 shrink-0"
-          style={{
-            height: FOOTER_H,
-            background: "var(--pill-footer)",
-          }}
+          style={{ height: FOOTER_H }}
         >
           <div className="flex items-center gap-2 min-w-0">
             <ModeGlyph
