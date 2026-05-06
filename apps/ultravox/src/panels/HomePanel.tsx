@@ -144,7 +144,7 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
         />
         <NavCard
           title="History"
-          subtitle="Coming in v1.1"
+          subtitle={`${settings.history.length} ${settings.history.length === 1 ? "entry" : "entries"} · cleared each session`}
           onClick={() => onNavigate("history")}
         />
       </Section>
