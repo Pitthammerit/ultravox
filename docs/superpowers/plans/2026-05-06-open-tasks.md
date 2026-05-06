@@ -275,6 +275,34 @@ Suggested execution order: linear within priority. Each task is independent unle
 
 ---
 
+### T13. One-shot model override from the pill
+
+**Why:** The mode→model relationship today is that each saved mode bundles one specific LLM. To experiment ("what does this same dictation look like through Sonnet?") the user has to open Settings, edit the mode, save, dictate, edit again. Tedious. Click-on-pill model override gives one-tap experimentation without polluting the modes list with model variants.
+
+**Files:**
+- `apps/ultravox/src/windows/PillWindow.tsx` (clickable mode label + popover render + override state)
+- `apps/ultravox/src/lib/transcribe.ts` (already accepts a `mode: VoiceMode` arg — pass override-applied mode instead of the saved one)
+
+**Spec:**
+1. New PillWindow state: `modelOverride: string | null` (null = use mode's saved model, else this OpenRouter model ID for the next recording).
+2. Footer mode-name area becomes clickable when `state === "idle"` or `state === "recording"`. Clicking opens a small popover (above the pill, anchored to the mode label) listing the OpenRouter models from `LANGUAGE_MODELS.openrouter`. Currently-active choice (override or saved) gets a checkmark.
+3. Clicking a model: sets `modelOverride`, closes popover, dictation proceeds. The next `stopAndTranscribe` call passes a derived mode `{ ...mode, languageModel: modelOverride ?? mode.languageModel }`.
+4. After successful transcription (or cancel/discard): `modelOverride` resets to `null`. One-shot, not sticky.
+5. Visual hint when override is active: small caret or pill-color tint on the mode name to signal "not the default model right now".
+6. Click outside or Esc closes the popover without changing state.
+
+**Acceptance:**
+- Default behavior: clicking mode label shows popover. Picking same model = no change.
+- Picking a different model: caret/highlight appears, transcription uses the picked model, then reverts.
+- After revert, clicking mode label again shows the popover with the mode's saved model checked.
+- Compact pill (T12, if landed): mode-name area is hidden, so this feature is full-pill only — that's fine; the use case is "I want to deliberate over a model choice" which doesn't apply when you've explicitly opted into a minimal pill.
+
+**Depends on:** T2 (uses the existing PillState shape, but no actual code dependency).
+
+**Complexity:** S · ~40-60 lines, single file mostly · feature value is high relative to size
+
+---
+
 ### T6. Auto-updater (`tauri-plugin-updater` + GitHub Releases appcast)
 
 **Why:** v1 needs in-app update notifications. Without this, every fix requires telling users to manually re-download. Implementation plan calls for it (Phase 15) but Cargo.toml doesn't include the plugin yet.
@@ -369,6 +397,8 @@ T2  (M)  — discard-confirm state
 T10 (M)  — pause-media-while-recording toggle
    ↓
 T12 (M)  — minimized pill variant
+   ↓
+T13 (S)  — one-shot model override from pill
    ↓
 T4  (L)  — push-to-talk for real
    ↓
