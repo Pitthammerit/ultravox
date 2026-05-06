@@ -75,6 +75,12 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
           onChange={(v) => setSound({ pauseMediaWhileRecording: v })}
         />
         <ToggleRow
+          label="Minimal pill"
+          description="Show a small recording indicator instead of the full pill."
+          checked={sound.compactPill}
+          onChange={(v) => setSound({ compactPill: v })}
+        />
+        <ToggleRow
           label="Chime on start/stop"
           description="Brief tone when recording starts and stops"
           checked={sound.chime}

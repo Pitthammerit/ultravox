@@ -48,6 +48,10 @@ export async function setPillHeight(height: number): Promise<void> {
   await invoke("set_pill_height", { height });
 }
 
+export async function setPillSize(width: number, height: number): Promise<void> {
+  await invoke("set_pill_size", { width, height });
+}
+
 export async function mediaPause(): Promise<void> {
   await invoke("media_pause");
 }

@@ -6,7 +6,7 @@ import { ModeGlyph } from "../components/ModeIcons";
 import { useRecorder } from "../hooks/useRecorder";
 import { useHotkeyEvent } from "../hooks/useHotkeyEvents";
 import { transcribe } from "../lib/transcribe";
-import { TOKEN_ENDPOINT, pasteToFrontmost, getFrontmostApp, setPillHeight, mediaPause, mediaResume } from "../lib/tauri-bridge";
+import { TOKEN_ENDPOINT, pasteToFrontmost, getFrontmostApp, setPillHeight, setPillSize, mediaPause, mediaResume } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
 import { appendHistory, loadSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
 import { pickAutoMode } from "../lib/autoMode";
@@ -52,6 +52,7 @@ export default function PillWindow() {
   const recorder = useRecorder();
   const [state, setState] = useState<PillState>("idle");
   const [view, setView] = useState<PillView>("pill");
+  const [compact, setCompact] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [mode, setMode] = useState<VoiceMode>(DEFAULT_MODES[0]!);
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -62,6 +63,7 @@ export default function PillWindow() {
       setSettings(s);
       const found = (s.modes ?? DEFAULT_MODES).find((m) => m.id === s.activeModeId);
       if (found) setMode(found);
+      setCompact(s.sound.compactPill ?? false);
       // Apply the user's theme — the pill is a separate WebView, so it must
       // call applyTheme itself; main.tsx only theme-applies the Settings App.
       applyTheme(s.theme);
@@ -75,11 +77,15 @@ export default function PillWindow() {
 
   const currentModes = settings?.modes ?? DEFAULT_MODES;
 
-  /* ── Resize pill window when view changes ───────────────────── */
+  /* ── Resize pill window when view or compact mode changes ────── */
   useEffect(() => {
-    const h = view === "modes" ? expandedHeight(currentModes.length) : PILL_H;
-    setPillHeight(h).catch(() => {});
-  }, [view, currentModes.length]);
+    if (compact && view === "pill") {
+      setPillSize(140, 40).catch(() => {});
+    } else {
+      const h = view === "modes" ? expandedHeight(currentModes.length) : PILL_H;
+      setPillHeight(h).catch(() => {});
+    }
+  }, [compact, view, currentModes.length]);
 
   /* ── Mode list toggle ───────────────────────────────────────── */
   useHotkeyEvent(
@@ -87,13 +93,14 @@ export default function PillWindow() {
     useCallback(() => {
       setView((v) => {
         if (v === "pill") {
+          if (compact) setCompact(false);
           const idx = currentModes.findIndex((m) => m.id === mode.id);
           setHighlightIdx(idx === -1 ? 0 : idx);
           return "modes";
         }
         return "pill";
       });
-    }, [currentModes, mode.id]),
+    }, [compact, currentModes, mode.id]),
   );
 
   /* ── Mode list keyboard nav ─────────────────────────────────── */
@@ -120,6 +127,7 @@ export default function PillWindow() {
   const pickMode = useCallback(async (m: VoiceMode) => {
     setMode(m);
     setView("pill");
+    if (settings?.sound.compactPill) setCompact(true);
     if (settings) {
       const next = { ...settings, activeModeId: m.id };
       setSettings(next);
@@ -287,6 +295,46 @@ export default function PillWindow() {
     boxShadow: "var(--pill-shadow)",
   };
 
+  if (compact && view === "pill" && (state === "idle" || state === "recording")) {
+    return (
+      <div
+        data-tauri-drag-region
+        className="fixed inset-0 flex items-center gap-2 px-2 rounded-[20px] overflow-hidden select-none cursor-grab"
+        style={{ ...pillStyle, background: "var(--pill-bg)" }}
+        onClick={() => setCompact(false)}
+      >
+        {/* State glyph circle */}
+        <div
+          className="shrink-0 flex items-center justify-center rounded-full"
+          style={{
+            width: 24, height: 24,
+            background: state === "recording"
+              ? "color-mix(in srgb, var(--color-accent) 20%, transparent)"
+              : "var(--pill-icon-bg, color-mix(in srgb, var(--pill-fg) 12%, transparent))",
+            outline: state === "recording" ? "1.5px solid var(--color-accent)" : "none",
+          }}
+        >
+          <ModeGlyph
+            name={mode.icon}
+            size={12}
+            strokeWidth={2}
+            color={state === "recording" ? "var(--color-accent)" : "var(--pill-fg-muted)"}
+          />
+        </div>
+        {/* Sparse waveform filling the rest */}
+        <div className="flex-1 overflow-hidden" style={{ height: 24 }}>
+          <RollingWaveform
+            stream={recorder.stream}
+            active={state === "recording"}
+            color="var(--pill-fg)"
+            barWidth={2}
+            gap={2}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 flex flex-col bg-transparent p-1.5" style={{ gap: view === "modes" ? SUBMENU_GAP : 0 }}>
 
@@ -304,7 +352,7 @@ export default function PillWindow() {
           >
             <span
               className="text-[12px] leading-snug"
-              style={{ color: "rgb(248,113,113)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
+              style={{ color: "var(--color-warning)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
             >
               {errorMsg}
             </span>
@@ -322,7 +370,7 @@ export default function PillWindow() {
         ) : (
           <div
             data-tauri-drag-region
-            className="w-full"
+            className="w-full relative"
             style={{ height: WAVE_H, cursor: "grab" }}
           >
             <RollingWaveform
@@ -332,6 +380,18 @@ export default function PillWindow() {
               barWidth={2}
               gap={1.5}
             />
+            {!compact && view === "pill" && (
+              <button
+                className="absolute top-1.5 right-2 flex items-center justify-center opacity-40 hover:opacity-80 transition-opacity"
+                style={{ width: 18, height: 18, background: "none", border: "none", cursor: "pointer", color: "var(--pill-fg)" }}
+                onClick={(e) => { e.stopPropagation(); setCompact(true); }}
+                title="Minimize pill"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M1 4.5L4 1.5M4 1.5H1.5M4 1.5V4M11 4.5L8 1.5M8 1.5H10.5M8 1.5V4M1 7.5L4 10.5M4 10.5H1.5M4 10.5V8M11 7.5L8 10.5M8 10.5H10.5M8 10.5V8" />
+                </svg>
+              </button>
+            )}
           </div>
         )}
 
@@ -349,7 +409,7 @@ export default function PillWindow() {
             />
             <span
               className="text-[13px] font-medium truncate"
-              style={{ color: state === "error" ? "rgb(248,113,113)" : "var(--pill-fg)" }}
+              style={{ color: state === "error" ? "var(--color-warning)" : "var(--pill-fg)" }}
             >
               {statusLabel}
             </span>
@@ -408,7 +468,7 @@ export default function PillWindow() {
                       name={m.icon}
                       size={15}
                       strokeWidth={2}
-                      color={active ? "#fff" : "var(--pill-fg)"}
+                      color={active ? "var(--color-primary-on-dark)" : "var(--pill-fg)"}
                     />
                   </span>
 

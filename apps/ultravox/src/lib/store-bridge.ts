@@ -21,6 +21,8 @@ export interface SoundSettings {
   noiseSuppression: boolean;
   /** Pause Music and Spotify when a recording starts; resume when it stops. */
   pauseMediaWhileRecording: boolean;
+  /** Start every recording in compact (minimal) pill mode. */
+  compactPill: boolean;
 }
 
 export interface HistoryEntry {
@@ -75,6 +77,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     echoCancellation: false,
     noiseSuppression: true,
     pauseMediaWhileRecording: false,
+    compactPill: false,
   },
   history: [],
 };

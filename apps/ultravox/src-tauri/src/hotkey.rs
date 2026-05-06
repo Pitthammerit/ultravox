@@ -216,3 +216,13 @@ pub fn set_pill_height<R: Runtime>(app: AppHandle<R>, height: u32) -> Result<(),
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn set_pill_size<R: Runtime>(app: AppHandle<R>, width: u32, height: u32) -> Result<(), String> {
+    use tauri::{LogicalSize, Size};
+    if let Some(win) = app.get_webview_window("pill") {
+        win.set_size(Size::Logical(LogicalSize { width: width as f64, height: height as f64 }))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
