@@ -51,9 +51,17 @@
   outline-offset: 1px;
 }
 
-/* Prevent white flash in the titleBarStyle:Overlay area */
+/* All windows: full-height layout. */
 html, body, #root {
-  background: var(--s-page);
   height: 100%;
   margin: 0;
+}
+
+/* Settings window only: page background (prevents white flash in the
+   titleBarStyle:Overlay area). The pill + mode-overlay windows must stay
+   fully transparent or the rectangular WebView fills the rounded pill
+   area with the page color, leaving a cream square around the pill. */
+body[data-route="settings"],
+body[data-route="settings"] #root {
+  background: var(--s-page);
 }
