@@ -15,20 +15,23 @@ import { captureError, track } from "../lib/telemetry";
 import { logDebug } from "../lib/debugLog";
 import { playStartChime, playStopChime } from "../lib/chime";
 
-type PillState = "idle" | "recording" | "transcribing" | "error";
+type PillState = "idle" | "recording" | "discardConfirm" | "transcribing" | "error";
 type PillView = "pill" | "modes";
 
-// Base pill window height (must match tauri.conf.json).
-const PILL_H = 120;
+// Visible pill chrome height.
+const PILL_CONTENT_H = 76;
 
-// Pill inner content height = PILL_H - p-1.5 top - p-1.5 bottom (6px each).
-const PILL_INNER_H = PILL_H - 12;
+// Transparent padding around the pill so the CSS box-shadow has room to render.
+const SHADOW_PAD = 12;
+
+// Total window height (must match tauri.conf.json).
+const PILL_H = PILL_CONTENT_H + SHADOW_PAD * 2;
 
 // Footer height shared by pill chrome and modes submenu.
-const FOOTER_H = 44;
+const FOOTER_H = 36;
 
-// Waveform area (above footer) in the pill chrome.
-const WAVE_H = PILL_INNER_H - FOOTER_H;
+// Waveform / ticker area above footer.
+const WAVE_H = PILL_CONTENT_H - FOOTER_H;
 
 // Each mode row height in the macOS-Focus-style list.
 const MODE_ROW_H = 44;
@@ -235,13 +238,25 @@ export default function PillWindow() {
     useCallback(() => {
       if (state === "idle") startRecord();
       else if (state === "recording") stopAndTranscribe();
+      // discardConfirm and transcribing: ignore hotkey
     }, [state, startRecord, stopAndTranscribe]),
   );
 
-  /* ── Esc cancels recording ──────────────────────────────────── */
+  /* ── Esc / Space / Enter during recording and discard-confirm ── */
   useEffect(() => {
-    if (state !== "recording") return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); cancel(); } };
+    if (state !== "recording" && state !== "discardConfirm") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (state === "recording" && e.key === "Escape") {
+        e.preventDefault();
+        setState("discardConfirm");
+      } else if (state === "discardConfirm" && (e.key === " " || e.key === "Escape")) {
+        e.preventDefault();
+        setState("recording");
+      } else if (state === "discardConfirm" && e.key === "Enter") {
+        e.preventDefault();
+        cancel();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [state, cancel]);
@@ -253,6 +268,7 @@ export default function PillWindow() {
 
   const statusLabel =
     state === "transcribing" ? "Transcribing…"
+    : state === "discardConfirm" ? mode.name
     : state === "error" ? "Error"
     : mode.name;
 
@@ -265,14 +281,14 @@ export default function PillWindow() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-transparent p-1.5" style={{ gap: view === "modes" ? SUBMENU_GAP : 0 }}>
+    <div className="fixed inset-0 flex flex-col bg-transparent" style={{ padding: SHADOW_PAD, gap: view === "modes" ? SUBMENU_GAP : 0 }}>
 
       {/* ── Pill chrome — always visible ───────────────────────── */}
       <div
-        className="flex flex-col rounded-[14px] overflow-hidden select-none shrink-0"
-        style={{ ...pillStyle, height: PILL_INNER_H }}
+        className="flex flex-col rounded-[20px] overflow-hidden select-none shrink-0"
+        style={{ ...pillStyle, height: PILL_CONTENT_H }}
       >
-        {/* Waveform / drag region — replaced by error text in error state */}
+        {/* Top area: waveform / ticker / discard-confirm / error */}
         {state === "error" ? (
           <div
             data-tauri-drag-region
@@ -280,11 +296,29 @@ export default function PillWindow() {
             style={{ height: WAVE_H, cursor: "grab" }}
           >
             <span
-              className="text-[12px] leading-snug"
-              style={{ color: "rgb(248,113,113)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
+              className="text-[11px] leading-snug"
+              style={{ color: "rgb(248,113,113)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
             >
               {errorMsg}
             </span>
+          </div>
+        ) : state === "discardConfirm" ? (
+          <div
+            data-tauri-drag-region
+            className="w-full flex items-center justify-center px-4"
+            style={{ height: WAVE_H, cursor: "grab" }}
+          >
+            <span className="text-[12px] font-medium" style={{ color: "var(--pill-fg)" }}>
+              Discard recording?
+            </span>
+          </div>
+        ) : state === "transcribing" ? (
+          <div
+            data-tauri-drag-region
+            className="w-full flex items-center overflow-hidden"
+            style={{ height: WAVE_H, cursor: "grab" }}
+          >
+            <TickerTape color="var(--pill-fg)" />
           </div>
         ) : (
           <div
@@ -312,7 +346,7 @@ export default function PillWindow() {
               name={mode.icon}
               size={13}
               strokeWidth={2}
-              color={state === "recording" ? "var(--color-accent)" : "var(--pill-fg-muted)"}
+              color="var(--pill-fg)"
             />
             <span
               className="text-[13px] font-medium truncate"
@@ -323,7 +357,9 @@ export default function PillWindow() {
           </div>
           <div className="flex items-center gap-3 shrink-0">
             {state === "recording" && <HintRow label="Stop" keys={["⌘", "⇧", ";"]} />}
-            {state === "recording" && <HintRow label="Cancel" keys={["⎋"]} />}
+            {state === "recording" && <HintRow label="Discard" keys={["⎋"]} />}
+            {state === "discardConfirm" && <HintRow label="Keep recording" keys={["Space"]} />}
+            {state === "discardConfirm" && <HintRow label="Discard" keys={["↵"]} />}
             {state === "transcribing" && (
               <span className="text-[11px]" style={{ color: "var(--pill-fg-subtle)" }}>Processing…</span>
             )}
@@ -340,7 +376,7 @@ export default function PillWindow() {
       {/* ── Modes submenu — macOS Focus-style single-column list ─ */}
       {view === "modes" && (
         <div
-          className="flex flex-col rounded-[14px] overflow-hidden select-none flex-1"
+          className="flex flex-col rounded-[20px] overflow-hidden select-none flex-1"
           style={pillStyle}
         >
           {/* Mode list — NOT a drag region so buttons receive clicks reliably. */}
@@ -412,6 +448,32 @@ export default function PillWindow() {
 }
 
 /* ── Shared sub-components ──────────────────────────────────── */
+
+const TICKER_TEXT = "Transcribing… · Cleaning up… · Pasting… · ";
+
+function TickerTape({ color }: { color: string }) {
+  // Duplicate text so the animation seamlessly loops (50% shift = one copy width).
+  const text = TICKER_TEXT.repeat(6);
+  return (
+    <>
+      <style>{`@keyframes pill-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+      <div style={{ overflow: "hidden", width: "100%", height: "100%", display: "flex", alignItems: "center", paddingLeft: 16 }}>
+        <span
+          style={{
+            display: "inline-block",
+            whiteSpace: "nowrap",
+            fontSize: 11,
+            fontWeight: 500,
+            color,
+            animation: "pill-ticker 8s linear infinite",
+          }}
+        >
+          {text}
+        </span>
+      </div>
+    </>
+  );
+}
 
 function HintRow({ label, keys }: { label: string; keys: string[] }) {
   return (

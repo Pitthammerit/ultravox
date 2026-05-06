@@ -20,11 +20,11 @@ type Section =
 
 const BREADCRUMBS: Record<Section, string> = {
   home: "",
-  modes: "modes",
-  vocabulary: "vocabulary",
-  configuration: "configuration",
-  sound: "sound",
-  history: "history",
+  modes: "Modes",
+  vocabulary: "Vocabulary",
+  configuration: "Configuration",
+  sound: "Sound",
+  history: "History",
 };
 
 export default function SettingsWindow() {

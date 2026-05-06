@@ -122,41 +122,27 @@ export default function RollingWaveform({
       ctx.fillStyle = color;
       const cx = canvas.width;
       const cy = canvas.height;
-      const baseline = cy / 2;
+      const baseline = cy;
       const minH = 2 * dpr;
       const radius = (barWidth * dpr) / 2;
 
       const totalSlot = (barWidth + gap) * dpr;
       const startX = cx - levels.length * totalSlot;
 
-      // Subtle center line
-      ctx.globalAlpha = 0.15;
-      ctx.fillRect(0, baseline - dpr * 0.5, cx, dpr);
-      ctx.globalAlpha = 1;
-
       for (let i = 0; i < levels.length; i++) {
         const lvl = levels[i] ?? 0.04;
-        const upperH = Math.max(minH / 2, lvl * (baseline - 3 * dpr));
+        const barH = Math.max(minH, lvl * cy * 0.85);
         const bw = barWidth * dpr;
         const rx = Math.min(radius, bw / 2);
         const x = startX + i * totalSlot;
 
-        // Upper half — grows upward from center
+        // Single bar growing upward from bottom
         if (ctx.roundRect) {
           ctx.beginPath();
-          ctx.roundRect(x, baseline - upperH, bw, upperH, [rx, rx, 0, 0]);
+          ctx.roundRect(x, baseline - barH, bw, barH, [rx, rx, 0, 0]);
           ctx.fill();
         } else {
-          ctx.fillRect(x, baseline - upperH, bw, upperH);
-        }
-
-        // Lower half — mirror grows downward from center
-        if (ctx.roundRect) {
-          ctx.beginPath();
-          ctx.roundRect(x, baseline, bw, upperH, [0, 0, rx, rx]);
-          ctx.fill();
-        } else {
-          ctx.fillRect(x, baseline, bw, upperH);
+          ctx.fillRect(x, baseline - barH, bw, barH);
         }
       }
 

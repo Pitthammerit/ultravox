@@ -47,9 +47,11 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
     settings.modes.find((m) => m.id === modeId) ?? makeBlankMode();
 
   const [draft, setDraft] = useState<VoiceMode>(original);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     setDraft(original);
+    setConfirmingDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeId]);
 
@@ -74,11 +76,11 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
       await onChange({ activeModeId: settings.modes[0]!.id });
       return;
     }
-    if (settings.modes.length <= 1) {
-      alert("Can't delete the last mode.");
-      return;
-    }
-    if (!confirm(`Delete the "${draft.name}" mode?`)) return;
+    if (settings.modes.length <= 1) return;
+    setConfirmingDelete(true);
+  };
+
+  const confirmDelete = async () => {
     const next = settings.modes.filter((m) => m.id !== draft.id);
     const patch: Partial<AppSettings> = { modes: next };
     if (settings.activeModeId === draft.id) patch.activeModeId = next[0]!.id;
@@ -217,19 +219,36 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <Button variant="ghost" size="xs" onClick={remove}>
-          {isNew ? "Cancel" : "Delete"}
-        </Button>
-        <Button
-          variant="primary"
-          size="xs"
-          disabled={!dirty || !draft.name.trim()}
-          onClick={save}
-        >
-          Save
-        </Button>
-      </div>
+      {confirmingDelete ? (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="text-[12px]" style={{ color: tokens.fgMuted }}>
+            Delete &ldquo;{draft.name}&rdquo;?
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="xs" onClick={() => setConfirmingDelete(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="xs" onClick={confirmDelete}
+              style={{ background: tokens.warning, color: "#fff" }}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <Button variant="ghost" size="xs" onClick={remove}>
+            {isNew ? "Cancel" : "Delete"}
+          </Button>
+          <Button
+            variant="primary"
+            size="xs"
+            disabled={!dirty || !draft.name.trim()}
+            onClick={save}
+          >
+            Save
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

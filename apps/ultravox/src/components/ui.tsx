@@ -39,34 +39,41 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
   return (
     <header
       data-tauri-drag-region
-      className="flex items-center justify-between border-b shrink-0"
-      style={{
-        borderColor: T.border,
-        background: T.page,
-        height: 40,
-        paddingLeft: 80,
-        paddingRight: 16,
-      }}
+      className="relative border-b shrink-0 flex items-center"
+      style={{ borderColor: T.border, background: T.page, height: 40 }}
     >
-      <div className="flex items-center gap-1.5">
+      {/* Left: back button with app name label (iOS pattern) */}
+      <div
+        className="absolute flex items-center gap-0.5"
+        style={{ left: 80, top: 0, bottom: 0, display: "flex", alignItems: "center" }}
+      >
         {onBack && (
           <button
             onClick={onBack}
             aria-label="Back"
-            className="text-[16px] leading-none px-1 py-0.5 rounded-md hover:bg-[var(--s-control)] transition-colors"
+            className="flex items-center gap-0.5 text-[13px] leading-none px-1 py-0.5 rounded-md hover:bg-[var(--s-control)] transition-colors"
             style={{ color: T.fgMuted }}
           >
-            ‹
+            <span style={{ fontSize: 17 }}>‹</span>
+            <span>Ultravox</span>
           </button>
         )}
-        <span
-          className={breadcrumb ? "text-[12px]" : "text-[13px] font-medium"}
-          style={{ color: breadcrumb ? T.fgMuted : T.fg }}
-        >
-          {breadcrumb ?? "Ultravox"}
-        </span>
       </div>
-      {right && <div>{right}</div>}
+
+      {/* Center: title — absolute so it's truly centered regardless of left/right content */}
+      <span
+        className="absolute left-1/2 text-[15px] font-semibold pointer-events-none"
+        style={{ transform: "translateX(-50%)", color: T.fg, whiteSpace: "nowrap" }}
+      >
+        {breadcrumb ?? "Ultravox"}
+      </span>
+
+      {/* Right slot */}
+      {right && (
+        <div className="absolute flex items-center" style={{ right: 16, top: 0, bottom: 0, display: "flex", alignItems: "center" }}>
+          {right}
+        </div>
+      )}
     </header>
   );
 }
