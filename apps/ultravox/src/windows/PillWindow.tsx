@@ -14,9 +14,9 @@ import { playStartChime, playStopChime } from "../lib/chime";
 type PillState = "idle" | "recording" | "transcribing" | "error";
 type PillView = "pill" | "modes";
 
-const PILL_H = 96;
-const MODE_ROW_H = 50;
-const MODE_FOOTER_H = 50;
+const PILL_H = 120;
+const MODE_ROW_H = 52;
+const MODE_FOOTER_H = 52;
 
 export default function PillWindow() {
   const recorder = useRecorder();
@@ -232,19 +232,21 @@ export default function PillWindow() {
   const statusLabel =
     state === "transcribing" ? "Transcribing…"
     : state === "error" ? errorMsg
-    : `${mode.name}`;
+    : mode.name;
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-transparent">
+    <div className="fixed inset-0 flex flex-col bg-transparent p-1.5">
       <div
-        className="flex-1 flex flex-col rounded-[16px] overflow-hidden select-none"
-        style={{ background: "rgba(13,14,18,0.88)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 8px 28px rgba(0,0,0,0.45)" }}
+        className="flex-1 flex flex-col rounded-[14px] overflow-hidden select-none"
+        style={{ background: "rgba(13,14,18,0.90)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.09)", boxShadow: "0 8px 32px rgba(0,0,0,0.55)" }}
       >
-        {/* Drag handle - top strip */}
-        <div data-tauri-drag-region className="h-2.5 w-full shrink-0" />
-
-        {/* Waveform - full width, no padding */}
-        <div className="flex-1 w-full relative">
+        {/* Waveform — also the drag region. Canvas has pointer-events:none
+            so mouse-down events bubble up to this div and initiate the drag. */}
+        <div
+          data-tauri-drag-region
+          className="flex-1 w-full"
+          style={{ cursor: "grab" }}
+        >
           <RollingWaveform
             stream={recorder.stream}
             active={state === "recording"}
@@ -256,26 +258,24 @@ export default function PillWindow() {
 
         {/* Footer bar */}
         <div
-          className="flex items-center justify-between gap-3 px-3"
-          style={{ height: 38, background: "rgba(0,0,0,0.28)", borderTop: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}
+          className="flex items-center justify-between gap-3 px-4"
+          style={{ height: 44, background: "rgba(0,0,0,0.32)", borderTop: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}
         >
           <div className="flex items-center gap-2 min-w-0">
             <MicIcon state={state} />
             <span
-              className="text-[12px] font-medium truncate"
-              style={{ color: state === "error" ? "rgb(248,113,113)" : "rgba(230,232,238,0.90)" }}
+              className="text-[13px] font-medium truncate"
+              style={{ color: state === "error" ? "rgb(248,113,113)" : "rgba(230,232,238,0.92)" }}
             >
               {statusLabel}
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            {(state === "recording" || state === "idle") && (
-              <HintRow label={state === "recording" ? "Stop" : "Record"} keys={["⌘", "⇧", ";"]} />
-            )}
-            {state === "transcribing" && (
-              <span className="text-[11px]" style={{ color: "rgba(230,232,238,0.45)" }}>Processing…</span>
-            )}
+            {state === "recording" && <HintRow label="Stop" keys={["⌘", "⇧", ";"]} />}
             {state === "recording" && <HintRow label="Cancel" keys={["⎋"]} />}
+            {state === "transcribing" && (
+              <span className="text-[12px]" style={{ color: "rgba(230,232,238,0.50)" }}>Transcribing…</span>
+            )}
           </div>
         </div>
       </div>

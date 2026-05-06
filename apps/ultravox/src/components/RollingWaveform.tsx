@@ -170,5 +170,5 @@ export default function RollingWaveform({
     };
   }, [color, barWidth, gap]);
 
-  return <canvas ref={canvasRef} className="w-full h-full block" aria-hidden />;
+  return <canvas ref={canvasRef} className="w-full h-full block" style={{ pointerEvents: "none" }} aria-hidden />;
 }
