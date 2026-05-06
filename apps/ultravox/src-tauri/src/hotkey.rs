@@ -152,7 +152,7 @@ fn register_hotkeys_inner<R: Runtime>(
     gs.on_shortcut(mode_shortcut, move |_app, _shortcut, event| {
         if event.state() == ShortcutState::Pressed {
             let _ = app_b.emit("hotkey:toggle-mode-overlay", ());
-            if let Some(win) = app_b.get_webview_window("mode-overlay") {
+            if let Some(win) = app_b.get_webview_window("pill") {
                 let _ = win.show();
                 let _ = win.set_focus();
             }
@@ -203,6 +203,16 @@ pub fn show_mode_overlay<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
 pub fn hide_mode_overlay<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("mode-overlay") {
         win.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_pill_height<R: Runtime>(app: AppHandle<R>, height: u32) -> Result<(), String> {
+    use tauri::{LogicalSize, Size};
+    if let Some(win) = app.get_webview_window("pill") {
+        win.set_size(Size::Logical(LogicalSize { width: 540.0, height: height as f64 }))
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }

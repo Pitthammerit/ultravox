@@ -43,3 +43,7 @@ export async function checkAccessibilityPermission(): Promise<boolean> {
 export async function requestAccessibilityPermission(): Promise<boolean> {
   return invoke<boolean>("request_accessibility_permission");
 }
+
+export async function setPillHeight(height: number): Promise<void> {
+  await invoke("set_pill_height", { height });
+}

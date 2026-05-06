@@ -16,6 +16,9 @@ interface RollingWaveformProps {
  * bars whose heights track the running time-domain RMS amplitude. New bars
  * appear on the right; older bars scroll left.
  *
+ * Bars are mirrored vertically — each bar grows up AND down from the center
+ * line as two identical halves.
+ *
  * Renders to a single <canvas>, sized to its container via ResizeObserver.
  */
 export default function RollingWaveform({
@@ -125,19 +128,38 @@ export default function RollingWaveform({
 
       const totalSlot = (barWidth + gap) * dpr;
       const startX = cx - levels.length * totalSlot;
+
+      // Subtle center line
+      ctx.globalAlpha = 0.15;
+      ctx.fillRect(0, baseline - dpr * 0.5, cx, dpr);
+      ctx.globalAlpha = 1;
+
       for (let i = 0; i < levels.length; i++) {
         const lvl = levels[i] ?? 0.04;
-        const h = Math.max(minH, lvl * (cy - 4 * dpr));
+        const upperH = Math.max(minH / 2, lvl * (baseline - 3 * dpr));
+        const bw = barWidth * dpr;
+        const rx = Math.min(radius, bw / 2);
         const x = startX + i * totalSlot;
-        const y = baseline - h / 2;
-        ctx.beginPath();
+
+        // Upper half — grows upward from center
         if (ctx.roundRect) {
-          ctx.roundRect(x, y, barWidth * dpr, h, radius);
+          ctx.beginPath();
+          ctx.roundRect(x, baseline - upperH, bw, upperH, [rx, rx, 0, 0]);
+          ctx.fill();
         } else {
-          ctx.rect(x, y, barWidth * dpr, h);
+          ctx.fillRect(x, baseline - upperH, bw, upperH);
         }
-        ctx.fill();
+
+        // Lower half — mirror grows downward from center
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(x, baseline, bw, upperH, [0, 0, rx, rx]);
+          ctx.fill();
+        } else {
+          ctx.fillRect(x, baseline, bw, upperH);
+        }
       }
+
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
