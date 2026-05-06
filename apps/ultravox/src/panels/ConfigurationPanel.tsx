@@ -63,7 +63,7 @@ export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
       >
         <Row
           label="Accessibility access"
-          description={
+          help={
             axGranted === true
               ? "Granted — paste works correctly."
               : axGranted === false
@@ -100,7 +100,7 @@ export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
       <Section label="Maintenance">
         <Row
           label="Reset to defaults"
-          description="Restore all preferences. History is preserved."
+          help="Restore all preferences. History is preserved."
           control={
             <Button
               variant="outline"
