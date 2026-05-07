@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
-import { Button, Row, Section, tokens } from "../components/ui";
-import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission } from "../lib/tauri-bridge";
+import { Button, Row, Section, ToggleRow, tokens } from "../components/ui";
+import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission, claudeCodeCheck, type ClaudeCodeStatus } from "../lib/tauri-bridge";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 
 interface ConfigurationPanelProps {
@@ -35,16 +35,18 @@ async function requestMicrophonePermission(): Promise<boolean> {
   }
 }
 
-export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
+export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
   const [axGranted, setAxGranted] = useState<boolean | null>(null);
   const [axRequesting, setAxRequesting] = useState(false);
   const [micState, setMicState] = useState<MicState>("unknown");
   const [micRequesting, setMicRequesting] = useState(false);
   const [resetConfirming, setResetConfirming] = useState(false);
+  const [claudeStatus, setClaudeStatus] = useState<ClaudeCodeStatus | null>(null);
 
   useEffect(() => {
     checkAccessibilityPermission().then(setAxGranted).catch(() => setAxGranted(false));
     checkMicrophonePermission().then(setMicState);
+    claudeCodeCheck().then(setClaudeStatus).catch(() => setClaudeStatus({ available: false, path: null, version: null }));
   }, []);
 
   const grantAx = useCallback(async () => {
@@ -167,6 +169,33 @@ export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
               </div>
             )
           }
+        />
+      </Section>
+
+      <Section
+        label="AI cleanup backend"
+        help="By default Ultravox sends transcripts to our managed cleanup service. If you have the Anthropic Claude Code CLI installed and signed-in to a Max plan, you can route the cleanup pass through it instead — uses your subscription rather than our pooled service. We auto-fall-back to the managed path on any failure so you'll never get a broken transcription."
+      >
+        <Row
+          label="Claude Code CLI"
+          help={claudeStatus?.path ? `Detected at ${claudeStatus.path}` : "Install Claude Code (https://claude.ai/code) and run `claude /login` once to enable."}
+          control={
+            <span style={{ fontSize: 12, color: claudeStatus?.available ? "var(--color-accent)" : tokens.fgMuted }}>
+              {claudeStatus == null
+                ? "Checking…"
+                : claudeStatus.available
+                  ? `Available · ${claudeStatus.version ?? "v?"}`
+                  : "Not installed"}
+            </span>
+          }
+        />
+        <ToggleRow
+          label="Use Claude Code for cleanup"
+          help="Route the LLM cleanup step through your locally-installed `claude` CLI (Max plan) instead of our managed service. Falls back automatically if the CLI is missing, not signed in, or times out."
+          checked={settings?.useClaudeCode === true}
+          onChange={async (next) => {
+            if (onChange) await onChange({ useClaudeCode: next });
+          }}
         />
       </Section>
 

@@ -14,6 +14,8 @@ export interface RecorderControls {
   cancel: () => void;
   pause: () => void;
   resume: () => void;
+  /** Peak RMS amplitude observed during the current/last recording (0..1). */
+  getPeakLevel: () => number;
 }
 
 /** Pick the best supported mime type for the current engine.
@@ -41,6 +43,53 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
   const chunksRef = useRef<BlobPart[]>([]);
   const stopResolveRef = useRef<((blob: Blob | null) => void) | null>(null);
 
+  // Peak-amplitude tracking (Web Audio AnalyserNode driven by rAF).
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const peakRafRef = useRef<number>(0);
+  const peakLevelRef = useRef<number>(0);
+
+  const teardownPeakTracking = useCallback(() => {
+    if (peakRafRef.current) {
+      cancelAnimationFrame(peakRafRef.current);
+      peakRafRef.current = 0;
+    }
+    try { analyserSourceRef.current?.disconnect(); } catch { /* ignore */ }
+    analyserSourceRef.current = null;
+    if (audioCtxRef.current) {
+      try { audioCtxRef.current.close(); } catch { /* ignore */ }
+      audioCtxRef.current = null;
+    }
+  }, []);
+
+  const startPeakTracking = useCallback((stream: MediaStream) => {
+    const Ctx = window.AudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0;
+    source.connect(analyser);
+    audioCtxRef.current = ctx;
+    analyserSourceRef.current = source;
+    const buf = new Uint8Array(analyser.fftSize);
+    peakLevelRef.current = 0;
+    const tick = () => {
+      analyser.getByteTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const v = ((buf[i] ?? 128) - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / buf.length);
+      if (rms > peakLevelRef.current) peakLevelRef.current = rms;
+      peakRafRef.current = requestAnimationFrame(tick);
+    };
+    peakRafRef.current = requestAnimationFrame(tick);
+  }, []);
+
   const start = useCallback(async (constraints?: MediaTrackConstraints) => {
     try {
       const stream = await mic.start(constraints);
@@ -67,11 +116,12 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
         logDebug("record-stop", {
           mime: blobType,
           bytes: blob?.size ?? 0,
-          message: `${chunksRef.current.length} chunks`,
+          message: `${chunksRef.current.length} chunks, peak=${peakLevelRef.current.toFixed(4)}`,
           durationMs: Math.round(performance.now() - recordStart),
         });
         setAudioBlob(blob);
         setState("stopped");
+        teardownPeakTracking();
         stopResolveRef.current?.(blob);
         stopResolveRef.current = null;
         mic.stop();
@@ -81,14 +131,16 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
         setState("error");
       };
       recorderRef.current = recorder;
+      startPeakTracking(stream);
       recorder.start();
       setState("recording");
     } catch (err) {
       setError(err as Error);
       setState("error");
+      teardownPeakTracking();
       throw err; // re-throw so callers know recording never started
     }
-  }, [mic, preferredMimeType]);
+  }, [mic, preferredMimeType, startPeakTracking, teardownPeakTracking]);
 
   const stop = useCallback(() => {
     return new Promise<Blob | null>((resolve) => {
@@ -110,8 +162,9 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
     chunksRef.current = [];
     setAudioBlob(null);
     setState("idle");
+    teardownPeakTracking();
     mic.stop();
-  }, [mic]);
+  }, [mic, teardownPeakTracking]);
 
   const pause = useCallback(() => {
     if (recorderRef.current?.state === "recording") recorderRef.current.pause();
@@ -121,5 +174,7 @@ export function useRecorder(preferredMimeType?: string): RecorderControls {
     if (recorderRef.current?.state === "paused") recorderRef.current.resume();
   }, []);
 
-  return { state, audioBlob, error, stream: mic.stream, start, stop, cancel, pause, resume };
+  const getPeakLevel = useCallback(() => peakLevelRef.current, []);
+
+  return { state, audioBlob, error, stream: mic.stream, start, stop, cancel, pause, resume, getPeakLevel };
 }

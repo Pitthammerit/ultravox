@@ -117,7 +117,7 @@ export function HotkeyRecorder({ value, onChange, error }: HotkeyRecorderProps) 
 }
 
 /** Convert stored shortcut string ("Cmd+Shift+Semicolon") to readable display. */
-function prettifyShortcut(s: string): string {
+export function prettifyShortcut(s: string): string {
   return s
     .split("+")
     .map((p) => {

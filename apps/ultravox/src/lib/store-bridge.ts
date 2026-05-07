@@ -50,12 +50,32 @@ export interface AppSettings {
   theme: "auto" | "light" | "dark-ocean" | "dark-night";
   /** UI language preference (chosen during onboarding). */
   uiLanguage: "en" | "de";
+  /** User's display name (asked during onboarding, shown in greetings). */
+  userName?: string;
   /** Push-to-talk vs toggle. */
   recordingStyle: "toggle" | "push-to-talk";
   /** Onboarding seen flag — gates the first-run wizard. */
   onboardingComplete: boolean;
+  /** Last step the user was on in the onboarding wizard (0..TOTAL-1).
+   *  Persisted on every step change so a permission-induced app restart
+   *  resumes where the user left off instead of wiping their entries. */
+  onboardingStep?: number;
   /** Sound + microphone preferences. */
   sound: SoundSettings;
+  /** Saved expanded-pill position (LogicalPosition, screen coords). Used to
+   *  restore where the pill was before the user collapsed it to the top-center
+   *  compact state. */
+  pillExpandedPosition?: { x: number; y: number };
+  /** Route LLM cleanup through the local `claude` CLI (Claude Code) instead
+   *  of the managed Cloudflare Voice Worker. Falls back to the worker if the
+   *  CLI is missing, not logged in, or times out. Off by default — the
+   *  Configuration panel exposes a toggle for users who have a Max plan
+   *  and Claude Code installed. */
+  useClaudeCode?: boolean;
+  /** Selected mic input device id (from navigator.mediaDevices.enumerateDevices).
+   *  null/undefined = system default. Settable from the tray's Microphone
+   *  Settings submenu. */
+  selectedMicDeviceId?: string | null;
   /** Recent transcription history (capped at HISTORY_MAX). */
   history: HistoryEntry[];
 }

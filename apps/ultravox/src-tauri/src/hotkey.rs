@@ -1,6 +1,8 @@
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+use crate::pill_window;
+
 /// Parse a Tauri-style accelerator string like "Cmd+Shift+;" into a `Shortcut`.
 /// Accepts the friendly aliases the JS side emits (Cmd, Ctrl, Alt, Shift,
 /// plus single-char keys, F1-F24, and named keys).
@@ -143,6 +145,7 @@ fn register_hotkeys_inner<R: Runtime>(
                 // granted the microphone permission.
                 if let Some(win) = app_a.get_webview_window("pill") {
                     let _ = win.show();
+                    pill_window::reapply_overlay_flags(&app_a, "pill");
                 }
                 let _ = app_a.emit("hotkey:toggle-record", ());
                 let _ = app_a.emit("hotkey:ptt-pressed", ());
@@ -161,6 +164,7 @@ fn register_hotkeys_inner<R: Runtime>(
             if let Some(win) = app_b.get_webview_window("pill") {
                 let _ = win.show();
                 let _ = win.set_focus();
+                pill_window::reapply_overlay_flags(&app_b, "pill");
             }
         }
     })
@@ -180,10 +184,21 @@ pub fn ultravox_register_hotkeys<R: Runtime>(
     register_hotkeys_inner(&app, &record, &mode_overlay)
 }
 
+/// Unregister every globally-registered shortcut. Used during onboarding so
+/// that the moment the user types a key combo into the HotkeyRecorder, the
+/// global hotkey doesn't simultaneously trigger a recording. App.tsx calls
+/// this when the wizard mounts and re-registers when onboarding completes.
+#[tauri::command]
+pub fn unregister_all_hotkeys<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    let gs = app.global_shortcut();
+    gs.unregister_all().map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn show_pill<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("pill") {
         win.show().map_err(|e| e.to_string())?;
+        pill_window::reapply_overlay_flags(&app, "pill");
     }
     Ok(())
 }
@@ -201,6 +216,7 @@ pub fn show_mode_overlay<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("mode-overlay") {
         win.show().map_err(|e| e.to_string())?;
         win.set_focus().map_err(|e| e.to_string())?;
+        pill_window::reapply_overlay_flags(&app, "mode-overlay");
     }
     Ok(())
 }
@@ -219,6 +235,7 @@ pub fn set_pill_height<R: Runtime>(app: AppHandle<R>, height: u32) -> Result<(),
     if let Some(win) = app.get_webview_window("pill") {
         win.set_size(Size::Logical(LogicalSize { width: 388.0, height: height as f64 }))
             .map_err(|e| e.to_string())?;
+        pill_window::reapply_overlay_flags(&app, "pill");
     }
     Ok(())
 }
@@ -229,6 +246,69 @@ pub fn set_pill_size<R: Runtime>(app: AppHandle<R>, width: u32, height: u32) -> 
     if let Some(win) = app.get_webview_window("pill") {
         win.set_size(Size::Logical(LogicalSize { width: width as f64, height: height as f64 }))
             .map_err(|e| e.to_string())?;
+        pill_window::reapply_overlay_flags(&app, "pill");
     }
+    Ok(())
+}
+
+/// Resize the pill to (width × height) and pin it to the top-center of
+/// whichever screen it is currently on. Used for the compact / minimize
+/// state — Superwhisper's "dots pill" pattern.
+///
+/// On macOS the menu bar is ~24pt tall; notched MacBooks (M1+) extend that
+/// to ~37pt around the camera cutout. A 44pt offset clears both with a
+/// small visual gap. The previous 12pt offset placed the pill behind the
+/// menu bar / notch.
+#[tauri::command]
+pub fn set_pill_position_top_center<R: Runtime>(
+    app: AppHandle<R>,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    let win = app
+        .get_webview_window("pill")
+        .ok_or("pill window missing")?;
+    let monitor = win
+        .current_monitor()
+        .map_err(|e| e.to_string())?
+        .ok_or("no monitor")?;
+    let scale = monitor.scale_factor();
+    let mw = monitor.size().width as f64 / scale;
+    let mx = monitor.position().x as f64 / scale;
+    let my = monitor.position().y as f64 / scale;
+
+    #[cfg(target_os = "macos")]
+    let top_offset = 44.0;
+    #[cfg(not(target_os = "macos"))]
+    let top_offset = 12.0;
+
+    let x = (mx + (mw - width as f64) / 2.0).round() as i32;
+    let y = (my + top_offset).round() as i32;
+    win.set_size(tauri::LogicalSize::new(width as f64, height as f64))
+        .map_err(|e| e.to_string())?;
+    win.set_position(tauri::LogicalPosition::new(x as f64, y as f64))
+        .map_err(|e| e.to_string())?;
+    crate::pill_window::reapply_overlay_flags(&app, "pill");
+    Ok(())
+}
+
+/// Resize the pill to (w × h) and place at exact (x, y). Used by the
+/// expand-from-compact path to restore the saved expanded position.
+#[tauri::command]
+pub fn set_pill_size_at_position<R: Runtime>(
+    app: AppHandle<R>,
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+) -> Result<(), String> {
+    let win = app
+        .get_webview_window("pill")
+        .ok_or("pill window missing")?;
+    win.set_size(tauri::LogicalSize::new(width as f64, height as f64))
+        .map_err(|e| e.to_string())?;
+    win.set_position(tauri::LogicalPosition::new(x as f64, y as f64))
+        .map_err(|e| e.to_string())?;
+    crate::pill_window::reapply_overlay_flags(&app, "pill");
     Ok(())
 }

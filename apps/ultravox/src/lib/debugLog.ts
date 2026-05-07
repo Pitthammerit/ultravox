@@ -18,6 +18,9 @@ export type DebugStage =
   | "transcribe-post"
   | "transcribe-result"
   | "paste"
+  | "pill-collapse"
+  | "pill-expand"
+  | "pill-auto-expand"
   | "error";
 
 export interface DebugEntry {

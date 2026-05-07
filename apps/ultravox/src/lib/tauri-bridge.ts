@@ -52,10 +52,70 @@ export async function setPillSize(width: number, height: number): Promise<void> 
   await invoke("set_pill_size", { width, height });
 }
 
+export async function setPillPositionTopCenter(width: number, height: number): Promise<void> {
+  await invoke("set_pill_position_top_center", { width, height });
+}
+
+export async function setPillSizeAtPosition(width: number, height: number, x: number, y: number): Promise<void> {
+  await invoke("set_pill_size_at_position", { width, height, x, y });
+}
+
+export interface TrayMicDevice { id: string; label: string; }
+
+/**
+ * Push the current list of audio input devices into the tray's
+ * "Microphone Settings" submenu. selectedId === null means "system default".
+ */
+export async function updateMicSubmenu(devices: TrayMicDevice[], selectedId: string | null): Promise<void> {
+  await invoke("update_mic_submenu", { devices, selectedId });
+}
+
 export async function mediaPause(): Promise<void> {
   await invoke("media_pause");
 }
 
 export async function mediaResume(): Promise<void> {
   await invoke("media_resume");
+}
+
+/** Returns the macOS preferred language as a 2-letter code ("en", "de", ...). */
+export async function getSystemLanguage(): Promise<string> {
+  return invoke<string>("get_system_language");
+}
+
+/**
+ * Open System Settings → Privacy & Security → category. Used to recover
+ * when the user denied a permission — once denied, macOS won't re-prompt,
+ * the user has to flip the toggle in Settings.
+ */
+export async function openPrivacySettings(category: "microphone" | "accessibility"): Promise<void> {
+  await invoke("open_privacy_settings", { category });
+}
+
+/** Unregister every global hotkey. Used during onboarding so that the
+ *  moment the user types a key combo into the HotkeyRecorder, the global
+ *  hotkey doesn't ALSO fire and start a recording. */
+export async function unregisterAllHotkeys(): Promise<void> {
+  await invoke("unregister_all_hotkeys");
+}
+
+/* ───────── Claude Code (local CLI fallback) ───────── */
+
+export interface ClaudeCodeStatus {
+  available: boolean;
+  path: string | null;
+  version: string | null;
+}
+
+/** Probe whether the user has the Anthropic Claude Code CLI installed
+ *  locally, so transcribe.ts can route LLM cleanup through it instead of
+ *  the managed worker. Returns availability + version, no auth check. */
+export async function claudeCodeCheck(): Promise<ClaudeCodeStatus> {
+  return invoke<ClaudeCodeStatus>("claude_code_check");
+}
+
+/** Run the Claude Code CLI with a one-shot prompt. Returns the model's
+ *  stdout. Throws if the CLI is missing, not authenticated, or times out. */
+export async function claudeCodeCleanup(prompt: string): Promise<string> {
+  return invoke<string>("claude_code_cleanup", { prompt });
 }

@@ -6,7 +6,7 @@ Standalone macOS Tauri 2 voice-dictation companion app. Inspired by Superwhisper
 
 **Working name:** `ultravox`. Real name will be one of: **Banter / Ozma / Speakboard** (decided pre-launch via trademark check). All branding strings live in `src/branding.ts` so renaming is one-file-edit + 3 config tweaks.
 
-**Status (2026-05-05):** Brainstorm + design + implementation plan complete. Reference code copied from bka2brain into `source-material/`. Project not yet scaffolded — Phase 2 of the implementation plan creates the Tauri app via `pnpm create tauri-app`.
+**Status (2026-05-08, v0.9.8):** Tauri app shipped through 18 phases of the implementation plan. Active iteration: pill polish (compact mode, abort UX, NSPanel keyboard input). Notarized DMG pipeline working.
 
 **Sibling project:** `/Users/benjaminkurtz/Documents/localcoding/bka2brain` — do **not** import from it. Components are duplicated into `source-material/` to be ported, not symlinked.
 
@@ -58,6 +58,27 @@ pnpm tauri build      # produce signed + notarized DMG (requires APPLE_ID, APPLE
 pnpm test             # vitest for React + ts logic
 cd src-tauri && cargo test   # Rust unit tests
 ```
+
+## Dev iteration
+
+- **Hot-reload dev shell:** `nohup pnpm tauri dev > /tmp/ultravox-dev.log 2>&1 & disown` — plain `pnpm tauri dev` dies when its parent shell exits. With `nohup` + `disown` it survives and you can tail `/tmp/ultravox-dev.log`.
+- **Diagnostics log path:** `~/Library/Application Support/com.ultravox.dev/debug-log.json` — readable from terminal: `cat .../debug-log.json | python3 -c "import json,sys;[print(e['stage'],e.get('message','')) for e in json.load(sys.stdin)['entries'][:20]]"`. The Configuration → Diagnostics panel renders the same entries.
+- **Settings store path:** `~/Library/Application Support/com.ultravox.dev/settings.json` (dev) / `com.ultravox.app` (release).
+
+## Pill window — load-bearing constraints
+
+The pill is an NSPanel (ISA-swapped from NSWindow at runtime in `src-tauri/src/pill_window.rs`) so it can float above other apps' fullscreen Spaces while the app's activation policy stays `Regular` (Dock + Cmd-Tab visible).
+
+- **`canBecomeKeyWindow` override required.** With `NSWindowStyleMaskNonactivatingPanel` set, the framework default for `canBecomeKeyWindow` is NO → panel can never be key → JS `keydown` listeners never fire. We `class_replaceMethod` it on the `NSPanel` class to return YES. Without this, Esc and every keyboard interaction silently dies in both compact and full pill.
+- **Compact-pill window size = visible pill + 2×SHADOW_PAD.** CSS `box-shadow` clips at the window edge, so the inner rounded element needs a transparent margin around it — same pattern as the full pill (`padding: SHADOW_PAD` on outer container). Forgetting this gives a square shadow halo around rounded corners.
+- **Top-center Y offset ≥40pt on macOS.** Tauri's `monitor.position()` returns NSScreen `frame.origin` which **includes** the menu bar and notch. On notched MacBooks the notch reaches ~37pt; the previous 12pt offset placed the compact pill behind it. Use 44pt.
+- **Saved expanded position must be in *logical* points.** `webviewWindow.outerPosition()` returns `PhysicalPosition` (raw pixels); the Rust command `set_pill_size_at_position` interprets x/y as `LogicalPosition`. On retina (scale 2), saving raw physical position warps the window 2× off-screen on next expand. Divide by `webviewWindow.scaleFactor()` before persisting to `settings.pillExpandedPosition`.
+
+## React hook patterns
+
+- **`useHotkeyEvent` (Tauri listen) MUST hold the handler in a ref.** `listen()` and the matching `unlisten()` are async. If the effect's deps include the handler — and the handler captures any state — every render re-registers, multiple in-flight registrations complete out of order, and several listeners end up attached. A single hotkey press fires the handler N times. Symptom: duplicate `recorder.stop()` calls, one of which sees an empty buffer and surfaces "No audio captured" while another transcribes successfully. See `src/hooks/useHotkeyEvents.ts` — handler-in-ref pattern with deps `[event]` only.
+- **`useRecorder` returns a fresh object every render** (its internal `state` updates trigger re-renders). Anything that depends on `recorder` in its `useCallback` deps recreates on every render too. Don't pass that callback through `useEffect` deps without ref-wrapping or you'll get the multi-listener bug above.
+- **`stateRef.current` for cross-listener state reads.** Putting `state` directly in a Tauri-listened callback closure produces stale captures because the listener may be the OLD one (still mid-unlisten) when the event arrives. Maintain a `useRef(state)` updated in a `useEffect` and read `stateRef.current` inside the listener.
 
 ## Design tokens (canonical)
 
@@ -117,6 +138,22 @@ Reference docs at `docs/inherited-memory/` are copies of memory entries from the
 - `project_openrouter_key_strategy.md` — admin (own key) vs published-user (managed key) — relevant for v1.5
 
 These are reference, not auto-loaded. The new Claude session will build its own project memory at `~/.claude/projects/-Users-benjaminkurtz-Documents-localcoding-ultravox/memory/` from scratch.
+
+## Versioning
+
+Current version: **0.9.9** (last bumped 2026-05-08).
+
+**Bump the patch on every shipped change** — automatically, without asking. So the next feature lands as 0.9.1, then 0.9.2, etc. Update all three files in lockstep:
+
+```
+apps/ultravox/package.json              "version": "0.x.y"
+apps/ultravox/src-tauri/Cargo.toml      version = "0.x.y"
+apps/ultravox/src-tauri/tauri.conf.json "version": "0.x.y"
+```
+
+Why patch on every release: macOS' icon + bundle caches are keyed on `(CFBundleIdentifier, CFBundleVersion)`. Rebuilding without bumping serves the cached icon forever. Always bumping side-steps it.
+
+Minor (0.9 → 0.10) and major (0.x → 1.0) bumps are deliberate decisions — ask first.
 
 ## Pending work
 

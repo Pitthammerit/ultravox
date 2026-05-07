@@ -6,7 +6,6 @@ import {
   NavCard,
   Row,
   Section,
-  ToggleRow,
   tokens,
 } from "../components/ui";
 import { HotkeyRecorder } from "../components/HotkeyRecorder";
@@ -100,11 +99,14 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
             />
           }
         />
-        <ToggleRow
+        <Row
           label="Push-to-talk"
-          help="Hold the hotkey while speaking instead of toggle"
-          checked={settings.recordingStyle === "push-to-talk"}
-          onChange={(v) => onChange({ recordingStyle: v ? "push-to-talk" : "toggle" })}
+          help="Hold the hotkey while speaking instead of toggling. Coming in v1.5."
+          control={
+            <span style={{ fontSize: 11, fontWeight: 500, padding: "3px 8px", borderRadius: 4, background: "var(--color-ink-15)", color: "var(--color-secondary)", letterSpacing: "0.04em" }}>
+              v1.5
+            </span>
+          }
         />
       </Section>
 

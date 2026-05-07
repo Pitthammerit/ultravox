@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import SettingsWindow from "./windows/SettingsWindow";
 import OnboardingWizard from "./windows/OnboardingWizard";
-import { loadSettings, saveSettings } from "./lib/store-bridge";
+import { loadSettings, patchSettings, saveSettings } from "./lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { tokens } from "./components/ui";
-import { registerHotkeys } from "./lib/tauri-bridge";
+import { registerHotkeys, unregisterAllHotkeys } from "./lib/tauri-bridge";
 import { checkForUpdate, type UpdateInfo } from "./lib/updater";
 
 export default function App() {
@@ -16,13 +17,21 @@ export default function App() {
     (async () => {
       const settings = await loadSettings();
       applyTheme(settings.theme);
-      // Re-register hotkeys with the user's saved combos (if any).
-      try {
-        await registerHotkeys(settings.hotkeyRecord, settings.hotkeyModeOverlay);
-      } catch (e) {
-        console.warn("hotkey register failed:", e);
+      const onboardingNeeded = !settings.onboardingComplete;
+      // While the wizard is open the user is *learning* the hotkey — and on
+      // step 5 they're literally typing it into the HotkeyRecorder. We don't
+      // want every keystroke to also start a recording. Suppress globals
+      // while onboarding is showing; re-arm them on completion.
+      if (onboardingNeeded) {
+        try { await unregisterAllHotkeys(); } catch (e) { console.warn("unregister hotkeys failed:", e); }
+      } else {
+        try {
+          await registerHotkeys(settings.hotkeyRecord, settings.hotkeyModeOverlay);
+        } catch (e) {
+          console.warn("hotkey register failed:", e);
+        }
       }
-      setShowOnboarding(!settings.onboardingComplete);
+      setShowOnboarding(onboardingNeeded);
       setReady(true);
 
       // Defer update check so it doesn't compete with app startup
@@ -33,9 +42,38 @@ export default function App() {
     })();
   }, []);
 
+  /* ── Tray-driven events ─────────────────────────────────────── */
+  useEffect(() => {
+    const unsubs: Array<() => void> = [];
+
+    listen("tray:check-update", async () => {
+      const info = await checkForUpdate();
+      if (info) setUpdate(info);
+    }).then((u) => unsubs.push(u));
+
+    listen<string>("tray:set-mode", (e) => {
+      const id = e.payload;
+      if (typeof id === "string" && id.length > 0) {
+        patchSettings({ activeModeId: id }).catch((err) => console.warn("[App] tray:set-mode failed:", err));
+      }
+    }).then((u) => unsubs.push(u));
+
+    return () => { for (const u of unsubs) u(); };
+  }, []);
+
   const completeOnboarding = async () => {
     const current = await loadSettings();
-    await saveSettings({ ...current, onboardingComplete: true });
+    // Clear onboardingStep so a future reset (e.g. tester wiping the flag)
+    // starts at step 0 rather than wherever the user last left off.
+    const { onboardingStep: _, ...rest } = current;
+    await saveSettings({ ...rest, onboardingComplete: true });
+    // Re-arm the global hotkeys now that the wizard is done. Use whatever
+    // values the user chose on the hotkey step (they're already persisted).
+    try {
+      await registerHotkeys(current.hotkeyRecord, current.hotkeyModeOverlay);
+    } catch (e) {
+      console.warn("re-register hotkeys after onboarding failed:", e);
+    }
     setShowOnboarding(false);
   };
 

@@ -5,7 +5,7 @@
  * (--s-* tokens). Inline styles are used intentionally — they're immune
  * to Tailwind v4's compilation quirks with token-based utility classes.
  */
-import { useId, type CSSProperties, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 const T = {
   page: "var(--s-page)",
@@ -42,32 +42,11 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
       className="relative border-b shrink-0 flex items-center"
       style={{ borderColor: T.border, background: T.page, height: 40 }}
     >
-      {/* Center: app name, always shown */}
-      <span
-        className="absolute left-1/2 text-[15px] font-semibold pointer-events-none"
-        style={{
-          transform: "translateX(-50%)",
-          color: T.fg,
-          whiteSpace: "nowrap",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}
-      >
-        Ultravox
-      </span>
-
-      {/* Right: breadcrumb back button — same font/size as the centered title */}
-      {breadcrumb && onBack && (
-        <button
-          onClick={onBack}
-          aria-label={`Back from ${breadcrumb}`}
-          className="absolute flex items-center gap-1 text-[15px] font-semibold transition-opacity hover:opacity-70"
-          style={{ right: 16, top: 0, bottom: 0, color: T.fg, whiteSpace: "nowrap", display: "flex", alignItems: "center" }}
-        >
-          <span style={{ fontSize: 17, lineHeight: 1 }}>‹</span>
-          <span>{breadcrumb}</span>
-        </button>
-      )}
+      {/* Center: app name stays absolutely centered (its position never
+          shifts when a breadcrumb appears). Breadcrumb is anchored to the
+          right of the title with a measured offset, so it reads as
+          "ULTRAVOX ‹ Modes" with the title locked at center. */}
+      <CenteredHeaderTitle title="Ultravox" color={T.fg} breadcrumb={breadcrumb} onBack={onBack ?? null} />
 
       {/* Right slot — only used when no breadcrumb back button is rendered */}
       {right && !breadcrumb && (
@@ -76,6 +55,83 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
         </div>
       )}
     </header>
+  );
+}
+
+/* Internal: title stays absolutely centered, breadcrumb is pinned to
+   `left: 50% + halfTitleWidth + gap` so it visually butts up against the
+   right edge of the title without shifting it.
+
+   We measure the rendered title width with useLayoutEffect (synchronous,
+   pre-paint) and re-measure on font-load and window-resize so it stays
+   aligned across themes / OS font swaps. */
+const TITLE_GAP = 12;
+
+function CenteredHeaderTitle({
+  title,
+  color,
+  breadcrumb,
+  onBack,
+}: {
+  title: string;
+  color: string;
+  breadcrumb?: string | undefined;
+  onBack?: (() => void) | null;
+}) {
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const [titleW, setTitleW] = useState<number>(0);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (titleRef.current) setTitleW(titleRef.current.getBoundingClientRect().width);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    if ("fonts" in document) document.fonts.ready.then(measure).catch(() => {});
+    return () => window.removeEventListener("resize", measure);
+  }, [title]);
+
+  return (
+    <>
+      <span
+        ref={titleRef}
+        className="absolute left-1/2 text-[15px] font-semibold pointer-events-none"
+        style={{
+          transform: "translateX(-50%)",
+          color,
+          whiteSpace: "nowrap",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {title}
+      </span>
+
+      {breadcrumb && onBack && (
+        <button
+          onClick={onBack}
+          aria-label={`Back from ${breadcrumb}`}
+          className="absolute flex items-center gap-1 text-[15px] font-semibold transition-opacity hover:opacity-70"
+          style={{
+            // Anchor at page-center, then push right by half the title's
+            // width plus the gap so it lands just after the title's right
+            // edge — independent of locale / font.
+            left: `calc(50% + ${titleW / 2 + TITLE_GAP}px)`,
+            top: 0,
+            bottom: 0,
+            color,
+            whiteSpace: "nowrap",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+          }}
+        >
+          <span style={{ fontSize: 17, lineHeight: 1 }}>‹</span>
+          <span>{breadcrumb}</span>
+        </button>
+      )}
+    </>
   );
 }
 
@@ -152,29 +208,31 @@ export function SectionLabel({
 
 export function HelpIcon({ tooltip }: { tooltip?: string }) {
   return (
-    <span
-      title={tooltip}
-      className="inline-flex items-center justify-center cursor-help shrink-0"
-      style={{ width: 13, height: 13, color: T.fgSubtle }}
-      aria-label={tooltip}
-    >
-      {/* Lucide help-circle — circle + question mark as SVG paths,
-          guaranteed centered regardless of font metrics. */}
-      <svg
-        width="13"
-        height="13"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
+    <span className="ux-help inline-flex items-center">
+      <span
+        className="inline-flex items-center justify-center cursor-help shrink-0"
+        style={{ width: 13, height: 13, color: T.fgSubtle }}
+        aria-label={tooltip}
       >
-        <circle cx="12" cy="12" r="10" />
-        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
+        {/* Lucide help-circle — circle + question mark as SVG paths,
+            guaranteed centered regardless of font metrics. */}
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      </span>
+      {tooltip && <span className="ux-help-tip" role="tooltip">{tooltip}</span>}
     </span>
   );
 }
