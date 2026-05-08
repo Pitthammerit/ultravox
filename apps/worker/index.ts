@@ -258,7 +258,8 @@ type ParsedRequest = {
   model: string;
   autocapitalize: boolean;
   /** Variables available for {{var}} substitution in systemPrompt + promptSuffix. */
-  userName: string;
+  firstName: string;
+  lastName: string;
   frontmostApp: string;
   frontmostBundleId: string;
 };
@@ -286,7 +287,10 @@ async function parseMultipartRequest(request: Request): Promise<ParsedRequest | 
   const provider: ParsedRequest['provider'] = providerRaw === 'none' ? 'none' : 'openrouter';
   const model = String(formData.get('model') ?? '');
   const autocapitalize = String(formData.get('autocapitalize') ?? 'false') === 'true';
-  const userName = String(formData.get('userName') ?? '');
+  // firstName/lastName are the canonical fields. `userName` is accepted as a
+  // legacy fallback (older app builds sent that single field).
+  const firstName = String(formData.get('firstName') ?? formData.get('userName') ?? '');
+  const lastName = String(formData.get('lastName') ?? '');
   const frontmostApp = String(formData.get('frontmostApp') ?? '');
   const frontmostBundleId = String(formData.get('frontmostBundleId') ?? '');
 
@@ -310,7 +314,7 @@ async function parseMultipartRequest(request: Request): Promise<ParsedRequest | 
   return {
     audio, language, cleanup, vocabularyHints, vocabularyReplacements,
     systemPrompt, promptSuffix, provider, model, autocapitalize,
-    userName, frontmostApp, frontmostBundleId,
+    firstName, lastName, frontmostApp, frontmostBundleId,
   };
 }
 
@@ -491,8 +495,12 @@ async function handleClean(request: Request, env: Env): Promise<Response> {
     );
     const replacedText = applyVocabularyReplacements(rawWhisperText, parsed.vocabularyReplacements);
     const now = new Date();
+    const fullName = [parsed.firstName, parsed.lastName].filter((s) => s.trim()).join(' ');
     const ctx: Record<string, string | undefined> = {
-      userName: parsed.userName,
+      firstName: parsed.firstName,
+      lastName: parsed.lastName,
+      fullName: fullName || undefined,
+      userName: parsed.firstName, // legacy alias
       frontmostApp: parsed.frontmostApp,
       frontmostBundleId: parsed.frontmostBundleId,
       date: now.toISOString().slice(0, 10),

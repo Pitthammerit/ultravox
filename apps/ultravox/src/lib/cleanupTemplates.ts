@@ -8,7 +8,10 @@
  * frame is NOT user-editable to keep the model in cleanup mode.
  *
  * Available variables (substituted server-side via {{var}}):
- *   {{userName}}          — user's display name from settings
+ *   {{firstName}}         — user's first name from settings
+ *   {{lastName}}          — user's last name from settings
+ *   {{fullName}}          — first + last name (or just first if no last)
+ *   {{userName}}          — alias for firstName (legacy compatibility)
  *   {{frontmostApp}}      — friendly name of the app at record time ("Mail")
  *   {{frontmostBundleId}} — bundle id ("com.apple.mail")
  *   {{date}}              — YYYY-MM-DD at record time
@@ -24,13 +27,25 @@ export interface PromptVariable {
   example: string;
 }
 
+/**
+ * Variables shown as clickable chips below the Cleanup-instructions textarea.
+ * Kept intentionally short — only the ones a typical user would put into
+ * a sign-off or note timestamp.
+ *
+ * Additional variables ARE accepted server-side but not surfaced here:
+ *   {{frontmostApp}}      — friendly name of the focused app at record time
+ *   {{frontmostBundleId}} — bundle id like com.apple.mail
+ *   {{language}}          — mode language code
+ *   {{userName}}          — alias for firstName (legacy)
+ * Power users can hand-type these; they're omitted from the palette to keep
+ * the UI accessible to non-technical users.
+ */
 export const PROMPT_VARIABLES: PromptVariable[] = [
-  { name: "userName",          description: "Your display name (from settings)", example: "Benjamin" },
-  { name: "frontmostApp",      description: "App you were focused on at record time", example: "Mail" },
-  { name: "frontmostBundleId", description: "Bundle id of that app",                 example: "com.apple.mail" },
-  { name: "date",              description: "Date at record time",                    example: "2026-05-08" },
-  { name: "time",              description: "Time at record time",                    example: "14:32" },
-  { name: "language",          description: "Mode language code",                     example: "en" },
+  { name: "firstName", description: "Your first name (from settings)", example: "Benjamin" },
+  { name: "lastName",  description: "Your last name (from settings)",  example: "Kurtz" },
+  { name: "fullName",  description: "First + last name",                example: "Benjamin Kurtz" },
+  { name: "date",      description: "Date at record time",              example: "2026-05-08" },
+  { name: "time",      description: "Time at record time",              example: "14:32" },
 ];
 
 /**

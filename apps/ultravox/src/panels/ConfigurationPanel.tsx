@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
-import { Button, Row, Section, tokens } from "../components/ui";
+import { Button, Input, Row, Section, tokens } from "../components/ui";
 import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission, claudeCodeCheck, type ClaudeCodeStatus } from "../lib/tauri-bridge";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 
@@ -35,7 +35,7 @@ async function requestMicrophonePermission(): Promise<boolean> {
   }
 }
 
-export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
+export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
   const [axGranted, setAxGranted] = useState<boolean | null>(null);
   const [axRequesting, setAxRequesting] = useState(false);
   const [micState, setMicState] = useState<MicState>("unknown");
@@ -96,6 +96,32 @@ export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
 
   return (
     <>
+      <Section
+        label="About you"
+        help="Used by your modes to personalize cleanup — e.g. Email mode signs off with your first name. Available in custom prompts as {{firstName}}, {{lastName}}, and {{fullName}}."
+      >
+        <Row
+          label="First name"
+          control={
+            <Input
+              value={settings?.firstName ?? ""}
+              onChange={(v) => { if (onChange) void onChange(v.trim() ? { firstName: v } : { firstName: "" }); }}
+              placeholder="Benjamin"
+            />
+          }
+        />
+        <Row
+          label="Last name"
+          control={
+            <Input
+              value={settings?.lastName ?? ""}
+              onChange={(v) => { if (onChange) void onChange(v.trim() ? { lastName: v } : { lastName: "" }); }}
+              placeholder="Kurtz"
+            />
+          }
+        />
+      </Section>
+
       <Section
         label="Permissions"
         help="Required for Ultravox to record audio and paste transcriptions into other apps."

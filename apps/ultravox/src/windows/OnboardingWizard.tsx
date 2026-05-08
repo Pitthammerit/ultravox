@@ -73,7 +73,8 @@ const COPY: Record<Lang, {
   startedBody: string;
   // step 2
   nameTitle: string;
-  namePlaceholder: string;
+  firstNamePlaceholder: string;
+  lastNamePlaceholder: string;
   // step 3
   themeTitle: string;
   themeBody: string;
@@ -135,7 +136,8 @@ const COPY: Record<Lang, {
     startedTitle: "Let's get started",
     startedBody: "Voice-dictate into any text field on your Mac. Press a hotkey, speak, press again — the text appears wherever your cursor is.",
     nameTitle: "What's your name?",
-    namePlaceholder: "Your name",
+    firstNamePlaceholder: "First name",
+    lastNamePlaceholder: "Last name",
     themeTitle: "Choose your theme",
     themeBody: "Pick a look. You can change this later in Settings → Configuration.",
     themeAuto: "Auto",
@@ -189,7 +191,8 @@ const COPY: Record<Lang, {
     startedTitle: "Los geht's",
     startedBody: "Diktiere in jedes Textfeld auf deinem Mac. Hotkey drücken, sprechen, erneut drücken — der Text erscheint dort, wo dein Cursor ist.",
     nameTitle: "Wie ist dein Name?",
-    namePlaceholder: "Dein Name",
+    firstNamePlaceholder: "Vorname",
+    lastNamePlaceholder: "Nachname",
     themeTitle: "Wähle dein Theme",
     themeBody: "Such dir einen Look aus. Du kannst das später unter Einstellungen → Konfiguration ändern.",
     themeAuto: "Automatisch",
@@ -243,7 +246,8 @@ function detectInitialLang(): Lang {
 export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState(0);
   const [lang, setLang] = useState<Lang>(detectInitialLang);
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [theme, setTheme] = useState<ThemeChoice>("auto");
   const [hotkeyRecord, setHotkeyRecord] = useState("Cmd+Shift+;");
   const [hotkeyModeOverlay, setHotkeyModeOverlay] = useState("Alt+Shift+K");
@@ -259,7 +263,16 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   useEffect(() => {
     loadSettings().then((s) => {
       if (s.uiLanguage) setLang(s.uiLanguage);
-      if (s.userName) setName(s.userName);
+      // Hydrate from new fields, falling back to legacy split for users
+      // upgrading from <0.9.16 (mergeWithDefaults already migrates the saved
+      // store, but the saved object passed here may still carry the old shape).
+      if (s.firstName) setFirstName(s.firstName);
+      if (s.lastName) setLastName(s.lastName);
+      if (!s.firstName && !s.lastName && s.userName) {
+        const parts = s.userName.trim().split(/\s+/);
+        if (parts[0]) setFirstName(parts[0]);
+        if (parts.length > 1) setLastName(parts.slice(1).join(" "));
+      }
       if (s.theme) {
         setTheme(s.theme);
         try { applyTheme(s.theme); } catch (e) { console.warn("applyTheme failed:", e); }
@@ -421,10 +434,14 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   // user who types "Benjamin" and then app-restarts before clicking
   // Continue loses the entry.
   useEffect(() => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    void patchSettings({ userName: trimmed });
-  }, [name, patchSettings]);
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    if (!fn && !ln) return;
+    void patchSettings({
+      ...(fn ? { firstName: fn } : {}),
+      ...(ln ? { lastName: ln } : {}),
+    });
+  }, [firstName, lastName, patchSettings]);
 
   const next = async () => {
     if (step === TOTAL_STEPS - 1) {
@@ -494,21 +511,37 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         {/* ── Step 2: Name ── */}
         {step === 2 && (
           <Step title={t.nameTitle}>
-            <input
-              ref={nameInputRef}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") next(); }}
-              placeholder={t.namePlaceholder}
-              className="w-full rounded-lg outline-none"
-              style={{
-                background: SURFACE,
-                border: `1px solid ${SURFACE_BORDER}`,
-                color: FG_PRIMARY,
-                fontSize: 14,
-                padding: "10px 14px",
-              }}
-            />
+            <div className="flex gap-2 w-full">
+              <input
+                ref={nameInputRef}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") next(); }}
+                placeholder={t.firstNamePlaceholder}
+                className="flex-1 rounded-lg outline-none"
+                style={{
+                  background: SURFACE,
+                  border: `1px solid ${SURFACE_BORDER}`,
+                  color: FG_PRIMARY,
+                  fontSize: 14,
+                  padding: "10px 14px",
+                }}
+              />
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") next(); }}
+                placeholder={t.lastNamePlaceholder}
+                className="flex-1 rounded-lg outline-none"
+                style={{
+                  background: SURFACE,
+                  border: `1px solid ${SURFACE_BORDER}`,
+                  color: FG_PRIMARY,
+                  fontSize: 14,
+                  padding: "10px 14px",
+                }}
+              />
+            </div>
             <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>
           </Step>
         )}

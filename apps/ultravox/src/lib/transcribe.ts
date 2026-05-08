@@ -11,8 +11,10 @@ export interface TranscribeOptions {
   mode: VoiceMode;
   vocabulary: VocabularyEntry[];
   tokenEndpoint: string;
-  /** User's display name from settings; substituted into {{userName}}. */
-  userName?: string;
+  /** User's first name from settings; substituted into {{firstName}}. */
+  firstName?: string;
+  /** User's last name from settings; substituted into {{lastName}}. */
+  lastName?: string;
   /** Frontmost app at record time; substituted into {{frontmostApp}}/{{frontmostBundleId}}. */
   frontmostApp?: { localized_name: string | null; bundle_id: string | null } | null;
   /** Fired once when the upload starts (single phase — server does both). */
@@ -118,8 +120,12 @@ function buildClaudePrompt(rawText: string, opts: TranscribeOptions): string {
 
   const customSuffix = opts.mode.promptSuffix?.trim() ?? "";
   const now = new Date();
+  const fullName = [opts.firstName, opts.lastName].filter((s) => s && s.trim()).join(" ");
   const ctx: Record<string, string | undefined> = {
-    userName: opts.userName,
+    firstName: opts.firstName,
+    lastName: opts.lastName,
+    fullName: fullName || undefined,
+    userName: opts.firstName, // legacy alias
     frontmostApp: opts.frontmostApp?.localized_name ?? undefined,
     frontmostBundleId: opts.frontmostApp?.bundle_id ?? undefined,
     date: now.toISOString().slice(0, 10),
@@ -182,7 +188,8 @@ async function workerTranscribe(
     if (opts.mode.systemPrompt) fd.append("systemPrompt", opts.mode.systemPrompt);
     if (opts.mode.promptSuffix) fd.append("promptSuffix", opts.mode.promptSuffix);
     if (opts.mode.autocapitalize) fd.append("autocapitalize", "true");
-    if (opts.userName) fd.append("userName", opts.userName);
+    if (opts.firstName) fd.append("firstName", opts.firstName);
+    if (opts.lastName) fd.append("lastName", opts.lastName);
     if (opts.frontmostApp?.localized_name) fd.append("frontmostApp", opts.frontmostApp.localized_name);
     if (opts.frontmostApp?.bundle_id) fd.append("frontmostBundleId", opts.frontmostApp.bundle_id);
     const replacements = getReplacePairs(opts.vocabulary);

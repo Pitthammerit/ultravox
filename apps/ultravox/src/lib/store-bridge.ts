@@ -50,8 +50,14 @@ export interface AppSettings {
   theme: "auto" | "light" | "dark-ocean" | "dark-night";
   /** UI language preference (chosen during onboarding). */
   uiLanguage: "en" | "de";
-  /** User's display name (asked during onboarding, shown in greetings). */
+  /** Legacy single-field display name. v0.9.16+ stores firstName/lastName
+   *  separately; mergeWithDefaults migrates this on load. Retained in the
+   *  interface so older saves still parse without errors. */
   userName?: string;
+  /** First name — used as default in greetings/sign-offs (e.g. "Cheers, Ben"). */
+  firstName?: string;
+  /** Last name — available via {{lastName}} / {{fullName}} for custom prompts. */
+  lastName?: string;
   /** Push-to-talk vs toggle. */
   recordingStyle: "toggle" | "push-to-talk";
   /** Onboarding seen flag — gates the first-run wizard. */
@@ -159,9 +165,21 @@ function migrateModes(modes: VoiceMode[]): { modes: VoiceMode[]; changed: boolea
  */
 function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): AppSettings {
   if (!stored) return DEFAULT_SETTINGS;
+  // Migrate legacy `userName` → `firstName` + `lastName` on first load after
+  // upgrading. Split on the first whitespace; everything after becomes the
+  // last name. The legacy field is left in place so a downgrade still works.
+  let firstName = stored.firstName;
+  let lastName = stored.lastName;
+  if (!firstName && !lastName && typeof stored.userName === "string" && stored.userName.trim()) {
+    const parts = stored.userName.trim().split(/\s+/);
+    firstName = parts[0];
+    if (parts.length > 1) lastName = parts.slice(1).join(" ");
+  }
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
+    ...(firstName !== undefined ? { firstName } : {}),
+    ...(lastName !== undefined ? { lastName } : {}),
     sound: { ...DEFAULT_SETTINGS.sound, ...(stored.sound ?? {}) },
     modes: stored.modes ?? DEFAULT_SETTINGS.modes,
     vocabulary: stored.vocabulary ?? [],
