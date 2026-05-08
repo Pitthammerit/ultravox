@@ -11,37 +11,9 @@ import {
   type LocalWhisperModelInfo,
 } from "../lib/tauri-bridge";
 import type { TranscriptionModelValue } from "../lib/voiceModes";
+import { TRANSCRIPTION_VARIANTS } from "../lib/transcriptionVariants";
 
 export type { TranscriptionModelValue };
-
-interface VariantMeta {
-  id: string;
-  label: string;
-  size: string;
-  description: string;
-  tooltip: string;
-  isCloud?: boolean;
-  isEnglish?: boolean;
-}
-
-const VARIANTS: VariantMeta[] = [
-  { id: "auto",           label: "Auto",               size: "",         description: "Smart-route (recommended)",      tooltip: "Picks the best installed local model based on the mode's language AND audio quality. Quiet recordings auto-upgrade to a more accurate model when available. English modes prefer english-tuned variants. Falls back to Whisper Cloud if nothing local is installed." },
-  {
-    id: "cloud",
-    label: "Cloud",
-    size: "",
-    description: "Transcribe in Cloud",
-    tooltip: "Send audio to the managed Cloudflare worker for transcription. Never runs on-device — overrides the global local-transcription toggle for this mode.",
-    isCloud: true,
-  },
-  { id: "tiny",           label: "Quick",              size: "~75 MB",   description: "Fastest, lower accuracy",       tooltip: "Tiny is the smallest Whisper model (~75 MB). Transcription is near-instant but accuracy is lower, especially for accents or fast speech." },
-  { id: "base.en",        label: "Lite",               size: "~142 MB",  description: "More accurate, English",        tooltip: "Base.en is trained on English-only data — more accurate than Tiny for English dictation at a modest size increase (~142 MB).", isEnglish: true },
-  { id: "base",           label: "Lite",               size: "~142 MB",  description: "Multilingual, balanced",        tooltip: "Base is the multilingual sibling of Base.en (~142 MB). Handles non-English languages with good accuracy and reasonable speed." },
-  { id: "small",          label: "Balance",            size: "~466 MB",  description: "Good accuracy, moderate speed", tooltip: "Small delivers good transcription quality (~466 MB) at a moderate speed." },
-  { id: "medium",         label: "Plus",               size: "~1.5 GB",  description: "High accuracy, multilingual",   tooltip: "Medium is a large multilingual model (~1.5 GB). High quality across all languages; significantly slower than Small." },
-  { id: "medium.en",      label: "Plus",               size: "~1.5 GB",  description: "High accuracy, English",        tooltip: "Medium.en is trained exclusively on English data (~1.5 GB). Best English-tuned option when Large-v3-turbo isn't needed.", isEnglish: true },
-  { id: "large-v3-turbo", label: "Max",                size: "~1.6 GB",  description: "Best accuracy, decent speed",   tooltip: "Large-v3-turbo (~1.6 GB) is the highest-accuracy local model. Faster than full Large-v3 thanks to a distilled decoder, while matching its quality. Multilingual." },
-];
 
 interface TranscriptionModelPickerProps {
   value: TranscriptionModelValue;
@@ -68,7 +40,7 @@ export function TranscriptionModelPicker({
   const [downloadErrors, setDownloadErrors] = useState<Record<string, string>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const activeInfo = VARIANTS.find((v) => v.id === value) ?? VARIANTS[0]!;
+  const activeInfo = TRANSCRIPTION_VARIANTS.find((v) => v.id === value) ?? TRANSCRIPTION_VARIANTS[0]!;
 
   useEffect(() => {
     let unsubProgress: (() => void) | null = null;
@@ -169,7 +141,7 @@ export function TranscriptionModelPicker({
             boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
           }}
         >
-          {VARIANTS.map((opt, i) => {
+          {TRANSCRIPTION_VARIANTS.map((opt, i) => {
             const isInstalled = !opt.isCloud && opt.id !== "auto" && installedModels.some((m) => m.variant === opt.id);
             const isDownloading = opt.id in downloadProgress;
             const pct = downloadProgress[opt.id] ?? 0;
@@ -185,44 +157,23 @@ export function TranscriptionModelPicker({
                 className="cursor-pointer px-3 py-2"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "14px 130px 1fr 52px 24px",
+                  gridTemplateColumns: "1fr 52px 16px 24px",
                   alignItems: "center",
                   gap: "0 6px",
-                  borderBottom: i < VARIANTS.length - 1 ? `1px solid ${tokens.border}` : "none",
+                  borderBottom: i < TRANSCRIPTION_VARIANTS.length - 1 ? `1px solid ${tokens.border}` : "none",
                   background: isActive ? `color-mix(in srgb, var(--color-primary) 8%, transparent)` : "transparent",
                 }}
               >
-                {/* checkmark col */}
-                <div style={{ color: "var(--color-accent)" }}>
-                  {isActive && (
-                    <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
-                      <path d="M1 5L4.5 8.5L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-
-                {/* label col — fixed width, flush left */}
+                {/* name col — flush left, includes optional cloud icon + EN pill */}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
                   {opt.isCloud && <Cloud size={11} style={{ color: tokens.fgMuted, flexShrink: 0 }} />}
                   <span className="font-medium" style={{ fontSize: 12, color: tokens.fg, whiteSpace: "nowrap" }}>{opt.label}</span>
                   {opt.isEnglish && <EnPill />}
-                  <PickerTooltip text={opt.tooltip}>
-                    <span
-                      className="inline-flex items-center justify-center rounded-full"
-                      style={{ width: 13, height: 13, fontSize: 9, background: tokens.border, color: tokens.fgMuted, cursor: "default", flexShrink: 0, fontWeight: 600 }}
-                    >
-                      ?
-                    </span>
-                  </PickerTooltip>
-                </div>
-
-                {/* description col — fills remaining space */}
-                <div style={{ minWidth: 0 }}>
-                  <span style={{ fontSize: 11, color: tokens.fgSubtle, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 11, color: tokens.fgSubtle, marginLeft: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {opt.description}
                   </span>
                   {isDownloading && (
-                    <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-1.5 ml-2 flex-1" style={{ minWidth: 60 }}>
                       <div className="rounded-full overflow-hidden flex-1" style={{ height: 3, background: tokens.border }}>
                         <div
                           style={{
@@ -237,7 +188,7 @@ export function TranscriptionModelPicker({
                     </div>
                   )}
                   {downloadErrors[opt.id] && !isDownloading && (
-                    <span style={{ fontSize: 10, color: "var(--color-warning)" }}>{downloadErrors[opt.id]}</span>
+                    <span style={{ fontSize: 10, color: "var(--color-warning)", marginLeft: 4, flexShrink: 0 }}>{downloadErrors[opt.id]}</span>
                   )}
                 </div>
 
@@ -245,6 +196,16 @@ export function TranscriptionModelPicker({
                 <span style={{ fontSize: 11, color: tokens.fgSubtle, textAlign: "right", whiteSpace: "nowrap" }}>
                   {installedInfo ? formatPickerBytes(installedInfo.sizeBytes) : opt.size}
                 </span>
+
+                {/* help icon col — fixed width */}
+                <PickerTooltip text={opt.tooltip}>
+                  <span
+                    className="inline-flex items-center justify-center rounded-full"
+                    style={{ width: 13, height: 13, fontSize: 9, background: tokens.border, color: tokens.fgMuted, cursor: "default", flexShrink: 0, fontWeight: 600 }}
+                  >
+                    ?
+                  </span>
+                </PickerTooltip>
 
                 {/* action icon col — fixed width */}
                 <div style={{ display: "flex", justifyContent: "center" }}>
@@ -303,7 +264,7 @@ export function formatPickerBytes(b: number): string {
   return `${(b / 1024 / 1024).toFixed(0)}MB`;
 }
 
-function EnPill() {
+export function EnPill() {
   return (
     <span
       style={{

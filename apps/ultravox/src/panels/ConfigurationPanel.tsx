@@ -16,7 +16,8 @@ import {
   localWhisperDeleteModel,
   type LocalWhisperModelInfo,
 } from "../lib/tauri-bridge";
-import { formatPickerBytes } from "../components/TranscriptionModelPicker";
+import { formatPickerBytes, EnPill } from "../components/TranscriptionModelPicker";
+import { VARIANT_LABEL_MAP } from "../lib/transcriptionVariants";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 
 interface ConfigurationPanelProps {
@@ -408,9 +409,11 @@ function formatBytes(b: number): string {
 
 /* ─────────────────────────────────────────────────────────────
    INSTALLED WHISPER MODELS — delete-only view for disk management
+   Wrapped in an accordion; collapsed by default (maintenance feature).
    ───────────────────────────────────────────────────────────── */
 
 function InstalledWhisperModelsSection() {
+  const [open, setOpen] = useState(false);
   const [installed, setInstalled] = useState<LocalWhisperModelInfo[]>([]);
   const [removeConfirming, setRemoveConfirming] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -439,47 +442,103 @@ function InstalledWhisperModelsSection() {
   }, [removeConfirming, refresh]);
 
   return (
-    <Section
-      label="Installed Whisper models"
-      help="Models downloaded for on-device transcription. Delete here to free disk space. To download a model, open a Mode and change its Transcription Model setting."
-    >
-      {installed.length === 0 ? (
-        <p className="text-[12px] py-1" style={{ color: tokens.fgMuted }}>
-          No Whisper models installed. Pick a variant in a Mode's Transcription Model setting to download one.
-        </p>
-      ) : (
-        installed.map((m) => {
-          const isConfirming = removeConfirming === m.variant;
-          return (
-            <Row
-              key={m.variant}
-              label={m.variant}
-              help={errors[m.variant]}
-              control={
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: 11, color: tokens.fgSubtle }}>{formatPickerBytes(m.sizeBytes)}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => void onRemove(e, m.variant)}
-                    title={isConfirming ? "Click again to confirm" : "Delete model file"}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: 2,
-                      color: isConfirming ? "var(--color-warning)" : tokens.fgMuted,
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              }
-            />
-          );
-        })
-      )}
-    </Section>
+    <section className="flex flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center justify-between w-full text-left"
+        style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[10.5px] uppercase tracking-[0.14em] font-medium"
+            style={{ color: tokens.fgMuted }}
+          >
+            Installed Whisper models
+          </span>
+          {installed.length > 0 && (
+            <span
+              className="inline-flex items-center justify-center rounded-full text-[10px] font-semibold"
+              style={{
+                minWidth: 16,
+                height: 16,
+                padding: "0 4px",
+                background: `color-mix(in srgb, var(--color-primary) 12%, transparent)`,
+                color: tokens.fgMuted,
+              }}
+            >
+              {installed.length}
+            </span>
+          )}
+        </div>
+        <svg
+          width="10" height="6" viewBox="0 0 10 6" fill="none"
+          style={{
+            color: tokens.fgMuted,
+            flexShrink: 0,
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 150ms ease",
+          }}
+        >
+          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      <div
+        style={{
+          overflow: "hidden",
+          maxHeight: open ? 600 : 0,
+          transition: "max-height 150ms ease",
+        }}
+      >
+        <div className="flex flex-col gap-1">
+          {installed.length === 0 ? (
+            <p className="text-[12px] py-1" style={{ color: tokens.fgMuted }}>
+              No Whisper models installed. Pick a variant in a Mode's Transcription Model setting to download one.
+            </p>
+          ) : (
+            installed.map((m) => {
+              const isConfirming = removeConfirming === m.variant;
+              const meta = VARIANT_LABEL_MAP[m.variant];
+              const brandedLabel = meta?.label ?? m.variant;
+              const isEnglish = meta?.isEnglish ?? false;
+              return (
+                <Row
+                  key={m.variant}
+                  label={
+                    <span className="flex items-center gap-1.5">
+                      <span>{brandedLabel}</span>
+                      {isEnglish && <EnPill />}
+                    </span>
+                  }
+                  help={errors[m.variant]}
+                  control={
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: 11, color: tokens.fgSubtle }}>{formatPickerBytes(m.sizeBytes)}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => void onRemove(e, m.variant)}
+                        title={isConfirming ? "Click again to confirm" : "Delete model file"}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: 2,
+                          color: isConfirming ? "var(--color-warning)" : tokens.fgMuted,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  }
+                />
+              );
+            })
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
