@@ -34,6 +34,8 @@ interface ModeFormProps {
    */
   seedDraft?: VoiceMode | null;
   onChange: (patch: Partial<AppSettings>) => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
+  saveRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
 
 function makeBlankMode(): VoiceMode {
@@ -50,7 +52,7 @@ function makeBlankMode(): VoiceMode {
   };
 }
 
-export default function ModeForm({ settings, modeId, seedDraft, onChange }: ModeFormProps) {
+export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirtyChange, saveRef }: ModeFormProps) {
   const isNew = modeId === "__new__" || modeId === "__duplicate__";
   const isDuplicate = modeId === "__duplicate__";
   const original = isDuplicate
@@ -88,6 +90,11 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange }: Mode
   }, [draft.name, isNew, slugTouched]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(original);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
   const usesCleanup =
     draft.cleanup !== "raw" && draft.languageModelProvider !== "none";
   const providerModels = LANGUAGE_MODELS[draft.languageModelProvider] ?? [];
@@ -122,6 +129,10 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange }: Mode
     if (!exists) patch.activeModeId = finalDraft.id;
     await onChange(patch);
   };
+
+  // Keep saveRef pointing at the latest save closure so ModesPanel can call
+  // it without stale captures.
+  if (saveRef) saveRef.current = save;
 
   const remove = async () => {
     if (isNew) {

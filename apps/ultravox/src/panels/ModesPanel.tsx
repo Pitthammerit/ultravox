@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { CLEANUP_VARIANTS, LANGUAGES, type VoiceMode } from "../lib/voiceModes";
 import { Button, Section, tokens } from "../components/ui";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import ModeForm from "./ModeEditor";
 
 // 1×1 fully transparent PNG. Used as the drag image so macOS / WKWebView
@@ -33,6 +34,42 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; edge: DropEdge } | null>(null);
 
+  // Unsaved-changes guard: ModeEditor reports dirty state up; ModesPanel gates
+  // navigation behind the confirm dialog.
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const pendingNavRef = useRef<(() => void) | null>(null);
+  const editorSaveRef = useRef<(() => Promise<void>) | null>(null);
+
+  const guardedNav = (action: () => void) => {
+    if (!hasUnsavedChanges) {
+      action();
+      return;
+    }
+    pendingNavRef.current = action;
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmSave = async () => {
+    await editorSaveRef.current?.();
+    setConfirmOpen(false);
+    setHasUnsavedChanges(false);
+    pendingNavRef.current?.();
+    pendingNavRef.current = null;
+  };
+
+  const handleConfirmDiscard = () => {
+    setConfirmOpen(false);
+    setHasUnsavedChanges(false);
+    pendingNavRef.current?.();
+    pendingNavRef.current = null;
+  };
+
+  const handleConfirmCancel = () => {
+    setConfirmOpen(false);
+    pendingNavRef.current = null;
+  };
+
   const reorder = async (fromId: string, toId: string, edge: DropEdge) => {
     if (fromId === toId) return;
     const fromIdx = settings.modes.findIndex((m) => m.id === fromId);
@@ -50,31 +87,53 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
   };
 
   const duplicate = (m: VoiceMode) => {
-    const seed: VoiceMode = {
-      ...m,
-      id: `custom-${crypto.randomUUID().slice(0, 8)}`,
-      name: `${m.name} copy`,
-    };
-    setPendingDuplicate(seed);
-    void onChange({ activeModeId: "__duplicate__" });
+    guardedNav(() => {
+      const seed: VoiceMode = {
+        ...m,
+        id: `custom-${crypto.randomUUID().slice(0, 8)}`,
+        name: `${m.name} copy`,
+      };
+      setPendingDuplicate(seed);
+      void onChange({ activeModeId: "__duplicate__" });
+    });
   };
 
   const startNew = () => {
-    setPendingDuplicate(null);
-    void onChange({ activeModeId: "__new__" });
+    guardedNav(() => {
+      setPendingDuplicate(null);
+      void onChange({ activeModeId: "__new__" });
+    });
   };
 
   const handleEditorChange = async (patch: Partial<AppSettings>) => {
     // Once the draft commits (modes array grew or activeModeId moved off the
-    // sentinel), drop the pending seed.
+    // sentinel), drop the pending seed and clear unsaved state.
     if (patch.modes || (patch.activeModeId && patch.activeModeId !== "__duplicate__")) {
       setPendingDuplicate(null);
+      setHasUnsavedChanges(false);
     }
     await onChange(patch);
   };
 
   return (
     <>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (!open) handleConfirmCancel();
+        }}
+        title="Save or discard changes?"
+        body="You have unsaved changes in this mode. Save them or discard before navigating away."
+        primary={{
+          label: "Save",
+          onClick: handleConfirmSave,
+        }}
+        secondary={{
+          label: "Discard",
+          onClick: handleConfirmDiscard,
+        }}
+        cancelLabel="Cancel"
+      />
       <Section
         label="Active mode"
         right={
@@ -195,7 +254,7 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => onChange({ activeModeId: m.id })}
+                  onClick={() => guardedNav(() => { void onChange({ activeModeId: m.id }); })}
                   className="flex items-center gap-2 flex-1 min-w-0 text-left"
                   style={{ background: "transparent", border: "none", padding: 0 }}
                 >
@@ -277,6 +336,8 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
           modeId={activeId}
           seedDraft={activeId === "__duplicate__" ? pendingDuplicate : null}
           onChange={handleEditorChange}
+          onDirtyChange={setHasUnsavedChanges}
+          saveRef={editorSaveRef}
         />
       </Section>
     </>
