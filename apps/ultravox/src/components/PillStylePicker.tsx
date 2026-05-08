@@ -108,16 +108,14 @@ export function PillStylePicker({ value, onChange, size = "small" }: PillStylePi
   );
 }
 
-function cardDims(style: PillStyle, size: "small" | "large"): { cardWidth: number; cardHeight: number } {
+function cardDims(_style: PillStyle, size: "small" | "large"): { cardWidth: number; cardHeight: number } {
+  // Both cards share identical outer dimensions so the row reads as a uniform
+  // segmented control. The pill *inside* differs in size to communicate the
+  // two styles' relative footprints.
   if (size === "large") {
-    return style === "classic"
-      ? { cardWidth: 200, cardHeight: 96 }
-      : { cardWidth: 168, cardHeight: 96 };
+    return { cardWidth: 184, cardHeight: 88 };
   }
-  // Classic gets a bit more room than mini to reflect its real footprint.
-  return style === "classic"
-    ? { cardWidth: 200, cardHeight: 80 }
-    : { cardWidth: 150, cardHeight: 50 };
+  return { cardWidth: 168, cardHeight: 64 };
 }
 
 /**
@@ -130,7 +128,7 @@ function PillPreview({ style, size }: { style: PillStyle; size: "small" | "large
 }
 
 function MiniPreview({ size }: { size: "small" | "large" }) {
-  const scale = size === "large" ? 1 : 0.92;
+  const scale = size === "large" ? 0.92 : 0.7;
   const width = 130 * scale;
   const height = 28 * scale;
   const padX = 8 * scale;
@@ -195,7 +193,7 @@ function MiniPreview({ size }: { size: "small" | "large" }) {
 }
 
 function ClassicPreview({ size }: { size: "small" | "large" }) {
-  const scale = size === "large" ? 1 : 0.88;
+  const scale = size === "large" ? 0.92 : 0.76;
   const width = 184 * scale;
   const height = 70 * scale;
   const waveformH = 40 * scale;
