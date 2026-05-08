@@ -4788,7 +4788,7 @@ dependencies = [
 
 [[package]]
 name = "ultravox"
-version = "0.9.18"
+version = "0.9.19"
 dependencies = [
  "enigo",
  "objc2 0.5.2",

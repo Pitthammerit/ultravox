@@ -527,6 +527,22 @@ export default function PillWindow() {
     }
   }, [recorder, mode, settings, showError]);
 
+  /* ── Footer-button handlers (shared with keyboard shortcuts) ──
+     Each handler mirrors exactly one branch of the keydown listener
+     above, so clicking a button is indistinguishable from pressing
+     the corresponding key. */
+  const requestDiscardConfirm = useCallback(() => {
+    if (stateRef.current === "recording") setState("discardConfirm");
+  }, []);
+  const confirmDiscard = useCallback(() => {
+    recorder.cancel();
+    setState("idle");
+    invoke("hide_pill").catch(() => {});
+  }, [recorder]);
+  const resumeRecording = useCallback(() => {
+    setState("recording");
+  }, []);
+
   /* ── Hotkey: toggle record ──────────────────────────────────── */
   // Track state in a ref so the hotkey handler always reads the latest
   // value. Using state directly in the useCallback closure caused stale
@@ -866,11 +882,34 @@ export default function PillWindow() {
               <HintRow
                 label="Stop"
                 keys={prettifyShortcut(settings?.hotkeyRecord ?? "Cmd+Shift+Semicolon").split(" ").filter(Boolean)}
+                onClick={stopAndTranscribe}
+                ariaLabel="Stop and transcribe"
               />
             )}
-            {state === "recording" && <HintRow label="Discard" keys={["ESC"]} />}
-            {state === "discardConfirm" && <HintRow label="Keep recording" keys={["Space"]} />}
-            {state === "discardConfirm" && <HintRow label="Discard" keys={["↵"]} />}
+            {state === "recording" && (
+              <HintRow
+                label="Discard"
+                keys={["ESC"]}
+                onClick={requestDiscardConfirm}
+                ariaLabel="Discard recording"
+              />
+            )}
+            {state === "discardConfirm" && (
+              <HintRow
+                label="Continue"
+                keys={["Space"]}
+                onClick={resumeRecording}
+                ariaLabel="Continue recording"
+              />
+            )}
+            {state === "discardConfirm" && (
+              <HintRow
+                label="Discard"
+                keys={["↵"]}
+                onClick={confirmDiscard}
+                ariaLabel="Confirm discard"
+              />
+            )}
             {state === "error" && (
               <HintRow label="Dismiss" keys={["ESC"]} />
             )}
@@ -960,10 +999,50 @@ export default function PillWindow() {
 
 /* ── Shared sub-components ──────────────────────────────────── */
 
-function HintRow({ label, keys }: { label: string; keys: string[] }) {
+function HintRow({
+  label,
+  keys,
+  onClick,
+  ariaLabel,
+}: {
+  label: string;
+  keys: string[];
+  onClick?: () => void;
+  ariaLabel?: string;
+}) {
   return (
     <div className="flex items-center gap-1.5">
-      {label && <span className="text-[11px]" style={{ color: "var(--pill-fg-muted)" }}>{label}</span>}
+      {label && (onClick ? (
+        <button
+          type="button"
+          aria-label={ariaLabel ?? label}
+          // Prevent the NSPanel click from stealing focus from the user's
+          // target app — otherwise the subsequent paste lands in the wrong
+          // place. The pill is a non-activating panel; canBecomeKeyWindow
+          // is YES (so JS keydown still works) but mousedown can still
+          // momentarily redirect focus. Cancelling the default mousedown
+          // keeps the focused app in front.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onClick}
+          className="text-[11px]"
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            margin: 0,
+            cursor: "pointer",
+            color: "var(--pill-fg-muted)",
+            font: "inherit",
+            fontSize: 11,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "var(--pill-fg)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--pill-fg-muted)"; }}
+        >
+          {label}
+        </button>
+      ) : (
+        <span className="text-[11px]" style={{ color: "var(--pill-fg-muted)" }}>{label}</span>
+      ))}
       <div className="flex items-center gap-0.5">
         {keys.map((k) => (
           <kbd key={k} style={{ minWidth: 18, height: 18, padding: "0 4px", fontSize: 10, borderRadius: 3, background: "var(--pill-icon-bg)", color: "var(--pill-fg)", border: "1px solid var(--pill-border)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace" }}>
