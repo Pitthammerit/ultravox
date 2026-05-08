@@ -149,7 +149,7 @@ const MODEL_ID_MIGRATIONS: Record<string, string> = {
   "anthropic/claude-sonnet-4-5": "anthropic/claude-sonnet-4.5",
 };
 
-const VALID_PROVIDERS = new Set(["openrouter", "claude-code", "none"]);
+const VALID_PROVIDERS = new Set(["openrouter", "claude-code", "local", "none"]);
 
 function migrateModes(modes: VoiceMode[]): { modes: VoiceMode[]; changed: boolean } {
   let changed = false;

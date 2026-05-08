@@ -267,16 +267,23 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
           <Field
             label="Processing AI Model"
             control={
-              <Select<string>
-                value={draft.languageModel ?? providerModels[0]!.id}
-                onChange={(languageModel) =>
-                  setDraft({ ...draft, languageModel })
-                }
-                options={providerModels.map((m) => ({
-                  id: m.id,
-                  label: m.label,
-                }))}
-              />
+              <div className="flex flex-col gap-1">
+                <Select<string>
+                  value={draft.languageModel ?? providerModels[0]!.id}
+                  onChange={(languageModel) =>
+                    setDraft({ ...draft, languageModel })
+                  }
+                  options={providerModels.map((m) => ({
+                    id: m.id,
+                    label: m.label,
+                  }))}
+                />
+                {draft.languageModelProvider === "local" && (
+                  <span className="text-[11px]" style={{ color: tokens.fgSubtle }}>
+                    coming in v0.11
+                  </span>
+                )}
+              </div>
             }
           />
         )}

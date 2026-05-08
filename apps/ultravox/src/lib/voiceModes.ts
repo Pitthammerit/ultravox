@@ -3,11 +3,12 @@ export type VoiceModelId =
   | "whisper-large-v3-turbo"
   | "whisper-small"
   | "whisper-tiny";
-export type LanguageModelProvider = "openrouter" | "claude-code" | "none";
+export type LanguageModelProvider = "openrouter" | "claude-code" | "local" | "none";
 
 export const LANGUAGE_MODEL_PROVIDERS: Array<{ id: LanguageModelProvider; label: string }> = [
   { id: "openrouter",  label: "OpenRouter (managed)" },
   { id: "claude-code", label: "Claude Code (local CLI)" },
+  { id: "local",       label: "Local (on-device LLM)" },
   { id: "none",        label: "No cleanup" },
 ];
 
@@ -29,6 +30,9 @@ export const LANGUAGE_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: "haiku",  label: "Haiku — fastest",       speed: "fastest", accuracy: "high" },
     { id: "sonnet", label: "Sonnet — balanced",     speed: "medium",  accuracy: "highest" },
     { id: "opus",   label: "Opus — most capable",   speed: "slow",    accuracy: "highest" },
+  ],
+  local: [
+    { id: "_placeholder", label: "Coming in v0.11 (Llama, Mistral, Phi)", speed: "—", accuracy: "—" },
   ],
   none: [],
 };

@@ -324,6 +324,11 @@ export async function transcribe(
     }
   }
 
+  // ── Local LLM path — not yet wired; fall back to worker until v0.11 ──
+  if (provider === "local" && cleanup !== "raw") {
+    logDebug("transcribe-backend", { message: "local-llm not yet implemented, falling back to managed worker" });
+  }
+
   // ── Claude Code path (per-mode opt-in, with auto-fallback) ──
   if (provider === "claude-code" && cleanup !== "raw") {
     try {
