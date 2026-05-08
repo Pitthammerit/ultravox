@@ -10,7 +10,7 @@ import { loadSettings, saveSettings, type AppSettings } from "../lib/store-bridg
 import { applyTheme } from "@ultravox/design-system";
 import { HotkeyRecorder, prettifyShortcut } from "../components/HotkeyRecorder";
 import { ModeGlyph } from "../components/ModeIcons";
-import { PillStylePicker, type PillStyle } from "../components/PillStylePicker";
+import { PillStylePicker, type PillStyle, type PillOptionLabels } from "../components/PillStylePicker";
 import { DEFAULT_MODES } from "../lib/voiceModes";
 
 interface OnboardingWizardProps {
@@ -101,6 +101,7 @@ const COPY: Record<Lang, {
   // step 9 - recording window (pill style)
   pillTitle: string;
   pillBody: string;
+  pillOptions: PillOptionLabels;
   // step 7
   micTitle: string;
   micBody: string;
@@ -163,6 +164,10 @@ const COPY: Record<Lang, {
     modeBody: "We'll set this as your default mode. You can switch any time with the mode-switcher hotkey.",
     pillTitle: "Recording window",
     pillBody: "Choose how the floating pill looks while you're recording. You can change this later in Sound settings.",
+    pillOptions: [
+      { id: "classic", label: "Classic", description: "Full pill with waveform" },
+      { id: "mini",    label: "Mini",    description: "Compact dots at top of screen" },
+    ],
     micTitle: "Allow microphone access",
     micBody: "Ultravox records your voice locally and sends only audio to the transcription service. macOS will ask once — click Allow when prompted.",
     micLabel: "Microphone",
@@ -221,6 +226,10 @@ const COPY: Record<Lang, {
     modeBody: "Wir setzen das als deinen Standard-Modus. Du kannst jederzeit mit dem Modus-Hotkey wechseln.",
     pillTitle: "Aufnahme-Fenster",
     pillBody: "Wähle, wie die schwebende Pille während der Aufnahme aussieht. Du kannst das später in den Sound-Einstellungen ändern.",
+    pillOptions: [
+      { id: "classic", label: "Klassisch", description: "Vollständige Pille mit Wellenform" },
+      { id: "mini",    label: "Mini",      description: "Kleine Punkte am oberen Bildschirmrand" },
+    ],
     micTitle: "Mikrofonzugriff erlauben",
     micBody: "Ultravox nimmt deine Stimme lokal auf und sendet nur Audio zur Transkription. macOS fragt einmal — klicke auf Erlauben im Dialog.",
     micLabel: "Mikrofon",
@@ -716,6 +725,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
               value={pillStyle}
               onChange={pickPillStyle}
               size="large"
+              labels={t.pillOptions}
             />
             <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>
           </Step>

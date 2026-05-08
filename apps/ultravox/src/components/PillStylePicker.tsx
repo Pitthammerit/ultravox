@@ -3,6 +3,8 @@ import { tokens } from "./ui";
 
 export type PillStyle = "classic" | "mini";
 
+export type PillOptionLabels = Array<{ id: PillStyle; label: string; description: string }>;
+
 interface PillStylePickerProps {
   value: PillStyle;
   onChange: (next: PillStyle) => void;
@@ -11,14 +13,20 @@ interface PillStylePickerProps {
    * "large" — bigger preview cards used in Onboarding.
    */
   size?: "small" | "large";
+  /** Override default English option labels (for i18n). */
+  labels?: PillOptionLabels;
 }
 
-const OPTIONS: Array<{ id: PillStyle; label: string; description: string }> = [
+const DEFAULT_OPTIONS: PillOptionLabels = [
   { id: "classic", label: "Classic", description: "Full pill with waveform" },
   { id: "mini",    label: "Mini",    description: "Compact dots at top of screen" },
 ];
 
-export function PillStylePicker({ value, onChange, size = "small" }: PillStylePickerProps) {
+const PREVIEW_BG = "#2d2d33";
+const SMALL_ACTIVE_BORDER = "#224160";
+
+export function PillStylePicker({ value, onChange, size = "small", labels }: PillStylePickerProps) {
+  const options = labels ?? DEFAULT_OPTIONS;
   const labelSize = size === "large" ? 13 : 12;
   const descSize = size === "large" ? 12 : 11;
 
@@ -34,8 +42,8 @@ export function PillStylePicker({ value, onChange, size = "small" }: PillStylePi
   useEffect(() => { setSelected(value); }, [value]);
 
   return (
-    <div className="flex gap-2 items-center">
-      {OPTIONS.map((opt) => {
+    <div className="flex gap-4 items-center justify-center">
+      {options.map((opt) => {
         const active = opt.id === selected;
         const handleClick = () => {
           setSelected(opt.id);
@@ -56,8 +64,8 @@ export function PillStylePicker({ value, onChange, size = "small" }: PillStylePi
               style={{
                 width: dims.cardWidth,
                 height: dims.cardHeight,
-                background: "#0a0a0e",
-                border: `1.5px solid ${active ? "#ffffff" : "transparent"}`,
+                background: PREVIEW_BG,
+                border: `1.5px solid ${active ? SMALL_ACTIVE_BORDER : "transparent"}`,
                 cursor: "pointer",
                 overflow: "hidden",
                 padding: 0,
@@ -77,7 +85,7 @@ export function PillStylePicker({ value, onChange, size = "small" }: PillStylePi
             style={{
               width: dims.cardWidth,
               background: tokens.control,
-              border: `1.5px solid ${active ? "#ffffff" : tokens.border}`,
+              border: `1.5px solid ${active ? tokens.fg : tokens.border}`,
               cursor: "pointer",
             }}
           >
@@ -85,7 +93,7 @@ export function PillStylePicker({ value, onChange, size = "small" }: PillStylePi
               className="w-full rounded-md flex items-center justify-center mb-2"
               style={{
                 height: dims.cardHeight,
-                background: "#0a0a0e",
+                background: PREVIEW_BG,
                 position: "relative",
                 overflow: "hidden",
               }}
