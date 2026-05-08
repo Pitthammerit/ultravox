@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Cloud, Download, Trash2 } from "lucide-react";
 import { tokens } from "./ui";
@@ -26,6 +26,10 @@ interface TranscriptionModelPickerProps {
   onRemoveRequest: (variant: string) => void;
 }
 
+// Each row: py-2 (8px top+bottom) + 16px line height = 32px. Used for anchored-popup math.
+const ROW_HEIGHT = 32;
+const VIEWPORT_PAD = 8;
+
 export function TranscriptionModelPicker({
   value,
   onChange,
@@ -38,7 +42,9 @@ export function TranscriptionModelPicker({
 }: TranscriptionModelPickerProps) {
   const [open, setOpen] = useState(false);
   const [downloadErrors, setDownloadErrors] = useState<Record<string, string>>({});
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({ position: "fixed", visibility: "hidden", top: 0, left: 0 });
 
   const activeInfo = TRANSCRIPTION_VARIANTS.find((v) => v.id === value) ?? TRANSCRIPTION_VARIANTS[0]!;
 
@@ -71,13 +77,35 @@ export function TranscriptionModelPicker({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      const inTrigger = triggerRef.current?.contains(target);
+      const inPanel = panelRef.current?.contains(target);
+      if (!inTrigger && !inPanel) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  // Anchored-popup positioning: align the selected row's Y to the trigger's Y,
+  // then clamp to viewport so the panel never extends off-screen.
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current || !panelRef.current) return;
+    const triggerRect = triggerRef.current.getBoundingClientRect();
+    const panelHeight = panelRef.current.offsetHeight;
+    const panelWidth = panelRef.current.offsetWidth;
+    const selectedIndex = TRANSCRIPTION_VARIANTS.findIndex((v) => v.id === value);
+    const selectedRowOffset = Math.max(0, selectedIndex) * ROW_HEIGHT;
+
+    const desiredTop = triggerRect.top - selectedRowOffset;
+    const maxTop = window.innerHeight - panelHeight - VIEWPORT_PAD;
+    const top = Math.max(VIEWPORT_PAD, Math.min(desiredTop, maxTop));
+
+    const desiredLeft = triggerRect.left;
+    const maxLeft = window.innerWidth - panelWidth - VIEWPORT_PAD;
+    const left = Math.max(VIEWPORT_PAD, Math.min(desiredLeft, maxLeft));
+
+    setPanelStyle({ position: "fixed", top, left, width: triggerRect.width, visibility: "visible" });
+  }, [open, value]);
 
   const selectVariant = useCallback((variantId: string) => {
     onChange(variantId as TranscriptionModelValue);
@@ -106,8 +134,9 @@ export function TranscriptionModelPicker({
   }, [removeConfirming, onDelete, onRemoveRequest]);
 
   return (
-    <div ref={dropdownRef} style={{ position: "relative" }}>
+    <div style={{ position: "relative" }}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between rounded-md px-3 py-2 text-left"
@@ -131,11 +160,12 @@ export function TranscriptionModelPicker({
         </svg>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="absolute left-0 right-0 z-30 rounded-md overflow-hidden"
+          ref={panelRef}
+          className="z-50 rounded-md overflow-hidden"
           style={{
-            top: "calc(100% + 4px)",
+            ...panelStyle,
             background: tokens.card,
             border: `1px solid ${tokens.borderStrong}`,
             boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
@@ -252,7 +282,8 @@ export function TranscriptionModelPicker({
               </div>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
