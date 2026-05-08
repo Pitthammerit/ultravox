@@ -53,6 +53,9 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
       onMouseEnter={() => setTrafficLightsVisible(true).catch(() => {})}
       onMouseLeave={() => setTrafficLightsVisible(false).catch(() => {})}
     >
+      {/* Waveform first — painter's algorithm keeps it behind everything */}
+      <HeaderWaveform />
+
       {/* Title abbreviates to "UV" in sub-pages so the breadcrumb fits */}
       <CenteredHeaderTitle
         title={breadcrumb ? "UV" : "Ultravox"}
@@ -66,9 +69,6 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
           {right}
         </div>
       )}
-
-      {/* Mirrored waveform replaces the border-b divider */}
-      <HeaderWaveform />
     </header>
   );
 }
@@ -145,7 +145,7 @@ function CenteredHeaderTitle({
   return (
     <div
       className="absolute flex items-center gap-1.5 pointer-events-none"
-      style={{ left: "50%", transform: "translateX(-50%)", top: 0, bottom: 0, whiteSpace: "nowrap", zIndex: 1 }}
+      style={{ left: "50%", transform: "translateX(-50%)", top: 0, bottom: 0, whiteSpace: "nowrap", zIndex: 2 }}
     >
       <span
         className="text-[15px] font-semibold"
