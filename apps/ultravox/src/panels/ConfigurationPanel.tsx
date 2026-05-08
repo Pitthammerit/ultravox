@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { emit } from "@tauri-apps/api/event";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
@@ -131,7 +132,10 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
           control={
             <PillStylePicker
               value={settings?.pillStyle ?? "classic"}
-              onChange={(v) => { if (onChange) void onChange({ pillStyle: v }); }}
+              onChange={(v) => {
+                if (onChange) void onChange({ pillStyle: v });
+                emit("pillStyle:changed", v).catch(() => {});
+              }}
               size="small"
             />
           }

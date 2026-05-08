@@ -142,7 +142,39 @@ export default function PillWindow() {
     // Repaint when Settings broadcasts a theme change.
     let unsubTheme: (() => void) | undefined;
     let unsubMic: (() => void) | undefined;
+    let unsubPillStyle: (() => void) | undefined;
     listen<ThemeChoice>("theme:changed", (e) => applyTheme(e.payload)).then((u) => { unsubTheme = u; });
+
+    // Apply pill-style changes from the Settings window IMMEDIATELY — without
+    // waiting for the next recording's loadSettings() to refresh local state.
+    // Mirrors the expand()/collapse() behavior so picking a style takes effect
+    // on the very next recording (or instantly, if the pill is currently visible).
+    listen<NonNullable<AppSettings["pillStyle"]>>("pillStyle:changed", async (e) => {
+      const style = e.payload;
+      const fresh = await loadSettings().catch(() => null);
+      if (fresh) setSettings(fresh);
+      const desiredCompact = style === "mini";
+      if (style === "none") {
+        invoke("hide_pill").catch(() => {});
+        return;
+      }
+      if (desiredCompact) {
+        const cp = fresh?.pillCompactPosition;
+        if (cp) {
+          setPillSizeAtPosition(COMPACT_W, COMPACT_H, cp.x, cp.y).catch(() => {});
+        } else {
+          setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
+        }
+      } else {
+        const ep = fresh?.pillExpandedPosition;
+        if (ep) {
+          setPillSizeAtPosition(PILL_W, PILL_H, ep.x, ep.y).catch(() => {});
+        } else {
+          setPillHeight(PILL_H).catch(() => {});
+        }
+      }
+      setCompact(desiredCompact);
+    }).then((u) => { unsubPillStyle = u; });
 
     // Tray "Microphone Settings" submenu population + selection.
     const pushDevices = async (selectedId: string | null) => {
@@ -188,6 +220,7 @@ export default function PillWindow() {
     return () => {
       unsubTheme?.();
       unsubMic?.();
+      unsubPillStyle?.();
       navigator.mediaDevices.removeEventListener?.("devicechange", onDeviceChange);
     };
   }, []);
