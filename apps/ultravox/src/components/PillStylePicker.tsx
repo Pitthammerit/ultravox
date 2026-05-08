@@ -60,7 +60,7 @@ export function PillStylePicker({ value, onChange, size = "small", labels }: Pil
               aria-label={opt.label}
               aria-pressed={active}
               onClick={handleClick}
-              className="rounded-lg flex items-center justify-center transition-colors"
+              className="rounded-lg flex items-center justify-center"
               style={{
                 width: dims.cardWidth,
                 height: dims.cardHeight,
@@ -69,6 +69,9 @@ export function PillStylePicker({ value, onChange, size = "small", labels }: Pil
                 cursor: "pointer",
                 overflow: "hidden",
                 padding: 0,
+                opacity: active ? 1 : 0.5,
+                transform: active ? "scale(1.10)" : "scale(1)",
+                transition: "opacity 0.15s, transform 0.15s",
               }}
             >
               <PillPreview style={opt.id} size={size} />
@@ -81,12 +84,15 @@ export function PillStylePicker({ value, onChange, size = "small", labels }: Pil
             key={opt.id}
             type="button"
             onClick={handleClick}
-            className="flex flex-col items-center rounded-lg p-2 transition-colors"
+            className="flex flex-col items-center rounded-lg p-2"
             style={{
               width: dims.cardWidth,
               background: tokens.control,
               border: `1.5px solid ${active ? tokens.fg : tokens.border}`,
               cursor: "pointer",
+              opacity: active ? 1 : 0.5,
+              transform: active ? "scale(1.10)" : "scale(1)",
+              transition: "opacity 0.15s, transform 0.15s",
             }}
           >
             <div
