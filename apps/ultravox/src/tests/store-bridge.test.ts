@@ -123,9 +123,10 @@ describe("store-bridge", () => {
     const s = await loadSettings();
     // The field should not crash anything; localWhisperEnabled still works.
     expect(s.localWhisperEnabled).toBe(true);
-    // transcriptionModel on all default modes should be "auto" (already set in defaults).
+    // transcriptionModel on default modes should match the per-mode defaults.
+    const expected: Record<string, string> = { email: "base", message: "tiny", note: "base", code: "base.en" };
     for (const m of s.modes) {
-      expect(m.transcriptionModel).toBe("auto");
+      if (expected[m.id]) expect(m.transcriptionModel).toBe(expected[m.id]);
     }
   });
 });
