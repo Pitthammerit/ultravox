@@ -5,12 +5,13 @@ import {
   requestAccessibilityPermission,
   getSystemLanguage,
   openPrivacySettings,
+  localWhisperDownloadModel,
 } from "../lib/tauri-bridge";
 import { loadSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { HotkeyRecorder, prettifyShortcut } from "../components/HotkeyRecorder";
 import { ModeGlyph } from "../components/ModeIcons";
-import { PillStylePicker, type PillStyle, type PillOptionLabels } from "../components/PillStylePicker";
+import { PillStylePicker, type PillStyle, type PillOptionLabels } from "../components/PillStylePicker"
 import { DEFAULT_MODES } from "../lib/voiceModes";
 
 interface OnboardingWizardProps {
@@ -26,16 +27,15 @@ type ThemeChoice = AppSettings["theme"];
 //   1 = let's get started
 //   2 = name
 //   3 = theme
-//   4 = default mode (moved up — we explain modes BEFORE asking for a hotkey
-//       so users know what the hotkey will operate on)
+//   4 = default mode
 //   5 = hotkey customisation
 //   6 = recording style (toggle vs PTT)
 //   7 = microphone permission
 //   8 = accessibility permission
-//   9 = "you're all set" / done
-// AI placeholder step has been removed — that's a v1.5+ thing and was just
-// adding noise here.
-const TOTAL_STEPS = 11;
+//   9 = local Whisper model picker (new)
+//  10 = recording window (pill style)
+//  11 = done
+const TOTAL_STEPS = 12;
 
 /* ── Wizard uses live design-system tokens so picking a theme on Step 3
    immediately repaints the entire wizard, not just the swatch grid. ── */
@@ -98,7 +98,13 @@ const COPY: Record<Lang, {
   // step 6 - default mode
   modeTitle: string;
   modeBody: string;
-  // step 9 - recording window (pill style)
+  // step 9 - local whisper model
+  whisperTitle: string;
+  whisperBody: string;
+  whisperVariants: Array<{ id: string; label: string; size: string; description: string }>;
+  whisperSkip: string;
+  whisperDownloading: string;
+  // step 10 - recording window (pill style)
   pillTitle: string;
   pillBody: string;
   pillOptions: PillOptionLabels;
@@ -162,6 +168,16 @@ const COPY: Record<Lang, {
     stylePttDesc: "Hold to record, release to stop — coming in a future update",
     modeTitle: "What do you mostly write?",
     modeBody: "We'll set this as your default mode. You can switch any time with the mode-switcher hotkey.",
+    whisperTitle: "Faster, on-device transcription",
+    whisperBody: "Run Whisper locally so audio never leaves your Mac and transcription is sub-second. Pick a model — we'll download it in the background while you finish setup. You can also skip and download later from Settings.",
+    whisperVariants: [
+      { id: "tiny",    label: "Tiny",    size: "~75 MB",  description: "Fastest, lower accuracy" },
+      { id: "base.en", label: "Base.en", size: "~142 MB", description: "More accurate, English" },
+      { id: "base",    label: "Base",    size: "~142 MB", description: "Multilingual, balanced" },
+      { id: "small",   label: "Small",   size: "~466 MB", description: "Best accuracy, slowest" },
+    ],
+    whisperSkip: "Skip — use cloud transcription",
+    whisperDownloading: "Downloading",
     pillTitle: "Recording window",
     pillBody: "Choose how the floating pill looks while you're recording. You can change this later in Sound settings.",
     pillOptions: [
@@ -224,6 +240,16 @@ const COPY: Record<Lang, {
     stylePttDesc: "Halten zum Aufnehmen, loslassen zum Stoppen — kommt in einem späteren Update",
     modeTitle: "Was schreibst du meistens?",
     modeBody: "Wir setzen das als deinen Standard-Modus. Du kannst jederzeit mit dem Modus-Hotkey wechseln.",
+    whisperTitle: "Schnellere Transkription auf deinem Gerät",
+    whisperBody: "Whisper läuft lokal — dein Audio verlässt nie den Mac und die Transkription ist unter einer Sekunde. Wähle ein Modell, wir laden es im Hintergrund herunter, während du das Setup beendest. Du kannst auch überspringen und später aus den Einstellungen herunterladen.",
+    whisperVariants: [
+      { id: "tiny",    label: "Tiny",    size: "~75 MB",  description: "Schnellste, geringere Genauigkeit" },
+      { id: "base.en", label: "Base.en", size: "~142 MB", description: "Genauer, Englisch" },
+      { id: "base",    label: "Base",    size: "~142 MB", description: "Mehrsprachig, ausgewogen" },
+      { id: "small",   label: "Small",   size: "~466 MB", description: "Beste Genauigkeit, langsam" },
+    ],
+    whisperSkip: "Überspringen — Cloud-Transkription verwenden",
+    whisperDownloading: "Herunterladen",
     pillTitle: "Aufnahme-Fenster",
     pillBody: "Wähle, wie die schwebende Pille während der Aufnahme aussieht. Du kannst das später in den Sound-Einstellungen ändern.",
     pillOptions: [
@@ -276,6 +302,8 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   const [activeModeId, setActiveModeId] = useState<string>(DEFAULT_MODES[0]?.id ?? "email");
   const [micStatus, setMicStatus] = useState<PermStatus>("idle");
   const [axStatus, setAxStatus] = useState<PermStatus>("idle");
+  const [whisperPicked, setWhisperPicked] = useState<AppSettings["localWhisperActiveVariant"] | null>(null);
+  const [whisperDownloadingId, setWhisperDownloadingId] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const t = COPY[lang];
 
@@ -717,8 +745,73 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
           </Step>
         )}
 
-        {/* ── Step 9: Recording window ── */}
+        {/* ── Step 9: Local Whisper model picker ── */}
         {step === 9 && (
+          <Step title={t.whisperTitle}>
+            <Body>{t.whisperBody}</Body>
+            <div className="flex flex-col gap-2">
+              {t.whisperVariants.map((opt) => {
+                const isPicked = whisperPicked === opt.id;
+                const isDownloading = whisperDownloadingId === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      const v = opt.id as NonNullable<AppSettings["localWhisperActiveVariant"]>;
+                      setWhisperPicked(v);
+                      setWhisperDownloadingId(opt.id);
+                      void patchSettings({ localWhisperActiveVariant: v });
+                      localWhisperDownloadModel(opt.id).catch(() => {});
+                    }}
+                    className="flex items-center justify-between rounded-lg px-4 py-3 text-left transition-all"
+                    style={{
+                      background: SURFACE,
+                      border: `2px solid ${isPicked ? FG_PRIMARY : SURFACE_BORDER}`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span style={{ fontSize: 14, fontWeight: isPicked ? 600 : 500, color: isPicked ? FG_PRIMARY : FG_BODY }}>
+                        {opt.label}
+                      </span>
+                      <span style={{ fontSize: 12, color: FG_MUTED }}>{opt.description}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span style={{ fontSize: 12, color: FG_MUTED }}>{opt.size}</span>
+                      {isDownloading && (
+                        <span style={{ fontSize: 11, color: ACCENT }}>{t.whisperDownloading}…</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  setWhisperPicked(null);
+                  next();
+                }}
+                className="text-center rounded-lg px-4 py-3 transition-opacity hover:opacity-80"
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${SURFACE_BORDER}`,
+                  fontSize: 13,
+                  color: FG_MUTED,
+                  cursor: "pointer",
+                }}
+              >
+                {t.whisperSkip}
+              </button>
+            </div>
+            {whisperPicked && (
+              <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>
+            )}
+          </Step>
+        )}
+
+        {/* ── Step 10: Recording window ── */}
+        {step === 10 && (
           <Step title={t.pillTitle}>
             <Body>{t.pillBody}</Body>
             <PillStylePicker
@@ -731,8 +824,8 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
           </Step>
         )}
 
-        {/* ── Step 10: Done ── */}
-        {step === 10 && (
+        {/* ── Step 11: Done ── */}
+        {step === 11 && (
           <Step title={t.doneTitle}>
             <Body>{t.doneBody(<Kbd>{prettifyShortcut(hotkeyRecord)}</Kbd>)}</Body>
             <p className="text-center" style={{ color: FG_MUTED, fontSize: 12, lineHeight: 1.5 }}>

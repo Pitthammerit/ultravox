@@ -22,6 +22,9 @@ export interface TranscribeOptions {
   /** v0.10 — when true and a model is loaded AND mode.cleanup === "raw",
    *  transcribe on-device. Falls back to cloud on any error. */
   localWhisperEnabled?: boolean;
+  /** The user's preferred Whisper variant; passed to Rust so it loads the
+   *  right model when multiple are installed. */
+  localWhisperActiveVariant?: string;
   /** Abort signal — when fired, cancels in-flight worker / claude-code fetch calls.
    *  Local Whisper (Tauri command) cannot be cancelled mid-flight; it completes
    *  silently and the result is discarded. */
@@ -288,12 +291,14 @@ export async function transcribe(
   // ── Local Whisper path (opt-in, raw modes only, with auto-fallback) ──
   if (opts.localWhisperEnabled && opts.mode.cleanup === "raw") {
     try {
-      const status = await localWhisperStatus();
+      const status = await localWhisperStatus(opts.localWhisperActiveVariant);
       if (status.available) {
         logDebug("transcribe-backend", { message: `local whisper (${status.modelVariant})` });
         const buf = await blob.arrayBuffer();
-        const text = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language);
-        logDebug("transcribe-result", { textLength: text.length, message: `local-whisper (${status.modelVariant})` });
+        const t0 = performance.now();
+        const text = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language, opts.localWhisperActiveVariant);
+        const durationMs = Math.round(performance.now() - t0);
+        logDebug("transcribe-result", { textLength: text.length, durationMs, message: `local-whisper (${status.modelVariant})` });
         return { text };
       }
       logDebug("transcribe-post", { message: "local-whisper unavailable — falling back to cloud" });

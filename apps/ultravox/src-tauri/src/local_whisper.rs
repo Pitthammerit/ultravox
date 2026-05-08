@@ -89,11 +89,11 @@ fn models_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-/// Find any `.bin` file in the models dir; returns the first one alphabetically.
-/// We only support one model at a time in v0.10 — users re-download to switch.
-fn find_existing_model() -> Result<Option<(PathBuf, String)>, String> {
+/// Find a model in the models dir. If `preferred_variant` is given and that
+/// model is installed, return it. Otherwise fall back to the first model
+/// alphabetically (same as the v0.10 behaviour).
+fn find_existing_model(preferred_variant: Option<&str>) -> Result<Option<(PathBuf, String)>, String> {
     let dir = models_dir()?;
-    let mut found: Option<(PathBuf, String)> = None;
     if let Ok(entries) = std::fs::read_dir(&dir) {
         let mut candidates: Vec<PathBuf> = entries
             .flatten()
@@ -107,12 +107,19 @@ fn find_existing_model() -> Result<Option<(PathBuf, String)>, String> {
             })
             .collect();
         candidates.sort();
+        // If the user has a preferred variant, try to satisfy it first.
+        if let Some(pref) = preferred_variant {
+            let preferred_path = dir.join(format!("ggml-{pref}.bin"));
+            if candidates.contains(&preferred_path) {
+                return Ok(Some((preferred_path, pref.to_string())));
+            }
+        }
         if let Some(p) = candidates.into_iter().next() {
             let variant = variant_from_path(&p);
-            found = Some((p, variant));
+            return Ok(Some((p, variant)));
         }
     }
-    Ok(found)
+    Ok(None)
 }
 
 fn variant_from_path(p: &Path) -> String {
@@ -121,7 +128,7 @@ fn variant_from_path(p: &Path) -> String {
 }
 
 #[tauri::command]
-pub fn local_whisper_status() -> Result<LocalWhisperStatus, String> {
+pub fn local_whisper_status(preferred_variant: Option<String>) -> Result<LocalWhisperStatus, String> {
     if let Some(cached) = CACHE.lock().map_err(|e| format!("lock: {e}"))?.as_ref() {
         return Ok(LocalWhisperStatus {
             available: true,
@@ -129,7 +136,7 @@ pub fn local_whisper_status() -> Result<LocalWhisperStatus, String> {
             model_variant: Some(cached.variant.clone()),
         });
     }
-    match find_existing_model()? {
+    match find_existing_model(preferred_variant.as_deref())? {
         Some((path, variant)) => Ok(LocalWhisperStatus {
             available: true,
             model_path: Some(path.to_string_lossy().to_string()),
@@ -143,12 +150,29 @@ pub fn local_whisper_status() -> Result<LocalWhisperStatus, String> {
     }
 }
 
-fn ensure_loaded() -> Result<(), String> {
+fn ensure_loaded(preferred_variant: Option<&str>) -> Result<(), String> {
     let mut guard = CACHE.lock().map_err(|e| format!("lock: {e}"))?;
-    if guard.is_some() {
-        return Ok(());
+    if let Some(cached) = guard.as_ref() {
+        // If the cached model matches the preferred variant (or no preference), keep it.
+        if preferred_variant.is_none() || preferred_variant == Some(cached.variant.as_str()) {
+            return Ok(());
+        }
+        // Preferred variant differs from what's cached — check if it's actually installed.
+        let dir = dirs::data_dir()
+            .ok_or_else(|| "no data_dir".to_string())?
+            .join(MODEL_BUNDLE_ID)
+            .join("whisper-models");
+        if let Some(pref) = preferred_variant {
+            let preferred_path = dir.join(format!("ggml-{pref}.bin"));
+            if !preferred_path.exists() {
+                // Preferred not installed; keep using the cached one.
+                return Ok(());
+            }
+        }
+        // Clear cache so we reload with the preferred model below.
+        *guard = None;
     }
-    let (path, variant) = find_existing_model()?
+    let (path, variant) = find_existing_model(preferred_variant)?
         .ok_or_else(|| "no whisper model installed".to_string())?;
     let path_str = path.to_str().ok_or("non-utf8 model path")?;
     let ctx = WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
@@ -161,8 +185,9 @@ fn ensure_loaded() -> Result<(), String> {
 pub fn local_whisper_transcribe(
     audio_bytes: Vec<u8>,
     language: Option<String>,
+    preferred_variant: Option<String>,
 ) -> Result<String, String> {
-    ensure_loaded()?;
+    ensure_loaded(preferred_variant.as_deref())?;
 
     let pcm = decode_to_mono_16k(audio_bytes)?;
     if pcm.is_empty() {

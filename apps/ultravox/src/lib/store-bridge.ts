@@ -98,6 +98,9 @@ export interface AppSettings {
   localWhisperEnabled?: boolean;
   /** Path to the downloaded GGML model file. Set when download completes. */
   localWhisperModelPath?: string;
+  /** Which Whisper variant the user wants to use. Falls back to whichever
+   *  model is installed if this one isn't downloaded yet. */
+  localWhisperActiveVariant?: "tiny" | "base.en" | "base" | "small";
 }
 
 export const HISTORY_MAX = 50;
@@ -123,7 +126,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     compactPill: false,
   },
   history: [],
-  localWhisperEnabled: false,
+  localWhisperEnabled: true,
+  localWhisperActiveVariant: "base.en",
 };
 
 const STORE_FILE = "settings.json";
