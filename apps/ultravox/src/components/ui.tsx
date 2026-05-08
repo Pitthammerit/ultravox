@@ -85,18 +85,17 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
   );
 }
 
-/** Mirrored waveform separator — bars extend symmetrically up AND down from
- *  a center axis, matching the pill waveform style. On header hover a
- *  left→right traveling wave animates via staggered scaleY. */
+/** Waveform separator — bars grow upward from the bottom edge of the header,
+ *  overlapping the content below. No background needed underneath because
+ *  there are no bars extending downward. */
 function HeaderWaveform({ active }: { active: boolean }) {
   const HALF = 30;
-  const MAX_HALF_H = 7; // bars extend this many px above AND below center
-  // Right half: i=0 = center, i=HALF-1 = edge
+  const MAX_H = 14; // max bar height in px (upward only)
   const rightHalf = Array.from({ length: HALF }, (_, i) => {
     const dist = i / (HALF - 1);
     const envelope = 1 - dist * 0.78;
     const variance = 0.4 + Math.abs(Math.sin((i + 1) * 0.7) * 0.5 + Math.cos(i * 0.4) * 0.4);
-    return Math.max(1, MAX_HALF_H * envelope * Math.min(1, variance));
+    return Math.max(1, MAX_H * envelope * Math.min(1, variance));
   });
   const bars = [...[...rightHalf].reverse(), ...rightHalf];
 
@@ -109,9 +108,9 @@ function HeaderWaveform({ active }: { active: boolean }) {
         bottom: 0,
         left: 0,
         right: 0,
-        height: MAX_HALF_H * 2 + 2,
+        height: MAX_H,
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-end", // bars grow upward from the bottom baseline
         gap: 1,
         pointerEvents: "none",
         overflow: "visible",
@@ -124,11 +123,10 @@ function HeaderWaveform({ active }: { active: boolean }) {
           className={active ? "s-wave-bar s-wave-active" : "s-wave-bar"}
           style={{
             flex: 1,
-            height: h * 2,
+            height: h,
             background: "var(--s-header-wave)",
-            borderRadius: 1,
+            borderRadius: "1px 1px 0 0",
             opacity: 0.6,
-            // Positive stagger so every bar starts from rest and does its full curve
             animationDelay: `${(Math.abs(Math.sin(i * 1.7 + 0.3)) * 0.3).toFixed(3)}s`,
           }}
         />
