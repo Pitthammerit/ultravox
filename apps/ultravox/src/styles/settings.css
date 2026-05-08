@@ -73,15 +73,13 @@ body[data-route="settings"] #root {
 }
 
 .ux-help-tip {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  /* left is overridden per-instance via inline style when edge-clamped */
-  left: var(--tip-left, 50%);
-  transform: translate(-50%, 4px);
+  /* Fixed positioning lets the tooltip escape any overflow:hidden parent —
+     bottom/left are set via JS from the anchor's getBoundingClientRect. */
+  position: fixed;
+  transform: translateX(-50%) translateY(4px);
   opacity: 0;
   pointer-events: none;
-  /* Always dark navy — tooltips are inherently "dark" and must not invert
-     when the UI theme switches to dark mode (--color-fg flips to white). */
+  /* Always dark navy — must not invert when theme switches to dark mode. */
   background: var(--color-primary);
   color: #ffffff;
   padding: 6px 10px;
@@ -94,7 +92,7 @@ body[data-route="settings"] #root {
   max-width: 240px;
   width: max-content;
   line-height: 1.35;
-  z-index: 50;
+  z-index: 9999;
   box-shadow: 0 4px 12px color-mix(in srgb, #000 25%, transparent);
   transition: opacity 120ms ease, transform 120ms ease;
   transition-delay: 0ms;
@@ -103,7 +101,7 @@ body[data-route="settings"] #root {
 .ux-help:hover .ux-help-tip,
 .ux-help:focus-within .ux-help-tip {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateX(-50%) translateY(0);
   transition: opacity 120ms ease 250ms, transform 120ms ease 250ms;
 }
 

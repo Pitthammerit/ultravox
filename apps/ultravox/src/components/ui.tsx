@@ -207,31 +207,27 @@ export function SectionLabel({
 }
 
 export function HelpIcon({ tooltip }: { tooltip?: string }) {
-  const tipRef = useRef<HTMLSpanElement>(null);
-  const [tipLeft, setTipLeft] = useState<string | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [tipPos, setTipPos] = useState<{ bottom: number; left: number } | null>(null);
 
-  function clampOnEnter() {
-    if (!tipRef.current) return;
-    // The tip is opacity:0 but laid out — measure before transition starts.
-    // Adjust `left` so it never overflows either edge of the viewport.
-    const rect = tipRef.current.getBoundingClientRect();
-    const pad = 8; // px gap from viewport edge
-    const overRight = rect.right - window.innerWidth + pad;
-    const overLeft = pad - rect.left;
-    if (overRight > 0) setTipLeft(`calc(50% - ${overRight}px)`);
-    else if (overLeft > 0) setTipLeft(`calc(50% + ${overLeft}px)`);
-    else setTipLeft(null);
+  function updateTipPos() {
+    if (!anchorRef.current) return;
+    const r = anchorRef.current.getBoundingClientRect();
+    setTipPos({
+      // "bottom" in fixed context = distance from viewport bottom to tip's bottom edge.
+      // Placing tip bottom 6px above anchor top keeps it clear of the icon.
+      bottom: window.innerHeight - r.top + 6,
+      left: r.left + r.width / 2,
+    });
   }
 
   return (
-    <span className="ux-help inline-flex items-center" onMouseEnter={clampOnEnter}>
+    <span className="ux-help inline-flex items-center" onMouseEnter={updateTipPos} ref={anchorRef}>
       <span
         className="inline-flex items-center justify-center cursor-help shrink-0"
         style={{ width: 13, height: 13, color: T.fgSubtle }}
         aria-label={tooltip}
       >
-        {/* Lucide help-circle — circle + question mark as SVG paths,
-            guaranteed centered regardless of font metrics. */}
         <svg
           width="13"
           height="13"
@@ -250,10 +246,9 @@ export function HelpIcon({ tooltip }: { tooltip?: string }) {
       </span>
       {tooltip && (
         <span
-          ref={tipRef}
           className="ux-help-tip"
           role="tooltip"
-          style={tipLeft ? ({ "--tip-left": tipLeft } as React.CSSProperties) : undefined}
+          style={tipPos ? { bottom: tipPos.bottom, left: tipPos.left } : undefined}
         >
           {tooltip}
         </span>
