@@ -5408,7 +5408,7 @@ dependencies = [
 
 [[package]]
 name = "ultravox"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "dirs 5.0.1",
  "enigo",

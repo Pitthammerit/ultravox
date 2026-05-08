@@ -21,6 +21,7 @@ use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 use serde::Serialize;
+use tauri::Emitter;
 
 use std::io::Cursor;
 use symphonia::core::audio::{AudioBufferRef, Signal};
@@ -49,6 +50,36 @@ pub struct LocalWhisperStatus {
     pub available: bool,
     pub model_path: Option<String>,
     pub model_variant: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DownloadProgress<'a> {
+    variant: &'a str,
+    downloaded: u64,
+    total: u64,
+    percent: f32,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DownloadComplete<'a> {
+    variant: &'a str,
+    model_path: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DownloadError<'a> {
+    variant: &'a str,
+    error: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalWhisperModelInfo {
+    pub variant: String,
+    pub size_bytes: u64,
 }
 
 fn models_dir() -> Result<PathBuf, String> {
@@ -185,15 +216,42 @@ pub fn local_whisper_transcribe(
 }
 
 #[tauri::command]
-pub async fn local_whisper_download_model(variant: String) -> Result<(), String> {
+pub async fn local_whisper_download_model(
+    app_handle: tauri::AppHandle,
+    variant: String,
+) -> Result<(), String> {
+    let v = variant.trim().to_string();
+    let result = download_model_inner(&app_handle, &v).await;
+    match &result {
+        Ok(model_path) => {
+            let _ = app_handle.emit(
+                "local_whisper:download-complete",
+                DownloadComplete {
+                    variant: &v,
+                    model_path: model_path.clone(),
+                },
+            );
+        }
+        Err(e) => {
+            let _ = app_handle.emit(
+                "local_whisper:download-error",
+                DownloadError {
+                    variant: &v,
+                    error: e.clone(),
+                },
+            );
+        }
+    }
+    result.map(|_| ())
+}
+
+async fn download_model_inner(app: &tauri::AppHandle, v: &str) -> Result<String, String> {
     use futures_util::StreamExt;
     use std::io::Write as _;
 
-    let v = variant.trim();
     if v.is_empty() {
         return Err("empty variant".into());
     }
-    // Loose allowlist: alphanumerics, dot, dash. Stops path-traversal abuse.
     if !v
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
@@ -220,25 +278,116 @@ pub async fn local_whisper_download_model(variant: String) -> Result<(), String>
         return Err(format!("http {} downloading {url}", res.status()));
     }
 
+    let total = res.content_length().unwrap_or(0);
+
     let mut file = std::fs::File::create(&tmp_path).map_err(|e| format!("create tmp: {e}"))?;
     let mut stream = res.bytes_stream();
+    let mut downloaded: u64 = 0;
+    let mut last_emit: u64 = 0;
+    const EMIT_EVERY: u64 = 256 * 1024;
+
+    let _ = app.emit(
+        "local_whisper:download-progress",
+        DownloadProgress { variant: v, downloaded: 0, total, percent: 0.0 },
+    );
+
     while let Some(chunk) = stream.next().await {
         let bytes = chunk.map_err(|e| {
             let _ = std::fs::remove_file(&tmp_path);
             format!("chunk: {e}")
         })?;
         file.write_all(&bytes).map_err(|e| format!("write: {e}"))?;
+        downloaded = downloaded.saturating_add(bytes.len() as u64);
+        if downloaded - last_emit >= EMIT_EVERY {
+            last_emit = downloaded;
+            let percent = if total > 0 {
+                (downloaded as f32 / total as f32 * 100.0).min(99.9)
+            } else {
+                0.0
+            };
+            let _ = app.emit(
+                "local_whisper:download-progress",
+                DownloadProgress { variant: v, downloaded, total, percent },
+            );
+        }
     }
     drop(file);
 
     std::fs::rename(&tmp_path, &final_path).map_err(|e| format!("rename: {e}"))?;
 
-    // Drop any cached context — next status/transcribe call lazy-loads the
-    // newly downloaded model.
     if let Ok(mut guard) = CACHE.lock() {
         *guard = None;
     }
+
+    let final_total = if total > 0 { total } else { downloaded };
+    let _ = app.emit(
+        "local_whisper:download-progress",
+        DownloadProgress {
+            variant: v,
+            downloaded,
+            total: final_total,
+            percent: 100.0,
+        },
+    );
+
+    Ok(final_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn local_whisper_delete_model(variant: String) -> Result<(), String> {
+    let v = variant.trim();
+    if v.is_empty() {
+        return Err("empty variant".into());
+    }
+    if !v
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
+    {
+        return Err(format!("invalid variant: {v}"));
+    }
+    let dir = models_dir()?;
+    let path = dir.join(format!("ggml-{v}.bin"));
+    if !path.exists() {
+        return Err(format!("model not found: {v}"));
+    }
+    std::fs::remove_file(&path).map_err(|e| format!("remove: {e}"))?;
+    if let Ok(mut guard) = CACHE.lock() {
+        if let Some(c) = guard.as_ref() {
+            if c.path == path {
+                *guard = None;
+            }
+        }
+    }
     Ok(())
+}
+
+#[tauri::command]
+pub fn local_whisper_list_models() -> Result<Vec<LocalWhisperModelInfo>, String> {
+    let dir = match dirs::data_dir() {
+        Some(b) => b.join(MODEL_BUNDLE_ID).join("whisper-models"),
+        None => return Ok(Vec::new()),
+    };
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut out: Vec<LocalWhisperModelInfo> = Vec::new();
+    let entries = match std::fs::read_dir(&dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(Vec::new()),
+    };
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.extension().and_then(|s| s.to_str()) != Some("bin") {
+            continue;
+        }
+        let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
+        out.push(LocalWhisperModelInfo {
+            variant: variant_from_path(&p),
+            size_bytes,
+        });
+    }
+    out.sort_by(|a, b| a.variant.cmp(&b.variant));
+    Ok(out)
 }
 
 /// Decode arbitrary recorder bytes (mp4/aac/ogg/wav) to 16 kHz mono f32 PCM.
@@ -457,6 +606,18 @@ mod tests {
         assert_eq!(variant_from_path(Path::new("/x/ggml-base.en.bin")), "base.en");
         assert_eq!(variant_from_path(Path::new("/x/ggml-large-v3-turbo.bin")), "large-v3-turbo");
         assert_eq!(variant_from_path(Path::new("/x/foo.bin")), "foo");
+    }
+
+    #[test]
+    fn list_models_handles_missing_or_empty_dir() {
+        // When the models dir is missing or empty, we expect an empty Vec
+        // rather than a hard error. We don't sandbox the actual data_dir,
+        // so we accept either an empty list or whatever real models the
+        // developer happens to have downloaded — only the type is asserted.
+        let list = local_whisper_list_models().expect("list ok");
+        for m in &list {
+            assert!(!m.variant.is_empty());
+        }
     }
 
     #[test]

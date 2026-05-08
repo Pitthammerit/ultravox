@@ -118,6 +118,8 @@ pub fn run() {
         local_whisper::local_whisper_status,
         local_whisper::local_whisper_transcribe,
         local_whisper::local_whisper_download_model,
+        local_whisper::local_whisper_delete_model,
+        local_whisper::local_whisper_list_models,
         tray::update_mic_submenu,
     ]);
 

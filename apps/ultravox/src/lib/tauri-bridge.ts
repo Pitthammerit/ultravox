@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 /**
  * Defaults to the deployed worker (which is always reachable).
@@ -144,4 +145,46 @@ export async function localWhisperTranscribe(audioBytes: Uint8Array, language: s
 /** Trigger model download for a given variant. Variants: "tiny" | "base" | "small" | "large-v3-turbo". */
 export async function localWhisperDownloadModel(variant: string): Promise<void> {
   await invoke("local_whisper_download_model", { variant });
+}
+
+export interface LocalWhisperModelInfo {
+  variant: string;
+  sizeBytes: number;
+}
+
+export async function localWhisperListModels(): Promise<LocalWhisperModelInfo[]> {
+  return invoke<LocalWhisperModelInfo[]>("local_whisper_list_models");
+}
+
+export async function localWhisperDeleteModel(variant: string): Promise<void> {
+  await invoke("local_whisper_delete_model", { variant });
+}
+
+export interface LocalWhisperDownloadProgress {
+  variant: string;
+  downloaded: number;
+  total: number;
+  percent: number;
+}
+
+export interface LocalWhisperDownloadComplete {
+  variant: string;
+  modelPath: string;
+}
+
+export interface LocalWhisperDownloadError {
+  variant: string;
+  error: string;
+}
+
+export function subscribeToDownloadProgress(handler: (p: LocalWhisperDownloadProgress) => void): Promise<UnlistenFn> {
+  return listen<LocalWhisperDownloadProgress>("local_whisper:download-progress", (e) => handler(e.payload));
+}
+
+export function subscribeToDownloadComplete(handler: (p: LocalWhisperDownloadComplete) => void): Promise<UnlistenFn> {
+  return listen<LocalWhisperDownloadComplete>("local_whisper:download-complete", (e) => handler(e.payload));
+}
+
+export function subscribeToDownloadError(handler: (p: LocalWhisperDownloadError) => void): Promise<UnlistenFn> {
+  return listen<LocalWhisperDownloadError>("local_whisper:download-error", (e) => handler(e.payload));
 }
