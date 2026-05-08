@@ -113,9 +113,9 @@ function cardDims(_style: PillStyle, size: "small" | "large"): { cardWidth: numb
   // segmented control. The pill *inside* differs in size to communicate the
   // two styles' relative footprints.
   if (size === "large") {
-    return { cardWidth: 184, cardHeight: 88 };
+    return { cardWidth: 123, cardHeight: 59 };
   }
-  return { cardWidth: 168, cardHeight: 64 };
+  return { cardWidth: 112, cardHeight: 43 };
 }
 
 /**
@@ -128,7 +128,7 @@ function PillPreview({ style, size }: { style: PillStyle; size: "small" | "large
 }
 
 function MiniPreview({ size }: { size: "small" | "large" }) {
-  const scale = size === "large" ? 0.92 : 0.7;
+  const scale = size === "large" ? 0.61 : 0.47;
   const width = 130 * scale;
   const height = 28 * scale;
   const padX = 8 * scale;
@@ -193,7 +193,7 @@ function MiniPreview({ size }: { size: "small" | "large" }) {
 }
 
 function ClassicPreview({ size }: { size: "small" | "large" }) {
-  const scale = size === "large" ? 0.92 : 0.76;
+  const scale = size === "large" ? 0.61 : 0.51;
   const width = 184 * scale;
   const height = 70 * scale;
   const waveformH = 40 * scale;
