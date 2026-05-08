@@ -1,7 +1,7 @@
 {
   "name": "@ultravox/app",
   "private": true,
-  "version": "0.10.1",
+  "version": "0.10.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dmg": "PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH pnpm tauri build --bundles dmg"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

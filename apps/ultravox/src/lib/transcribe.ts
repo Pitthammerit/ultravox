@@ -22,6 +22,10 @@ export interface TranscribeOptions {
   /** v0.10 — when true and a model is loaded AND mode.cleanup === "raw",
    *  transcribe on-device. Falls back to cloud on any error. */
   localWhisperEnabled?: boolean;
+  /** Abort signal — when fired, cancels in-flight worker / claude-code fetch calls.
+   *  Local Whisper (Tauri command) cannot be cancelled mid-flight; it completes
+   *  silently and the result is discarded. */
+  signal?: AbortSignal;
 }
 
 export interface TranscribeResult {
@@ -53,14 +57,14 @@ interface CachedToken { token: string; apiUrl: string; expiresAt: number; }
 const tokenCache = new Map<string, CachedToken>();
 const REFRESH_GUARD_MS = 30_000;
 
-async function fetchToken(endpoint: string): Promise<{ token: string; apiUrl: string }> {
+async function fetchToken(endpoint: string, signal?: AbortSignal): Promise<{ token: string; apiUrl: string }> {
   const cached = tokenCache.get(endpoint);
   if (cached && cached.expiresAt - Date.now() > REFRESH_GUARD_MS) {
     return { token: cached.token, apiUrl: cached.apiUrl };
   }
 
   const t0 = performance.now();
-  const res = await fetch(endpoint);
+  const res = await fetch(endpoint, { signal: signal ?? null });
   const data = (await res.json()) as TokenResponse;
   const durationMs = Math.round(performance.now() - t0);
   if (!res.ok || !data.ok) {
@@ -120,6 +124,7 @@ async function whisperRaw(
     method: "POST",
     body: fd,
     headers: { Authorization: `Bearer ${token}` },
+    signal: opts.signal ?? null,
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
@@ -250,6 +255,7 @@ async function workerTranscribe(
     method: "POST",
     body: fd,
     headers: { Authorization: `Bearer ${token}` },
+    signal: opts.signal ?? null,
   });
   const durationMs = Math.round(performance.now() - t0);
   if (!res.ok) {
@@ -272,7 +278,7 @@ export async function transcribe(
   blob: Blob,
   opts: TranscribeOptions,
 ): Promise<TranscribeResult> {
-  const { token, apiUrl } = await fetchToken(opts.tokenEndpoint);
+  const { token, apiUrl } = await fetchToken(opts.tokenEndpoint, opts.signal);
   opts.onProgress?.("transcribing");
 
   const cleanup = opts.mode.cleanup ?? "prose";

@@ -39,7 +39,7 @@ describe("transcribe", () => {
     expect(result.text).toBe("hello world");
     expect(phases).toEqual(["transcribing"]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock).toHaveBeenCalledWith("/api/voice/token");
+    expect(fetchMock).toHaveBeenCalledWith("/api/voice/token", expect.any(Object));
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/v1/audio/clean"),
       expect.any(Object),

@@ -449,6 +449,9 @@ export default function PillWindow() {
   // auto-flow scheduled in turn N could fire mid-turn N+1 and hide the pill
   // while the user is recording again.
   const silenceTimersRef = useRef<number[]>([]);
+  // AbortController for the in-flight transcribe call. Esc during "transcribing"
+  // calls abort() to cancel cloud fetch requests immediately.
+  const transcribeAbortRef = useRef<AbortController | null>(null);
   const cancelSilenceTimers = useCallback(() => {
     silenceTimersRef.current.forEach((id) => window.clearTimeout(id));
     silenceTimersRef.current = [];
@@ -520,7 +523,16 @@ export default function PillWindow() {
   */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (state === "transcribing") return;
+      if (state === "transcribing") {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          transcribeAbortRef.current?.abort();
+          setState("idle");
+          invoke("hide_pill").catch(() => {});
+          transcribeAbortRef.current = null;
+        }
+        return;
+      }
       const k = e.key;
       if (state === "discardConfirm") {
         // Space → back to recording; Esc / Enter → confirm discard.
@@ -620,6 +632,8 @@ export default function PillWindow() {
     // assumes nothing happened.
     const transcribingMinVisible = new Promise<void>((r) => setTimeout(r, 600));
     if (settings?.sound.chime) playStopChime(settings.sound.chimeVolume);
+    const abortController = new AbortController();
+    transcribeAbortRef.current = abortController;
     try {
       const blob = await recorder.stop();
       console.log("[pill] recorder.stop returned blob:", blob ? `${blob.size} bytes, ${blob.type}` : "null");
@@ -646,6 +660,7 @@ export default function PillWindow() {
         ...(settings?.lastName ? { lastName: settings.lastName } : {}),
         ...(frontmost ? { frontmostApp: frontmost } : {}),
         localWhisperEnabled: settings?.localWhisperEnabled ?? false,
+        signal: abortController.signal,
       });
       console.log("[pill] transcribe result.text length:", result.text.length);
       track("transcription.completed", { modeId: mode.id, length: result.text.length });
@@ -674,8 +689,12 @@ export default function PillWindow() {
         showError("Transcription returned empty text — silence detected, or the worker didn't decode the audio.");
       }
     } catch (e) {
+      // Esc during transcribing calls abortController.abort() — swallow silently.
+      if ((e as Error)?.name === "AbortError") return;
       captureError(e, { stage: "transcribe" });
       showError(`Transcribe error: ${(e as Error).message || e}`);
+    } finally {
+      transcribeAbortRef.current = null;
     }
   }, [recorder, mode, settings, showError, showSilenceFlow]);
 

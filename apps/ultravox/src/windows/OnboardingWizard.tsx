@@ -120,6 +120,7 @@ const COPY: Record<Lang, {
   // step 6
   doneTitle: string;
   doneBody: (kbd: React.ReactNode) => React.ReactNode;
+  doneTip: string;
   open: string;
   // shared
   continueBtn: string;
@@ -178,6 +179,7 @@ const COPY: Record<Lang, {
     refresh: "I've enabled it — Refresh",
     doneTitle: "You're all set",
     doneBody: (kbd) => (<>Click into any text field — Notes, Mail, a browser — place your cursor, press {kbd} to record, press it again to stop.</>),
+    doneTip: "Tip: enable on-device transcription in Settings → Local transcription for faster, fully-private dictation.",
     open: `Open ${BRANDING.appName}`,
     continueBtn: "Continue",
     tryAgain: "Try again",
@@ -235,6 +237,7 @@ const COPY: Record<Lang, {
     refresh: "Aktiviert — aktualisieren",
     doneTitle: "Alles bereit",
     doneBody: (kbd) => (<>Klicke in ein Textfeld — Notizen, Mail, Browser — Cursor platzieren, {kbd} zum Aufnehmen drücken, erneut drücken zum Stoppen.</>),
+    doneTip: "Tipp: Aktiviere die Gerättranskription unter Einstellungen → Lokale Transkription für schnelleres, vollständig privates Diktieren.",
     open: `${BRANDING.appName} öffnen`,
     continueBtn: "Weiter",
     tryAgain: "Erneut versuchen",
@@ -722,6 +725,9 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         {step === 10 && (
           <Step title={t.doneTitle}>
             <Body>{t.doneBody(<Kbd>{prettifyShortcut(hotkeyRecord)}</Kbd>)}</Body>
+            <p className="text-center" style={{ color: FG_MUTED, fontSize: 12, lineHeight: 1.5 }}>
+              {t.doneTip}
+            </p>
             <PrimaryBtn onClick={async () => {
               try { applyTheme(theme); } catch (e) { console.warn("applyTheme failed:", e); }
               onComplete();
