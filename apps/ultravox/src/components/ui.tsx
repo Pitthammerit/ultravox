@@ -5,7 +5,7 @@
  * (--s-* tokens). Inline styles are used intentionally — they're immune
  * to Tailwind v4's compilation quirks with token-based utility classes.
  */
-import { forwardRef, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { setTrafficLightsVisible } from "../lib/tauri-bridge";
 
 const T = {
@@ -37,12 +37,25 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
-  // Traffic lights autohide — hidden by default, visible only while hovering
-  // the header region. Restored on unmount so closing the window via code
-  // (e.g. onComplete in onboarding) doesn't leave them permanently hidden.
   useEffect(() => {
     setTrafficLightsVisible(false).catch(() => {});
     return () => { setTrafficLightsVisible(true).catch(() => {}); };
+  }, []);
+
+  // Wave animation: starts on mouseenter and always completes its full
+  // cycle — not cut short when the mouse leaves. key increment forces
+  // a fresh animation restart on each hover entry.
+  const [waveKey, setWaveKey] = useState(0);
+  const [waveActive, setWaveActive] = useState(false);
+  const waveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    setTrafficLightsVisible(true).catch(() => {});
+    if (waveTimer.current) clearTimeout(waveTimer.current);
+    setWaveKey((k) => k + 1);
+    setWaveActive(true);
+    // 1900ms covers the longest bar duration (max ~1.8 s)
+    waveTimer.current = setTimeout(() => setWaveActive(false), 1900);
   }, []);
 
   return (
@@ -50,11 +63,11 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
       data-tauri-drag-region
       className="relative shrink-0 flex items-center"
       style={{ background: T.page, height: 40 }}
-      onMouseEnter={() => setTrafficLightsVisible(true).catch(() => {})}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setTrafficLightsVisible(false).catch(() => {})}
     >
       {/* Waveform first — painter's algorithm keeps it behind everything */}
-      <HeaderWaveform />
+      <HeaderWaveform key={waveKey} active={waveActive} />
 
       {/* Title abbreviates to "UV" in sub-pages so the breadcrumb fits */}
       <CenteredHeaderTitle
@@ -76,7 +89,7 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
 /** Mirrored waveform separator — bars extend symmetrically up AND down from
  *  a center axis, matching the pill waveform style. On header hover a
  *  left→right traveling wave animates via staggered scaleY. */
-function HeaderWaveform() {
+function HeaderWaveform({ active }: { active: boolean }) {
   const HALF = 30;
   const MAX_HALF_H = 7; // bars extend this many px above AND below center
   // Right half: i=0 = center, i=HALF-1 = edge
@@ -109,7 +122,7 @@ function HeaderWaveform() {
       {bars.map((h, i) => (
         <span
           key={i}
-          className="s-wave-bar"
+          className={active ? "s-wave-bar s-wave-active" : "s-wave-bar"}
           style={{
             flex: 1,
             height: h * 2,

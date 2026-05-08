@@ -126,6 +126,6 @@ body[data-route="settings"] #root {
 }
 
 /* Trigger on header hover — each bar already has its animationDelay inline */
-header:hover .s-wave-bar {
+.s-wave-bar.s-wave-active {
   animation: s-wave-pulse var(--s-wave-dur, 1.5s) ease-in-out 1;
 }
