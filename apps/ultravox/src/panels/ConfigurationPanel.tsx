@@ -3,11 +3,11 @@ import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
 import { Button, Input, Row, Section, tokens } from "../components/ui";
+import { PillStylePicker } from "../components/PillStylePicker";
 import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission, claudeCodeCheck, type ClaudeCodeStatus } from "../lib/tauri-bridge";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 
 interface ConfigurationPanelProps {
-  /* Kept for API compatibility — settings are no longer rendered here. */
   settings?: AppSettings;
   onChange?: (patch: Partial<AppSettings>) => Promise<void>;
 }
@@ -117,6 +117,22 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
               value={settings?.lastName ?? ""}
               onChange={(v) => { if (onChange) void onChange(v.trim() ? { lastName: v } : { lastName: "" }); }}
               placeholder="Last name"
+            />
+          }
+        />
+      </Section>
+
+      <Section
+        label="Recording window"
+        help="Choose how the floating pill appears while you're recording."
+      >
+        <Row
+          label="Style"
+          control={
+            <PillStylePicker
+              value={settings?.pillStyle ?? "classic"}
+              onChange={(v) => { if (onChange) void onChange({ pillStyle: v }); }}
+              size="small"
             />
           }
         />

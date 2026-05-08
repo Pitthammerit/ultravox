@@ -192,6 +192,39 @@ export default function PillWindow() {
 
   const currentModes = settings?.modes ?? DEFAULT_MODES;
 
+  /* ── Reactive sync: settings.pillStyle → local `compact` ───────
+   * When the user edits the pill style in the Settings window (a
+   * different WebView), the next recording's `loadSettings()` call
+   * will refresh `settings`. This effect notices the resulting
+   * pillStyle change and brings the local `compact` boolean +
+   * window geometry in sync, mirroring what expand()/collapse()
+   * do — but WITHOUT writing settings (that path is owned by the
+   * user actions; writing here would re-trigger this effect).
+   */
+  useEffect(() => {
+    if (!settingsLoaded || !settings) return;
+    const desired =
+      settings.pillStyle ?? (settings.sound.compactPill ? "mini" : "classic");
+    const desiredCompact = desired === "mini";
+    if (desiredCompact === compact) return;
+    if (desiredCompact) {
+      const cp = settings.pillCompactPosition;
+      if (cp) {
+        setPillSizeAtPosition(COMPACT_W, COMPACT_H, cp.x, cp.y).catch(() => {});
+      } else {
+        setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
+      }
+    } else {
+      const ep = settings.pillExpandedPosition;
+      if (ep) {
+        setPillSizeAtPosition(PILL_W, PILL_H, ep.x, ep.y).catch(() => {});
+      } else {
+        setPillHeight(PILL_H).catch(() => {});
+      }
+    }
+    setCompact(desiredCompact);
+  }, [settings?.pillStyle, settings?.sound.compactPill, settingsLoaded, compact, settings?.pillCompactPosition, settings?.pillExpandedPosition]);
+
   /* ── Resize pill window when view/compact/state change ─────────
    * Compact-mode positioning is handled by the dedicated compact branch
    * (collapse/expand call setPillPositionTopCenter / setPillSizeAtPosition

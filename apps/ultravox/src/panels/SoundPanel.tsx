@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { Button, Row, Section, ToggleRow, tokens } from "../components/ui";
-import { PillStylePicker } from "../components/PillStylePicker";
 import { playStartChime, playStopChime } from "../lib/chime";
 import { transcribe } from "../lib/transcribe";
 import { TOKEN_ENDPOINT } from "../lib/tauri-bridge";
@@ -61,22 +60,6 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
           help="Trim silent passages before upload (v1.1)"
           checked={sound.silenceRemoval}
           onChange={(v) => setSound({ silenceRemoval: v })}
-        />
-      </Section>
-
-      <Section
-        label="Recording window"
-        help="Choose how the floating pill appears while you're recording."
-      >
-        <Row
-          label="Style"
-          control={
-            <PillStylePicker
-              value={settings.pillStyle ?? "classic"}
-              onChange={(v) => onChange({ pillStyle: v })}
-              size="small"
-            />
-          }
         />
       </Section>
 
