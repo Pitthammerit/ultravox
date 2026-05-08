@@ -93,10 +93,13 @@ fn models_dir() -> Result<PathBuf, String> {
 ///
 /// Priority:
 /// 1. If `preferred_variant` is Some and the file exists, use it.
-/// 2. If `language` is "en", prefer base.en → base → small (first installed wins).
-/// 3. Otherwise (multilingual or unset), prefer base → small (first installed wins).
-/// 4. Fall back to the first alphabetically if nothing from the priority lists is found.
-fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>) -> Result<Option<(PathBuf, String)>, String> {
+/// 2. Auto-route based on `language` and `audio_quality`:
+///    - en + low quality:  large-v3-turbo → medium.en → medium → small → base.en → base → tiny
+///    - en + normal:       medium.en → base.en → base → large-v3-turbo → medium → small → tiny
+///    - multilingual + low quality: large-v3-turbo → medium → small → base → tiny
+///    - multilingual + normal:      large-v3-turbo → medium → small → base → tiny
+/// 3. Fall back to the first alphabetically if nothing from the priority lists is found.
+fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>, audio_quality: Option<&str>) -> Result<Option<(PathBuf, String)>, String> {
     let dir = models_dir()?;
     if let Ok(entries) = std::fs::read_dir(&dir) {
         let mut candidates: Vec<PathBuf> = entries
@@ -120,12 +123,18 @@ fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>) 
             }
         }
 
-        // 2/3. Auto-route based on language when no explicit variant.
+        // 2. Auto-route based on language + audio quality when no explicit variant.
         if preferred_variant.is_none() {
-            let priority: &[&str] = if language.map(|l| l.trim().eq_ignore_ascii_case("en")).unwrap_or(false) {
-                &["base.en", "base", "small", "tiny", "medium"]
-            } else {
-                &["base", "small", "tiny", "medium"]
+            let is_en = language.map(|l| l.trim().eq_ignore_ascii_case("en")).unwrap_or(false);
+            let is_low = audio_quality.map(|q| q.eq_ignore_ascii_case("low")).unwrap_or(false);
+
+            let priority: &[&str] = match (is_en, is_low) {
+                // English + low quality: biggest accurate english model first, then general fallbacks
+                (true, true)  => &["large-v3-turbo", "medium.en", "medium", "small", "base.en", "base", "tiny"],
+                // English + normal quality: prefer english-tuned, then multilingual, then large
+                (true, false) => &["medium.en", "base.en", "base", "large-v3-turbo", "medium", "small", "tiny"],
+                // Multilingual (both quality levels): largest first
+                (false, _)    => &["large-v3-turbo", "medium", "small", "base", "tiny"],
             };
             for variant in priority {
                 let p = dir.join(format!("ggml-{variant}.bin"));
@@ -135,7 +144,7 @@ fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>) 
             }
         }
 
-        // 4. Fallback: first installed alphabetically.
+        // 3. Fallback: first installed alphabetically.
         if let Some(p) = candidates.into_iter().next() {
             let variant = variant_from_path(&p);
             return Ok(Some((p, variant)));
@@ -150,7 +159,7 @@ fn variant_from_path(p: &Path) -> String {
 }
 
 #[tauri::command]
-pub fn local_whisper_status(preferred_variant: Option<String>, language: Option<String>) -> Result<LocalWhisperStatus, String> {
+pub fn local_whisper_status(preferred_variant: Option<String>, language: Option<String>, audio_quality: Option<String>) -> Result<LocalWhisperStatus, String> {
     if let Some(cached) = CACHE.lock().map_err(|e| format!("lock: {e}"))?.as_ref() {
         return Ok(LocalWhisperStatus {
             available: true,
@@ -158,7 +167,7 @@ pub fn local_whisper_status(preferred_variant: Option<String>, language: Option<
             model_variant: Some(cached.variant.clone()),
         });
     }
-    match find_existing_model(preferred_variant.as_deref(), language.as_deref())? {
+    match find_existing_model(preferred_variant.as_deref(), language.as_deref(), audio_quality.as_deref())? {
         Some((path, variant)) => Ok(LocalWhisperStatus {
             available: true,
             model_path: Some(path.to_string_lossy().to_string()),
@@ -172,7 +181,7 @@ pub fn local_whisper_status(preferred_variant: Option<String>, language: Option<
     }
 }
 
-fn ensure_loaded(preferred_variant: Option<&str>, routing_language: Option<&str>) -> Result<(), String> {
+fn ensure_loaded(preferred_variant: Option<&str>, routing_language: Option<&str>, audio_quality: Option<&str>) -> Result<(), String> {
     let mut guard = CACHE.lock().map_err(|e| format!("lock: {e}"))?;
     if let Some(cached) = guard.as_ref() {
         // If the cached model matches the preferred variant (or no preference), keep it.
@@ -194,7 +203,7 @@ fn ensure_loaded(preferred_variant: Option<&str>, routing_language: Option<&str>
         // Clear cache so we reload with the preferred model below.
         *guard = None;
     }
-    let (path, variant) = find_existing_model(preferred_variant, routing_language)?
+    let (path, variant) = find_existing_model(preferred_variant, routing_language, audio_quality)?
         .ok_or_else(|| "no whisper model installed".to_string())?;
     let path_str = path.to_str().ok_or("non-utf8 model path")?;
     let ctx = WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
@@ -209,8 +218,9 @@ pub fn local_whisper_transcribe(
     language: Option<String>,
     preferred_variant: Option<String>,
     routing_language: Option<String>,
+    audio_quality: Option<String>,
 ) -> Result<String, String> {
-    ensure_loaded(preferred_variant.as_deref(), routing_language.as_deref())?;
+    ensure_loaded(preferred_variant.as_deref(), routing_language.as_deref(), audio_quality.as_deref())?;
 
     let pcm = decode_to_mono_16k(audio_bytes)?;
     if pcm.is_empty() {
@@ -632,7 +642,7 @@ mod tests {
         // returns unavailable. If a developer has dropped a real .bin into
         // ~/Library/Application Support/com.ultravox.dev/whisper-models the
         // assertion below is permissive — only checks the shape.
-        let st = local_whisper_status(None, None).expect("status ok");
+        let st = local_whisper_status(None, None, None).expect("status ok");
         if !st.available {
             assert!(st.model_path.is_none());
             assert!(st.model_variant.is_none());
@@ -672,5 +682,74 @@ mod tests {
     fn empty_audio_rejected() {
         let err = decode_to_mono_16k(Vec::new()).unwrap_err();
         assert!(err.contains("empty"));
+    }
+
+    /// Helper: resolve the auto-routing priority given a set of installed variants.
+    /// Mirrors the priority logic inside find_existing_model without touching the filesystem.
+    fn resolve_priority(installed: &[&str], language: Option<&str>, audio_quality: Option<&str>) -> Option<String> {
+        let is_en = language.map(|l| l.trim().eq_ignore_ascii_case("en")).unwrap_or(false);
+        let is_low = audio_quality.map(|q| q.eq_ignore_ascii_case("low")).unwrap_or(false);
+
+        let priority: &[&str] = match (is_en, is_low) {
+            (true, true)  => &["large-v3-turbo", "medium.en", "medium", "small", "base.en", "base", "tiny"],
+            (true, false) => &["medium.en", "base.en", "base", "large-v3-turbo", "medium", "small", "tiny"],
+            (false, _)    => &["large-v3-turbo", "medium", "small", "base", "tiny"],
+        };
+        for variant in priority {
+            if installed.contains(variant) {
+                return Some(variant.to_string());
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn routing_en_normal_prefers_medium_en_over_large_turbo() {
+        let picked = resolve_priority(&["large-v3-turbo", "medium.en", "base.en"], Some("en"), Some("normal"));
+        assert_eq!(picked.as_deref(), Some("medium.en"));
+    }
+
+    #[test]
+    fn routing_en_normal_falls_back_to_base_en_when_no_medium_en() {
+        let picked = resolve_priority(&["base.en", "base", "large-v3-turbo"], Some("en"), Some("normal"));
+        assert_eq!(picked.as_deref(), Some("base.en"));
+    }
+
+    #[test]
+    fn routing_en_low_quality_prefers_large_turbo() {
+        let picked = resolve_priority(&["large-v3-turbo", "medium.en", "base.en"], Some("en"), Some("low"));
+        assert_eq!(picked.as_deref(), Some("large-v3-turbo"));
+    }
+
+    #[test]
+    fn routing_en_low_quality_falls_back_to_medium_en_when_no_large_turbo() {
+        let picked = resolve_priority(&["medium.en", "base.en", "base"], Some("en"), Some("low"));
+        assert_eq!(picked.as_deref(), Some("medium.en"));
+    }
+
+    #[test]
+    fn routing_multilingual_prefers_large_turbo() {
+        let picked = resolve_priority(&["large-v3-turbo", "medium", "small"], None, None);
+        assert_eq!(picked.as_deref(), Some("large-v3-turbo"));
+    }
+
+    #[test]
+    fn routing_multilingual_low_quality_still_prefers_large_turbo() {
+        let picked = resolve_priority(&["large-v3-turbo", "medium", "base"], None, Some("low"));
+        assert_eq!(picked.as_deref(), Some("large-v3-turbo"));
+    }
+
+    #[test]
+    fn routing_multilingual_falls_back_to_medium_without_large_turbo() {
+        let picked = resolve_priority(&["medium", "small", "base"], None, Some("low"));
+        assert_eq!(picked.as_deref(), Some("medium"));
+    }
+
+    #[test]
+    fn routing_en_normal_fallback_chain_to_large_turbo() {
+        // Only large-v3-turbo and tiny installed; en+normal should skip to large-v3-turbo
+        // (position 4 in the en-normal priority list).
+        let picked = resolve_priority(&["large-v3-turbo", "tiny"], Some("en"), Some("normal"));
+        assert_eq!(picked.as_deref(), Some("large-v3-turbo"));
     }
 }

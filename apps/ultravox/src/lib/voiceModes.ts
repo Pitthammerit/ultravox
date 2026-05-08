@@ -55,7 +55,7 @@ export const CLEANUP_VARIANTS: Array<{ id: VoiceCleanup; label: string; descript
   { id: "raw",   label: "Raw",   description: "No cleanup — pure Whisper output" },
 ];
 
-export type TranscriptionModelValue = "cloud" | "tiny" | "base.en" | "base" | "small" | "medium" | "auto";
+export type TranscriptionModelValue = "cloud" | "tiny" | "base.en" | "base" | "small" | "medium" | "medium.en" | "large-v3-turbo" | "auto";
 
 export interface VoiceMode {
   id: string;

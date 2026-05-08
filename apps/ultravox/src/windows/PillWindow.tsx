@@ -77,6 +77,10 @@ const COMPACT_H = COMPACT_PILL_H + SHADOW_PAD * 2;
 // skip the upload — Whisper otherwise hallucinates random words on near-silent audio.
 const SILENCE_PEAK_THRESHOLD = 0.02;
 
+// Below this threshold (but above SILENCE), audio is flagged as "low quality" so
+// Auto routing upgrades to a more capable model when one is installed.
+const LOW_SIGNAL_PEAK_THRESHOLD = 0.08;
+
 /** Compute the expanded window height needed to show N modes in the list. */
 function expandedHeight(modeCount: number): number {
   const modesPanelH = modeCount * MODE_ROW_H + LIST_PAD + MODES_FOOTER_H;
@@ -650,6 +654,7 @@ export default function PillWindow() {
         showSilenceFlow("No speech detected. Move closer to the mic or check your input device.");
         return;
       }
+      const audioQuality = peakLevel < LOW_SIGNAL_PEAK_THRESHOLD ? "low" : "normal" as const;
       const frontmost = await getFrontmostApp();
       console.log("[pill] frontmost app:", frontmost);
       const result = await transcribe(blob, {
@@ -660,6 +665,7 @@ export default function PillWindow() {
         ...(settings?.lastName ? { lastName: settings.lastName } : {}),
         ...(frontmost ? { frontmostApp: frontmost } : {}),
         localWhisperEnabled: settings?.localWhisperEnabled ?? false,
+        audioQuality,
         signal: abortController.signal,
       });
       console.log("[pill] transcribe result.text length:", result.text.length);

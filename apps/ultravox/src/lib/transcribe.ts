@@ -21,6 +21,8 @@ export interface TranscribeOptions {
   onProgress?: (phase: "transcribing") => void;
   /** Global toggle — when false, all modes use cloud regardless of per-mode transcriptionModel. */
   localWhisperEnabled?: boolean;
+  /** Audio quality hint computed from peak level. "low" triggers upgrade to more capable models in Auto routing. */
+  audioQuality?: "low" | "normal";
   /** Abort signal — when fired, cancels in-flight worker / claude-code fetch calls.
    *  Local Whisper (Tauri command) cannot be cancelled mid-flight; it completes
    *  silently and the result is discarded. */
@@ -291,20 +293,24 @@ export async function transcribe(
   const wantsLocal = opts.localWhisperEnabled && transcriptionModel !== "cloud";
 
   if (wantsLocal) {
-    // "auto" passes undefined so Rust auto-routes based on language; an explicit
-    // variant passes its id so Rust uses that model if installed.
+    // "auto" passes undefined so Rust auto-routes based on language + audioQuality;
+    // an explicit variant passes its id so Rust uses that model if installed.
     const preferredVariant = transcriptionModel === "auto" ? undefined : transcriptionModel;
     const language = opts.mode.language && opts.mode.language !== "auto" ? opts.mode.language : undefined;
+    const audioQuality = transcriptionModel === "auto" ? (opts.audioQuality ?? "normal") : undefined;
     try {
-      const status = await localWhisperStatus(preferredVariant, language);
+      const status = await localWhisperStatus(preferredVariant, language, audioQuality);
       if (status.available) {
+        const isLowQuality = audioQuality === "low";
         const routingLabel = transcriptionModel === "auto"
-          ? (language === "en" ? "routed=auto-en" : "routed=auto-multilingual")
+          ? (language === "en"
+              ? (isLowQuality ? "routed=auto-en-low-quality" : "routed=auto-en")
+              : (isLowQuality ? "routed=auto-multilingual-low-quality" : "routed=auto-multilingual"))
           : "routed=explicit";
         logDebug("transcribe-backend", { message: `local whisper (${status.modelVariant}, ${routingLabel})` });
         const buf = await blob.arrayBuffer();
         const t0 = performance.now();
-        const text = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language ?? null, preferredVariant, language);
+        const text = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language ?? null, preferredVariant, language, audioQuality);
         const durationMs = Math.round(performance.now() - t0);
         logDebug("transcribe-result", { textLength: text.length, durationMs, message: `local-whisper (${status.modelVariant}, ${routingLabel})` });
         return { text };

@@ -2,6 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { transcribe, _resetTokenCacheForTests } from "../lib/transcribe";
 import type { VoiceMode } from "../lib/voiceModes";
 
+vi.mock("../lib/tauri-bridge", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/tauri-bridge")>();
+  return {
+    ...actual,
+    localWhisperStatus: vi.fn(),
+    localWhisperTranscribe: vi.fn(),
+    claudeCodeCheck: vi.fn().mockResolvedValue({ available: false }),
+  };
+});
+
 const fetchMock = vi.fn();
 beforeEach(() => {
   globalThis.fetch = fetchMock;
@@ -122,5 +132,72 @@ describe("transcribe", () => {
     await expect(
       transcribe(blob, { mode: baseMode, vocabulary: [], tokenEndpoint: "/api/voice/token" }),
     ).rejects.toThrow("voice worker 500");
+  });
+});
+
+describe("transcribe audio-quality routing", () => {
+  it("passes audioQuality=low to localWhisperStatus when signal is low", async () => {
+    const { localWhisperStatus, localWhisperTranscribe } = await import("../lib/tauri-bridge");
+    const statusMock = vi.mocked(localWhisperStatus);
+    const transcribeMock = vi.mocked(localWhisperTranscribe);
+    statusMock.mockResolvedValue({ available: true, modelPath: "/x/ggml-large-v3-turbo.bin", modelVariant: "large-v3-turbo" });
+    transcribeMock.mockResolvedValue("low quality result");
+
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => tokenResponse });
+
+    const result = await transcribe(blob, {
+      mode: { ...baseMode, cleanup: "raw", transcriptionModel: "auto", language: "en" },
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localWhisperEnabled: true,
+      audioQuality: "low",
+    });
+
+    expect(result.text).toBe("low quality result");
+    expect(statusMock).toHaveBeenCalledWith(undefined, "en", "low");
+    expect(transcribeMock).toHaveBeenCalledWith(expect.any(Uint8Array), "en", undefined, "en", "low");
+  });
+
+  it("passes audioQuality=normal when signal is normal", async () => {
+    const { localWhisperStatus, localWhisperTranscribe } = await import("../lib/tauri-bridge");
+    const statusMock = vi.mocked(localWhisperStatus);
+    const transcribeMock = vi.mocked(localWhisperTranscribe);
+    statusMock.mockResolvedValue({ available: true, modelPath: "/x/ggml-base.en.bin", modelVariant: "base.en" });
+    transcribeMock.mockResolvedValue("normal result");
+
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => tokenResponse });
+
+    const result = await transcribe(blob, {
+      mode: { ...baseMode, cleanup: "raw", transcriptionModel: "auto", language: "en" },
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localWhisperEnabled: true,
+      audioQuality: "normal",
+    });
+
+    expect(result.text).toBe("normal result");
+    expect(statusMock).toHaveBeenCalledWith(undefined, "en", "normal");
+  });
+
+  it("does NOT pass audioQuality for explicit variant (non-auto mode)", async () => {
+    const { localWhisperStatus, localWhisperTranscribe } = await import("../lib/tauri-bridge");
+    const statusMock = vi.mocked(localWhisperStatus);
+    const transcribeMock = vi.mocked(localWhisperTranscribe);
+    statusMock.mockResolvedValue({ available: true, modelPath: "/x/ggml-medium.en.bin", modelVariant: "medium.en" });
+    transcribeMock.mockResolvedValue("explicit result");
+
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => tokenResponse });
+
+    const result = await transcribe(blob, {
+      mode: { ...baseMode, cleanup: "raw", transcriptionModel: "medium.en" },
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localWhisperEnabled: true,
+      audioQuality: "low",
+    });
+
+    expect(result.text).toBe("explicit result");
+    // audioQuality should be undefined for explicit variants (not auto)
+    expect(statusMock).toHaveBeenCalledWith("medium.en", undefined, undefined);
   });
 });
