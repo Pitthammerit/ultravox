@@ -527,6 +527,16 @@ export default function PillWindow() {
     }
   }, [recorder, mode, settings, showError]);
 
+  // Track state in a ref so the hotkey handler always reads the latest
+  // value. Using state directly in the useCallback closure caused stale
+  // captures because useHotkeyEvent's listen()/unlisten() is async — there
+  // was a window where Tauri routed the event to the OLD handler closure
+  // (with stale state="idle") even though state had already become
+  // "recording", so the second hotkey press ran startRecord again instead
+  // of stopAndTranscribe.
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
   /* ── Footer-button handlers (shared with keyboard shortcuts) ──
      Each handler mirrors exactly one branch of the keydown listener
      above, so clicking a button is indistinguishable from pressing
@@ -544,16 +554,6 @@ export default function PillWindow() {
   }, []);
 
   /* ── Hotkey: toggle record ──────────────────────────────────── */
-  // Track state in a ref so the hotkey handler always reads the latest
-  // value. Using state directly in the useCallback closure caused stale
-  // captures because useHotkeyEvent's listen()/unlisten() is async — there
-  // was a window where Tauri routed the event to the OLD handler closure
-  // (with stale state="idle") even though state had already become
-  // "recording", so the second hotkey press ran startRecord again instead
-  // of stopAndTranscribe.
-  const stateRef = useRef(state);
-  useEffect(() => { stateRef.current = state; }, [state]);
-
   useHotkeyEvent(
     "hotkey:toggle-record",
     useCallback(() => {
@@ -656,6 +656,7 @@ export default function PillWindow() {
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = "var(--color-warning)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = "var(--pill-fg-muted)"; }}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => { e.stopPropagation(); setState("discardConfirm"); }}
                 title="Discard recording"
               >
@@ -677,6 +678,7 @@ export default function PillWindow() {
                     border: "none", color: "var(--color-warning)", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={(e) => { e.stopPropagation(); recorder.cancel(); setState("idle"); invoke("hide_pill").catch(() => {}); }}
                   title="Discard"
                 >
@@ -691,6 +693,7 @@ export default function PillWindow() {
                     border: "none", color: "var(--color-accent)", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={(e) => { e.stopPropagation(); setState("recording"); }}
                   title="Keep recording"
                 >
