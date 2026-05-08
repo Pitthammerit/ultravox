@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Cloud, Download, Trash2 } from "lucide-react";
 import { tokens } from "./ui";
 import {
@@ -23,20 +24,20 @@ interface VariantMeta {
 }
 
 const VARIANTS: VariantMeta[] = [
+  { id: "auto",    label: "Auto",          size: "",        description: "Smart-route (recommended)",   tooltip: "Picks the best installed local model based on the mode's language. English modes prefer Base.en → Base → Small. Multilingual modes prefer Base → Small. Falls back to Whisper Cloud if no local model is installed." },
   {
     id: "cloud",
     label: "Whisper Cloud",
     size: "",
-    description: "Always use managed cloud",
+    description: "Transcribe in Cloud",
     tooltip: "Send audio to the managed Cloudflare worker for transcription. Never runs on-device — overrides the global local-transcription toggle for this mode.",
     isCloud: true,
   },
-  { id: "auto",    label: "Auto",    size: "",        description: "Smart-route (recommended)",    tooltip: "Route automatically: English modes prefer Base.en, multilingual modes prefer Base. Falls back to cloud if nothing is installed." },
-  { id: "tiny",    label: "Tiny",    size: "~75 MB",  description: "Fastest, lower accuracy",     tooltip: "Tiny is the smallest Whisper model (~75 MB). Transcription is near-instant but accuracy is lower, especially for accents or fast speech." },
-  { id: "base.en", label: "Base.en", size: "~142 MB", description: "More accurate, English",      tooltip: "Base.en is trained on English-only data — more accurate than Tiny for English dictation at a modest size increase (~142 MB)." },
-  { id: "base",    label: "Base",    size: "~142 MB", description: "Multilingual, balanced",      tooltip: "Base is the multilingual sibling of Base.en (~142 MB). Handles non-English languages with good accuracy and reasonable speed." },
-  { id: "small",   label: "Small",   size: "~466 MB", description: "Best accuracy, slower",      tooltip: "Small delivers the best transcription quality in the local lineup (~466 MB) but takes noticeably longer per recording." },
-  { id: "medium",  label: "Medium",  size: "~854 MB", description: "Highest accuracy, slowest",  tooltip: "Medium is the largest supported local model (~854 MB). Best quality; significantly slower than Small." },
+  { id: "tiny",    label: "Tiny",          size: "~75 MB",  description: "Fastest, lower accuracy",    tooltip: "Tiny is the smallest Whisper model (~75 MB). Transcription is near-instant but accuracy is lower, especially for accents or fast speech." },
+  { id: "base.en", label: "Base.en",       size: "~142 MB", description: "More accurate, English",     tooltip: "Base.en is trained on English-only data — more accurate than Tiny for English dictation at a modest size increase (~142 MB)." },
+  { id: "base",    label: "Base",          size: "~142 MB", description: "Multilingual, balanced",     tooltip: "Base is the multilingual sibling of Base.en (~142 MB). Handles non-English languages with good accuracy and reasonable speed." },
+  { id: "small",   label: "Small",         size: "~466 MB", description: "Best accuracy, slower",     tooltip: "Small delivers the best transcription quality in the local lineup (~466 MB) but takes noticeably longer per recording." },
+  { id: "medium",  label: "Medium",        size: "~854 MB", description: "Highest accuracy, slowest", tooltip: "Medium is the largest supported local model (~854 MB). Best quality; significantly slower than Small." },
 ];
 
 interface TranscriptionModelPickerProps {
@@ -64,7 +65,7 @@ export function TranscriptionModelPicker({
   const [downloadErrors, setDownloadErrors] = useState<Record<string, string>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const activeInfo = VARIANTS.find((v) => v.id === value) ?? VARIANTS[1]!;
+  const activeInfo = VARIANTS.find((v) => v.id === value) ?? VARIANTS[0]!;
 
   useEffect(() => {
     let unsubProgress: (() => void) | null = null;
@@ -177,13 +178,18 @@ export function TranscriptionModelPicker({
               <div
                 key={opt.id}
                 onClick={() => selectVariant(opt.id)}
-                className="flex items-center gap-2 px-3 py-2 cursor-pointer"
+                className="cursor-pointer px-3 py-2"
                 style={{
+                  display: "grid",
+                  gridTemplateColumns: "14px 100px 1fr 52px 24px",
+                  alignItems: "center",
+                  gap: "0 6px",
                   borderBottom: i < VARIANTS.length - 1 ? `1px solid ${tokens.border}` : "none",
                   background: isActive ? `color-mix(in srgb, var(--color-primary) 8%, transparent)` : "transparent",
                 }}
               >
-                <div style={{ width: 14, flexShrink: 0, color: "var(--color-accent)" }}>
+                {/* checkmark col */}
+                <div style={{ color: "var(--color-accent)" }}>
                   {isActive && (
                     <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
                       <path d="M1 5L4.5 8.5L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -191,20 +197,25 @@ export function TranscriptionModelPicker({
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    {opt.isCloud && <Cloud size={11} style={{ color: tokens.fgMuted, flexShrink: 0 }} />}
-                    <span className="font-medium" style={{ fontSize: 12, color: tokens.fg }}>{opt.label}</span>
-                    <PickerTooltip text={opt.tooltip}>
-                      <span
-                        className="inline-flex items-center justify-center rounded-full"
-                        style={{ width: 13, height: 13, fontSize: 9, background: tokens.border, color: tokens.fgMuted, cursor: "default", flexShrink: 0, fontWeight: 600 }}
-                      >
-                        ?
-                      </span>
-                    </PickerTooltip>
-                    <span style={{ fontSize: 11, color: tokens.fgSubtle }}>{opt.description}</span>
-                  </div>
+                {/* label col — fixed width, flush left */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                  {opt.isCloud && <Cloud size={11} style={{ color: tokens.fgMuted, flexShrink: 0 }} />}
+                  <span className="font-medium" style={{ fontSize: 12, color: tokens.fg, whiteSpace: "nowrap" }}>{opt.label}</span>
+                  <PickerTooltip text={opt.tooltip}>
+                    <span
+                      className="inline-flex items-center justify-center rounded-full"
+                      style={{ width: 13, height: 13, fontSize: 9, background: tokens.border, color: tokens.fgMuted, cursor: "default", flexShrink: 0, fontWeight: 600 }}
+                    >
+                      ?
+                    </span>
+                  </PickerTooltip>
+                </div>
+
+                {/* description col — fills remaining space */}
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ fontSize: 11, color: tokens.fgSubtle, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {opt.description}
+                  </span>
                   {isDownloading && (
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <div className="rounded-full overflow-hidden flex-1" style={{ height: 3, background: tokens.border }}>
@@ -225,11 +236,13 @@ export function TranscriptionModelPicker({
                   )}
                 </div>
 
-                <span style={{ fontSize: 11, color: tokens.fgSubtle, flexShrink: 0 }}>
+                {/* size col — right-aligned, fixed width */}
+                <span style={{ fontSize: 11, color: tokens.fgSubtle, textAlign: "right", whiteSpace: "nowrap" }}>
                   {installedInfo ? formatPickerBytes(installedInfo.sizeBytes) : opt.size}
                 </span>
 
-                <div style={{ width: 24, flexShrink: 0, display: "flex", justifyContent: "center" }}>
+                {/* action icon col — fixed width */}
+                <div style={{ display: "flex", justifyContent: "center" }}>
                   {noActionNeeded ? null : isDownloading ? (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)", animation: "spin 1s linear infinite" }}>
                       <path d="M21 12a9 9 0 11-6.219-8.56"/>
@@ -287,19 +300,29 @@ export function formatPickerBytes(b: number): string {
 
 function PickerTooltip({ text, children }: { text: string; children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ bottom: number; left: number } | null>(null);
+
+  function computePos() {
+    if (!anchorRef.current) return;
+    const r = anchorRef.current.getBoundingClientRect();
+    setPos({ bottom: window.innerHeight - r.top + 5, left: r.left + r.width / 2 });
+  }
+
   return (
     <span
-      style={{ position: "relative", display: "inline-flex" }}
-      onMouseEnter={() => setVisible(true)}
+      ref={anchorRef}
+      style={{ display: "inline-flex" }}
+      onMouseEnter={() => { computePos(); setVisible(true); }}
       onMouseLeave={() => setVisible(false)}
     >
       {children}
-      {visible && (
+      {visible && pos && createPortal(
         <span
           style={{
-            position: "absolute",
-            left: "50%",
-            bottom: "calc(100% + 5px)",
+            position: "fixed",
+            bottom: pos.bottom,
+            left: pos.left,
             transform: "translateX(-50%)",
             background: "var(--color-primary)",
             color: "#fff",
@@ -308,14 +331,15 @@ function PickerTooltip({ text, children }: { text: string; children: React.React
             padding: "5px 8px",
             borderRadius: 5,
             whiteSpace: "normal",
-            width: 200,
+            width: 220,
             pointerEvents: "none",
-            zIndex: 50,
+            zIndex: 9999,
             boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
           }}
         >
           {text}
-        </span>
+        </span>,
+        document.body
       )}
     </span>
   );
