@@ -180,6 +180,18 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     autocapitalize: false,
     insertion: "paste",
   },
+  {
+    id: "raw-v3-turbo",
+    name: "Raw v3 Turbo",
+    icon: "Globe",
+    voiceModel: "whisper-large-v3-turbo",
+    language: "auto",
+    cleanup: "raw",
+    languageModelProvider: "none",
+    transcriptionModel: "large-v3-turbo",
+    autocapitalize: false,
+    insertion: "paste",
+  },
 ];
 
 export const FALLBACK_MODE: VoiceMode = {

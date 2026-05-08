@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { emit } from "@tauri-apps/api/event";
 import type { AppSettings } from "../lib/store-bridge";
 import { CLEANUP_VARIANTS, LANGUAGES, type VoiceMode } from "../lib/voiceModes";
+import { TRANSCRIPTION_VARIANTS } from "../lib/transcriptionVariants";
+import { localWhisperListModels, localWhisperDownloadModel } from "../lib/tauri-bridge";
 import { Button, Section, ToggleRow, tokens } from "../components/ui";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import ModeForm from "./ModeEditor";
@@ -42,6 +44,15 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
   const pendingNavRef = useRef<(() => void) | null>(null);
   const editorSaveRef = useRef<(() => Promise<void>) | null>(null);
 
+  // Download-prompt state: shown when the user selects a mode whose local
+  // transcription model isn't installed yet.
+  const [downloadPrompt, setDownloadPrompt] = useState<{
+    modeId: string;
+    variantId: string;
+    label: string;
+    size: string;
+  } | null>(null);
+
   const guardedNav = (action: () => void) => {
     if (!hasUnsavedChanges) {
       action();
@@ -69,6 +80,32 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
   const handleConfirmCancel = () => {
     setConfirmOpen(false);
     pendingNavRef.current = null;
+  };
+
+  const handleModeSelect = async (m: VoiceMode) => {
+    const variantId = m.transcriptionModel;
+    // Only check local variants — skip cloud, auto, and undefined.
+    if (
+      variantId &&
+      variantId !== "cloud" &&
+      variantId !== "auto" &&
+      settings.localWhisperEnabled !== false
+    ) {
+      try {
+        const installed = await localWhisperListModels();
+        const isInstalled = installed.some((info) => info.variant === variantId);
+        if (!isInstalled) {
+          const meta = TRANSCRIPTION_VARIANTS.find((v) => v.id === variantId);
+          const label = meta?.label ?? variantId;
+          const size = meta?.size ?? "";
+          setDownloadPrompt({ modeId: m.id, variantId, label, size });
+          return;
+        }
+      } catch {
+        // If listing fails, fall through and select the mode anyway.
+      }
+    }
+    void onChange({ activeModeId: m.id });
   };
 
   const reorder = async (fromId: string, toId: string, edge: DropEdge) => {
@@ -132,6 +169,34 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         secondary={{
           label: "Discard",
           onClick: handleConfirmDiscard,
+        }}
+        cancelLabel="Cancel"
+      />
+      <ConfirmDialog
+        open={downloadPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setDownloadPrompt(null);
+        }}
+        title="Download model?"
+        body={`This mode uses ${downloadPrompt?.label ?? ""}${downloadPrompt?.size ? ` (${downloadPrompt.size})` : ""}, which isn't installed yet. Download now?`}
+        primary={{
+          label: "Download",
+          onClick: () => {
+            if (downloadPrompt) {
+              void localWhisperDownloadModel(downloadPrompt.variantId);
+              void onChange({ activeModeId: downloadPrompt.modeId });
+              setDownloadPrompt(null);
+            }
+          },
+        }}
+        secondary={{
+          label: "Use Cloud for now",
+          onClick: () => {
+            if (downloadPrompt) {
+              void onChange({ activeModeId: downloadPrompt.modeId });
+              setDownloadPrompt(null);
+            }
+          },
         }}
         cancelLabel="Cancel"
       />
@@ -266,7 +331,11 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => guardedNav(() => { void onChange({ activeModeId: m.id }); })}
+                  onClick={() =>
+                    guardedNav(() => {
+                      void handleModeSelect(m);
+                    })
+                  }
                   className="flex items-center gap-2 flex-1 min-w-0 text-left"
                   style={{ background: "transparent", border: "none", padding: 0 }}
                 >
