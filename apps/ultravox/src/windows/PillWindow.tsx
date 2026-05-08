@@ -27,7 +27,7 @@ import { logDebug } from "../lib/debugLog";
 import { playStartChime, playStopChime } from "../lib/chime";
 import { prettifyShortcut } from "../components/HotkeyRecorder";
 
-type PillState = "idle" | "recording" | "discardConfirm" | "transcribing" | "error";
+type PillState = "idle" | "recording" | "discardConfirm" | "transcribing" | "error" | "silenceClosing";
 type PillView = "pill" | "modes";
 
 // Visible pill chrome height (original Superwhisper proportions).
@@ -156,10 +156,6 @@ export default function PillWindow() {
       const style = e.payload;
       const fresh = await loadSettings().catch(() => null);
       if (fresh) setSettings(fresh);
-      if (style === "none") {
-        invoke("hide_pill").catch(() => {});
-        return;
-      }
       const desiredCompact = style === "mini";
       if (desiredCompact) {
         const cp = fresh?.pillCompactPosition;
@@ -448,15 +444,55 @@ export default function PillWindow() {
    * effectively stuck. Resize back to PILL_W × PILL_H so the full message
    * + Dismiss hint are visible and the window can become key for Esc.
    */
+  // Tracks the currently scheduled silence-flow timeouts so a new recording
+  // (or any explicit dismiss) can cancel them cleanly. Without this, an
+  // auto-flow scheduled in turn N could fire mid-turn N+1 and hide the pill
+  // while the user is recording again.
+  const silenceTimersRef = useRef<number[]>([]);
+  const cancelSilenceTimers = useCallback(() => {
+    silenceTimersRef.current.forEach((id) => window.clearTimeout(id));
+    silenceTimersRef.current = [];
+  }, []);
+
   const showError = useCallback((msg: string) => {
     console.error("[pill] showError:", msg);
+    cancelSilenceTimers();
     setErrorMsg(msg);
     setState("error");
     if (compact) {
       setPillPositionTopCenter(PILL_W, PILL_H).catch(() => {});
     }
     invoke("show_pill").catch(() => {});
-  }, [compact]);
+  }, [compact, cancelSilenceTimers]);
+
+  /**
+   * Two-phase auto-dismiss flow for the silence-detected case.
+   *  1) Show the red "No speech detected…" error for 2 s.
+   *  2) Transition to a neutral "Nothing to transcribe. Closing…" message
+   *     rendered with the same large/centered styling as the Transcribing
+   *     status (NOT the error styling) for 800 ms.
+   *  3) Auto-hide the pill and reset to idle. No user dismiss required.
+   */
+  const showSilenceFlow = useCallback((msg: string) => {
+    console.warn("[pill] silence flow:", msg);
+    cancelSilenceTimers();
+    setErrorMsg(msg);
+    setState("error");
+    if (compact) {
+      setPillPositionTopCenter(PILL_W, PILL_H).catch(() => {});
+    }
+    invoke("show_pill").catch(() => {});
+
+    const t1 = window.setTimeout(() => {
+      setState("silenceClosing");
+      const t2 = window.setTimeout(() => {
+        setState("idle");
+        invoke("hide_pill").catch(() => {});
+      }, 800);
+      silenceTimersRef.current.push(t2);
+    }, 2000);
+    silenceTimersRef.current.push(t1);
+  }, [compact, cancelSilenceTimers]);
 
   const dismissError = useCallback(() => {
     setView("pill");
@@ -526,6 +562,7 @@ export default function PillWindow() {
 
   /* ── Recording ──────────────────────────────────────────────── */
   const startRecord = useCallback(async () => {
+    cancelSilenceTimers();
     try {
       // Re-load settings every recording so edits made in the Settings window
       // (different WebView, separate React state) take effect on the next press
@@ -567,7 +604,7 @@ export default function PillWindow() {
         : (e as Error).message || "Couldn't start recording.";
       showError(friendly);
     }
-  }, [recorder, settings, showError]);
+  }, [recorder, settings, showError, cancelSilenceTimers]);
 
   const stopAndTranscribe = useCallback(async () => {
     console.log("[pill] stopAndTranscribe begin");
@@ -596,7 +633,7 @@ export default function PillWindow() {
       console.log("[pill] peak level:", peakLevel.toFixed(4), "threshold:", SILENCE_PEAK_THRESHOLD);
       if (peakLevel < SILENCE_PEAK_THRESHOLD) {
         track("transcription.silenced", { peakLevel: Number(peakLevel.toFixed(4)) });
-        showError("No speech detected. Move closer to the mic or check your input device.");
+        showSilenceFlow("No speech detected. Move closer to the mic or check your input device.");
         return;
       }
       const frontmost = await getFrontmostApp();
@@ -639,7 +676,7 @@ export default function PillWindow() {
       captureError(e, { stage: "transcribe" });
       showError(`Transcribe error: ${(e as Error).message || e}`);
     }
-  }, [recorder, mode, settings, showError]);
+  }, [recorder, mode, settings, showError, showSilenceFlow]);
 
   // Track state in a ref so the hotkey handler always reads the latest
   // value. Using state directly in the useCallback closure caused stale
@@ -686,26 +723,6 @@ export default function PillWindow() {
      listener above. Two competing listeners both responding to Esc
      was the cause of the "sometimes Esc works, sometimes not" race.) */
 
-  /* ── Hide when "none" pill style is selected ──
-   *
-   * In "none" pill style the user has opted out of any visible recording
-   * UI. The Rust hotkey handler still calls win.show() unconditionally to
-   * keep the show-on-press path simple, so we defeat that by re-hiding on
-   * every state change. There's a tiny visible flash on the press; minor
-   * enough to defer to v1 when we can read settings from Rust directly.
-   *
-   * The previous auto-hide-on-idle-non-compact branch was removed: idle
-   * transitions (post-paste, dismissError, pickMode, Esc, discard) all
-   * hide the pill explicitly at the transition point, so this effect
-   * covered no real case AND was actively hiding the pillStyle:changed
-   * preview before the user could see it.
-   */
-  useEffect(() => {
-    if (settings?.pillStyle === "none") {
-      invoke("hide_pill").catch(() => {});
-    }
-  }, [state, view, compact, settings?.pillStyle]);
-
   const statusLabel =
     state === "error" ? "Error"
     : mode.name;
@@ -723,7 +740,7 @@ export default function PillWindow() {
    * Modes-view and error force the full pill so the user can read
    * the message / pick a mode.
    */
-  if (compact && view === "pill" && state !== "error") {
+  if (compact && view === "pill" && state !== "error" && state !== "silenceClosing") {
     const isDiscardConfirm = state === "discardConfirm";
     console.log("[pill] compact render, state=", state);
     return (
@@ -893,7 +910,7 @@ export default function PillWindow() {
               Discard recording?
             </span>
           </div>
-        ) : state === "transcribing" ? (
+        ) : state === "transcribing" || state === "silenceClosing" ? (
           <div
             data-tauri-drag-region
             className="w-full flex items-center justify-center"
@@ -909,7 +926,7 @@ export default function PillWindow() {
                 animation: "ultravox-pulse 1.4s ease-in-out infinite",
               }}
             >
-              {transcribeLabel}
+              {state === "silenceClosing" ? "Nothing to transcribe. Closing…" : transcribeLabel}
             </span>
           </div>
         ) : (

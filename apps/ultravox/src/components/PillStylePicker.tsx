@@ -1,12 +1,13 @@
+import { useEffect, useState } from "react";
 import { tokens } from "./ui";
 
-export type PillStyle = "classic" | "mini" | "none";
+export type PillStyle = "classic" | "mini";
 
 interface PillStylePickerProps {
   value: PillStyle;
   onChange: (next: PillStyle) => void;
   /**
-   * "small" — compact 3-card row used in Settings.
+   * "small" — compact 2-card row used in Settings.
    * "large" — bigger preview cards used in Onboarding.
    */
   size?: "small" | "large";
@@ -15,7 +16,6 @@ interface PillStylePickerProps {
 const OPTIONS: Array<{ id: PillStyle; label: string; description: string }> = [
   { id: "classic", label: "Classic", description: "Full pill with waveform" },
   { id: "mini",    label: "Mini",    description: "Compact dots at top of screen" },
-  { id: "none",    label: "None",    description: "No window — silent recording" },
 ];
 
 export function PillStylePicker({ value, onChange, size = "small" }: PillStylePickerProps) {
@@ -24,20 +24,32 @@ export function PillStylePicker({ value, onChange, size = "small" }: PillStylePi
   const labelSize = size === "large" ? 13 : 12;
   const descSize = size === "large" ? 12 : 11;
 
+  // Local optimistic selection. The picker shows what the user just clicked
+  // immediately, even before the parent re-renders with the new `value`.
+  // Without this, in some setups (Configuration panel passing a prop from a
+  // parent whose `update` callback awaits a disk write before its setState
+  // resolves visibly), the visual selection lagged a render and users had
+  // to click twice. Sync from prop in an effect so external changes (e.g.
+  // an onboarding wizard reset, a pillStyle:changed event from another
+  // window) still flow through.
+  const [selected, setSelected] = useState<PillStyle>(value);
+  useEffect(() => { setSelected(value); }, [value]);
+
   return (
     <div className="flex gap-2">
       {OPTIONS.map((opt) => {
-        const active = opt.id === value;
+        const active = opt.id === selected;
         return (
           <button
             key={opt.id}
             type="button"
-            onClick={() => onChange(opt.id)}
+            onClick={() => {
+              setSelected(opt.id);
+              onChange(opt.id);
+            }}
             className="flex flex-col items-center rounded-lg p-2 transition-colors"
             style={{
               width: cardWidth,
-              // Same surface for selected and unselected — selection is signaled
-              // by the border alone (matches the Superwhisper-style picker).
               background: tokens.control,
               border: `1.5px solid ${active ? "var(--color-primary)" : tokens.border}`,
               cursor: "pointer",
@@ -79,27 +91,6 @@ export function PillStylePicker({ value, onChange, size = "small" }: PillStylePi
  */
 function PillPreview({ style, size }: { style: PillStyle; size: "small" | "large" }) {
   const scale = size === "large" ? 1 : 0.72;
-
-  if (style === "none") {
-    return (
-      <svg
-        width={28 * scale}
-        height={28 * scale}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="rgba(255,255,255,0.45)"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M3 3l18 18" />
-        <path d="M10.94 6.08A4 4 0 0 1 16 10v1m-1.41 4.59A4 4 0 0 1 12 16a4 4 0 0 1-4-4v-1" />
-        <path d="M5 12a7 7 0 0 0 .39 2.32" />
-        <path d="M19 12a7 7 0 0 1-7 7" />
-        <line x1="12" y1="19" x2="12" y2="22" />
-      </svg>
-    );
-  }
 
   if (style === "mini") {
     return (

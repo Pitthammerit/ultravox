@@ -78,10 +78,11 @@ export interface AppSettings {
    * Recording-window appearance:
    *   "classic" — full pill with waveform + footer hints
    *   "mini"    — compact dots-only pill at top-center
-   *   "none"    — no pill window shown during recording (silent mode)
    * Migrated from the legacy `sound.compactPill` boolean on first load.
+   * The legacy "none" option (silent recording) was removed in v0.9.29 and
+   * is migrated to "classic" on load.
    */
-  pillStyle?: "classic" | "mini" | "none";
+  pillStyle?: "classic" | "mini";
   /** Selected mic input device id (from navigator.mediaDevices.enumerateDevices).
    *  null/undefined = system default. Settable from the tray's Microphone
    *  Settings submenu. */
@@ -181,9 +182,14 @@ function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): App
     firstName = parts[0];
     if (parts.length > 1) lastName = parts.slice(1).join(" ");
   }
-  // Migrate legacy sound.compactPill (boolean) → top-level pillStyle (3-way).
+  // Migrate legacy sound.compactPill (boolean) → top-level pillStyle.
   // Only applied if pillStyle wasn't explicitly set yet.
-  let pillStyle = stored.pillStyle;
+  // v0.9.29: collapse the legacy "none" option to "classic" — the silent
+  // recording mode was removed; users who had it land on the default pill.
+  let pillStyle: "classic" | "mini" | undefined =
+    stored.pillStyle === "classic" || stored.pillStyle === "mini"
+      ? stored.pillStyle
+      : undefined;
   if (!pillStyle) {
     pillStyle = stored.sound?.compactPill ? "mini" : "classic";
   }
