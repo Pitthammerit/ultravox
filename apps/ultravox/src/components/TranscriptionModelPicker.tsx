@@ -26,8 +26,8 @@ interface TranscriptionModelPickerProps {
   onRemoveRequest: (variant: string) => void;
 }
 
-// Each row: py-2 (8px top+bottom) + 16px line height = 32px. Used for anchored-popup math.
-const ROW_HEIGHT = 32;
+// Each row: py-1.5 (6px top+bottom) + 16px line height = 28px. Used for anchored-popup math.
+const ROW_HEIGHT = 28;
 const VIEWPORT_PAD = 8;
 
 export function TranscriptionModelPicker({
@@ -104,7 +104,7 @@ export function TranscriptionModelPicker({
     const maxLeft = window.innerWidth - panelWidth - VIEWPORT_PAD;
     const left = Math.max(VIEWPORT_PAD, Math.min(desiredLeft, maxLeft));
 
-    setPanelStyle({ position: "fixed", top, left, width: triggerRect.width, visibility: "visible" });
+    setPanelStyle({ position: "fixed", top, left, minWidth: 360, visibility: "visible" });
   }, [open, value]);
 
   const selectVariant = useCallback((variantId: string) => {
@@ -184,19 +184,18 @@ export function TranscriptionModelPicker({
               <div
                 key={opt.id}
                 onClick={() => selectVariant(opt.id)}
-                className="cursor-pointer px-3 py-2"
+                className="cursor-pointer px-3 py-1.5"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 52px 16px 24px",
+                  gridTemplateColumns: "1fr 52px 16px 20px",
                   alignItems: "center",
-                  gap: "0 6px",
+                  gap: "0 4px",
                   borderBottom: i < TRANSCRIPTION_VARIANTS.length - 1 ? `1px solid ${tokens.border}` : "none",
                   background: isActive ? `color-mix(in srgb, var(--color-primary) 8%, transparent)` : "transparent",
                 }}
               >
-                {/* name col — flush left, includes optional cloud icon + EN pill */}
+                {/* name col — flush left, EN pill only (no leading cloud icon) */}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                  {opt.isCloud && <Cloud size={11} style={{ color: tokens.fgMuted, flexShrink: 0 }} />}
                   <span className="font-medium" style={{ fontSize: 12, color: tokens.fg, whiteSpace: "nowrap" }}>{opt.label}</span>
                   {opt.isEnglish && <EnPill />}
                   <span style={{ fontSize: 11, color: tokens.fgSubtle, marginLeft: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -237,9 +236,11 @@ export function TranscriptionModelPicker({
                   </span>
                 </PickerTooltip>
 
-                {/* action icon col — fixed width */}
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  {noActionNeeded ? null : isDownloading ? (
+                {/* action icon col — anchored to right edge */}
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  {opt.isCloud ? (
+                    <Cloud size={12} style={{ color: tokens.fgMuted, flexShrink: 0 }} />
+                  ) : noActionNeeded ? null : isDownloading ? (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)", animation: "spin 1s linear infinite" }}>
                       <path d="M21 12a9 9 0 11-6.219-8.56"/>
                     </svg>
@@ -252,7 +253,7 @@ export function TranscriptionModelPicker({
                         background: "none",
                         border: "none",
                         cursor: "pointer",
-                        padding: 2,
+                        padding: 0,
                         color: isConfirmingRemove ? "var(--color-warning)" : tokens.fgMuted,
                         display: "flex",
                         alignItems: "center",
@@ -269,7 +270,7 @@ export function TranscriptionModelPicker({
                         background: "none",
                         border: "none",
                         cursor: "pointer",
-                        padding: 2,
+                        padding: 0,
                         color: tokens.fgMuted,
                         display: "flex",
                         alignItems: "center",

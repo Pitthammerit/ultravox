@@ -224,7 +224,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
         />
         {(settings.localWhisperEnabled ?? true) && (
           <Field
-            label="Transcription Model"
+            label="Transcription"
             help="Which Whisper variant runs transcription for this mode. Auto smart-routes based on language."
             control={
               <TranscriptionModelPicker
