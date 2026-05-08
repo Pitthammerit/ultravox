@@ -122,7 +122,7 @@ body[data-route="settings"] #root {
 }
 
 .s-wave-bar {
-  transform-origin: bottom center;
+  transform-origin: center;
 }
 
 /* Trigger on header hover — each bar already has its animationDelay inline */
