@@ -191,7 +191,9 @@ export function TranscriptionModelPicker({
                   alignItems: "center",
                   gap: "0 4px",
                   borderBottom: i < TRANSCRIPTION_VARIANTS.length - 1 ? `1px solid ${tokens.border}` : "none",
-                  background: isActive ? `color-mix(in srgb, var(--color-primary) 8%, transparent)` : "transparent",
+                  background: isActive ? `color-mix(in srgb, var(--color-accent) 18%, transparent)` : "transparent",
+                  borderLeft: isActive ? `3px solid var(--color-accent)` : "3px solid transparent",
+                  paddingLeft: isActive ? "9px" : "12px",
                 }}
               >
                 {/* name col — flush left, EN pill only (no leading cloud icon) */}
