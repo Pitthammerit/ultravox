@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { Button, Row, Section, ToggleRow, tokens } from "../components/ui";
+import { PillStylePicker } from "../components/PillStylePicker";
 import { playStartChime, playStopChime } from "../lib/chime";
 import { transcribe } from "../lib/transcribe";
 import { TOKEN_ENDPOINT } from "../lib/tauri-bridge";
@@ -63,18 +64,28 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
         />
       </Section>
 
+      <Section
+        label="Recording window"
+        help="Choose how the floating pill appears while you're recording."
+      >
+        <Row
+          label="Style"
+          control={
+            <PillStylePicker
+              value={settings.pillStyle ?? "classic"}
+              onChange={(v) => onChange({ pillStyle: v })}
+              size="small"
+            />
+          }
+        />
+      </Section>
+
       <Section label="Sound effects">
         <ToggleRow
           label="Pause music while recording"
           description="Pause Music and Spotify when a recording starts; resume when it stops."
           checked={sound.pauseMediaWhileRecording}
           onChange={(v) => setSound({ pauseMediaWhileRecording: v })}
-        />
-        <ToggleRow
-          label="Minimal pill"
-          description="Show a small recording indicator instead of the full pill."
-          checked={sound.compactPill}
-          onChange={(v) => setSound({ compactPill: v })}
         />
         <ToggleRow
           label="Chime on start/stop"

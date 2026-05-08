@@ -106,7 +106,7 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
             <Input
               value={settings?.firstName ?? ""}
               onChange={(v) => { if (onChange) void onChange(v.trim() ? { firstName: v } : { firstName: "" }); }}
-              placeholder="Benjamin"
+              placeholder="First name"
             />
           }
         />
@@ -116,7 +116,7 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
             <Input
               value={settings?.lastName ?? ""}
               onChange={(v) => { if (onChange) void onChange(v.trim() ? { lastName: v } : { lastName: "" }); }}
-              placeholder="Kurtz"
+              placeholder="Last name"
             />
           }
         />

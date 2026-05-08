@@ -10,6 +10,7 @@ import {
   type VoiceMode,
 } from "../lib/voiceModes";
 import { defaultTemplateFor, PROMPT_VARIABLES } from "../lib/cleanupTemplates";
+import { slugify, uniqueSlug, isValidSlug } from "../lib/slug";
 import {
   Button,
   Field,
@@ -49,26 +50,62 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
 
   const [draft, setDraft] = useState<VoiceMode>(original);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // For new modes only: tracks whether the user has manually edited the slug.
+  // While untouched, the slug field auto-syncs from the name; once touched,
+  // it stays as the user typed. Clearing the field resets to untouched.
+  const [slugTouched, setSlugTouched] = useState(false);
+  // Live-edited slug for new modes. For existing modes the slug is locked
+  // (draft.id is read-only) and this isn't shown.
+  const [slugInput, setSlugInput] = useState(isNew ? "" : original.id);
 
   useEffect(() => {
     setDraft(original);
     setConfirmingDelete(false);
+    setSlugTouched(false);
+    setSlugInput(modeId === "__new__" ? "" : original.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeId]);
+
+  // Auto-derive slug from name while the user hasn't touched the slug field.
+  useEffect(() => {
+    if (!isNew) return;
+    if (slugTouched) return;
+    setSlugInput(slugify(draft.name));
+  }, [draft.name, isNew, slugTouched]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(original);
   const usesCleanup =
     draft.cleanup !== "raw" && draft.languageModelProvider !== "none";
   const providerModels = LANGUAGE_MODELS[draft.languageModelProvider] ?? [];
 
+  // Slug-field validation only applies to new modes (existing modes are locked).
+  const slugCollision = isNew &&
+    slugInput.length > 0 &&
+    settings.modes.some((m) => m.id === slugInput);
+  const slugInvalid = isNew &&
+    slugInput.length > 0 &&
+    !isValidSlug(slugInput);
+
   const save = async () => {
     if (!draft.name.trim()) return;
-    const exists = settings.modes.some((m) => m.id === draft.id);
+
+    let finalDraft = draft;
+    if (isNew) {
+      // Pick the slug: user-typed input takes priority; fall back to auto-
+      // derived from the name; final fallback is the temp UUID. uniqueSlug
+      // ensures we don't collide with an existing mode id.
+      const userOrAuto = slugInput.trim() || slugify(draft.name);
+      const candidate = isValidSlug(userOrAuto) ? userOrAuto : draft.id;
+      const finalId = uniqueSlug(candidate, settings.modes.map((m) => m.id));
+      finalDraft = { ...draft, id: finalId };
+    }
+
+    const exists = settings.modes.some((m) => m.id === finalDraft.id);
     const next = exists
-      ? settings.modes.map((m) => (m.id === draft.id ? draft : m))
-      : [...settings.modes, draft];
+      ? settings.modes.map((m) => (m.id === finalDraft.id ? finalDraft : m))
+      : [...settings.modes, finalDraft];
     const patch: Partial<AppSettings> = { modes: next };
-    if (!exists) patch.activeModeId = draft.id;
+    if (!exists) patch.activeModeId = finalDraft.id;
     await onChange(patch);
   };
 
@@ -110,13 +147,33 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
             value={draft.name}
             onChange={(name) => setDraft({ ...draft, name })}
           />
-          <span
-            title="Mode ID (read-only)"
-            className="text-[11px] font-mono px-2 py-1 rounded shrink-0"
-            style={{ background: tokens.control, color: tokens.fgMuted }}
-          >
-            {draft.id}
-          </span>
+          {isNew ? (
+            <SlugInput
+              value={slugInput}
+              onChange={(v) => {
+                if (v === "") {
+                  // Empty field → resume auto-syncing from name.
+                  setSlugTouched(false);
+                  setSlugInput(slugify(draft.name));
+                } else {
+                  setSlugTouched(true);
+                  // Normalize as the user types so the field always shows a
+                  // valid slug (uppercase → lowercase, spaces → -, etc.).
+                  setSlugInput(slugify(v));
+                }
+              }}
+              invalid={slugInvalid}
+              collision={slugCollision}
+            />
+          ) : (
+            <span
+              title="Mode ID — frozen on first save, never changes"
+              className="text-[11px] font-mono px-2 py-1 rounded shrink-0"
+              style={{ background: tokens.control, color: tokens.fgMuted }}
+            >
+              {draft.id}
+            </span>
+          )}
         </div>
       </Group>
 
@@ -347,6 +404,50 @@ function CleanupPromptEditor({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Slug field shown only when creating a new mode. Mono font + small to match
+ * the read-only chip used for saved modes. Auto-syncs from the name input
+ * unless the user manually edits it. Once the mode is saved, this field is
+ * replaced by the read-only chip — the slug is frozen forever.
+ */
+function SlugInput({
+  value,
+  onChange,
+  invalid,
+  collision,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  invalid: boolean;
+  collision: boolean;
+}) {
+  const error = invalid || collision;
+  return (
+    <div className="flex flex-col items-end shrink-0" style={{ minWidth: 140 }}>
+      <input
+        type="text"
+        value={value}
+        placeholder="auto"
+        onChange={(e) => onChange(e.target.value)}
+        title="Mode slug — auto-derived from the name. Click here to edit. Locked once saved."
+        className="text-[11px] font-mono rounded transition-colors focus:outline-none"
+        style={{
+          background: tokens.control,
+          color: tokens.fgMuted,
+          border: `1px solid ${error ? "var(--color-warning)" : tokens.border}`,
+          padding: "4px 8px",
+          width: 140,
+        }}
+      />
+      {collision && (
+        <span className="text-[10px] mt-0.5" style={{ color: "var(--color-warning)" }}>
+          already used — will dedupe on save
+        </span>
+      )}
     </div>
   );
 }

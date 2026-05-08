@@ -10,6 +10,7 @@ import { loadSettings, saveSettings, type AppSettings } from "../lib/store-bridg
 import { applyTheme } from "@ultravox/design-system";
 import { HotkeyRecorder, prettifyShortcut } from "../components/HotkeyRecorder";
 import { ModeGlyph } from "../components/ModeIcons";
+import { PillStylePicker, type PillStyle } from "../components/PillStylePicker";
 import { DEFAULT_MODES } from "../lib/voiceModes";
 
 interface OnboardingWizardProps {
@@ -34,7 +35,7 @@ type ThemeChoice = AppSettings["theme"];
 //   9 = "you're all set" / done
 // AI placeholder step has been removed — that's a v1.5+ thing and was just
 // adding noise here.
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 11;
 
 /* ── Wizard uses live design-system tokens so picking a theme on Step 3
    immediately repaints the entire wizard, not just the swatch grid. ── */
@@ -97,6 +98,9 @@ const COPY: Record<Lang, {
   // step 6 - default mode
   modeTitle: string;
   modeBody: string;
+  // step 9 - recording window (pill style)
+  pillTitle: string;
+  pillBody: string;
   // step 7
   micTitle: string;
   micBody: string;
@@ -156,6 +160,8 @@ const COPY: Record<Lang, {
     stylePttDesc: "Hold to record, release to stop — coming in a future update",
     modeTitle: "What do you mostly write?",
     modeBody: "We'll set this as your default mode. You can switch any time with the mode-switcher hotkey.",
+    pillTitle: "Recording window",
+    pillBody: "Choose how the floating pill looks while you're recording. You can change this later in Sound settings.",
     micTitle: "Allow microphone access",
     micBody: "Ultravox records your voice locally and sends only audio to the transcription service. macOS will ask once — click Allow when prompted.",
     micLabel: "Microphone",
@@ -211,6 +217,8 @@ const COPY: Record<Lang, {
     stylePttDesc: "Halten zum Aufnehmen, loslassen zum Stoppen — kommt in einem späteren Update",
     modeTitle: "Was schreibst du meistens?",
     modeBody: "Wir setzen das als deinen Standard-Modus. Du kannst jederzeit mit dem Modus-Hotkey wechseln.",
+    pillTitle: "Aufnahme-Fenster",
+    pillBody: "Wähle, wie die schwebende Pille während der Aufnahme aussieht. Du kannst das später in den Sound-Einstellungen ändern.",
     micTitle: "Mikrofonzugriff erlauben",
     micBody: "Ultravox nimmt deine Stimme lokal auf und sendet nur Audio zur Transkription. macOS fragt einmal — klicke auf Erlauben im Dialog.",
     micLabel: "Mikrofon",
@@ -252,6 +260,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   const [hotkeyRecord, setHotkeyRecord] = useState("Cmd+Shift+;");
   const [hotkeyModeOverlay, setHotkeyModeOverlay] = useState("Alt+Shift+K");
   const [recordingStyle, setRecordingStyle] = useState<AppSettings["recordingStyle"]>("toggle");
+  const [pillStyle, setPillStyle] = useState<PillStyle>("classic");
   const [activeModeId, setActiveModeId] = useState<string>(DEFAULT_MODES[0]?.id ?? "email");
   const [micStatus, setMicStatus] = useState<PermStatus>("idle");
   const [axStatus, setAxStatus] = useState<PermStatus>("idle");
@@ -280,6 +289,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
       if (s.hotkeyRecord) setHotkeyRecord(s.hotkeyRecord);
       if (s.hotkeyModeOverlay) setHotkeyModeOverlay(s.hotkeyModeOverlay);
       if (s.recordingStyle) setRecordingStyle(s.recordingStyle);
+      if (s.pillStyle) setPillStyle(s.pillStyle);
       if (s.activeModeId) setActiveModeId(s.activeModeId);
       // Resume on the step the user last reached. Important for the
       // mic-permission flow: when the user denies, opens System Settings,
@@ -377,6 +387,11 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   const pickRecordingStyle = useCallback(async (next: AppSettings["recordingStyle"]) => {
     setRecordingStyle(next);
     await patchSettings({ recordingStyle: next });
+  }, [patchSettings]);
+
+  const pickPillStyle = useCallback(async (next: PillStyle) => {
+    setPillStyle(next);
+    await patchSettings({ pillStyle: next });
   }, [patchSettings]);
 
   const pickDefaultMode = useCallback(async (id: string) => {
@@ -690,8 +705,21 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
           </Step>
         )}
 
-        {/* ── Step 9: Done ── */}
+        {/* ── Step 9: Recording window ── */}
         {step === 9 && (
+          <Step title={t.pillTitle}>
+            <Body>{t.pillBody}</Body>
+            <PillStylePicker
+              value={pillStyle}
+              onChange={pickPillStyle}
+              size="large"
+            />
+            <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>
+          </Step>
+        )}
+
+        {/* ── Step 10: Done ── */}
+        {step === 10 && (
           <Step title={t.doneTitle}>
             <Body>{t.doneBody(<Kbd>{prettifyShortcut(hotkeyRecord)}</Kbd>)}</Body>
             <PrimaryBtn onClick={async () => {

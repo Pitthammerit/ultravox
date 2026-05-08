@@ -111,7 +111,10 @@ export default function PillWindow() {
       setSettings(s);
       const found = (s.modes ?? DEFAULT_MODES).find((m) => m.id === s.activeModeId);
       if (found) setMode(found);
-      const isCompact = s.sound.compactPill ?? false;
+      // Resolve pill style: prefer the new top-level field, fall back to the
+      // legacy boolean for stores written before v0.9.17.
+      const style = s.pillStyle ?? (s.sound.compactPill ? "mini" : "classic");
+      const isCompact = style === "mini";
       setCompact(isCompact);
       // If we're booting in compact mode, restore the last dragged position
       // (pillCompactPosition) so the pill reopens where the user left it.
@@ -543,10 +546,22 @@ export default function PillWindow() {
      listener above. Two competing listeners both responding to Esc
      was the cause of the "sometimes Esc works, sometimes not" race.) */
 
-  /* ── Hide when idle in pill view ────────────────────────────── */
+  /* ── Hide when idle in pill view, or always in "none" mode ──
+   *
+   * In "none" pill style the user has opted out of any visible recording
+   * UI. The Rust hotkey handler still calls win.show() unconditionally to
+   * keep the show-on-press path simple, so we defeat that by re-hiding on
+   * every state change. There's a tiny visible flash on the press; minor
+   * enough to defer to v1 when we can read settings from Rust directly.
+   */
   useEffect(() => {
+    const noWindow = settings?.pillStyle === "none";
+    if (noWindow) {
+      invoke("hide_pill").catch(() => {});
+      return;
+    }
     if (state === "idle" && view === "pill" && !compact) invoke("hide_pill").catch(() => {});
-  }, [state, view, compact]);
+  }, [state, view, compact, settings?.pillStyle]);
 
   const statusLabel =
     state === "error" ? "Error"

@@ -76,6 +76,14 @@ export interface AppSettings {
    *  mouseup after a compact-pill drag so the pill reopens where the user
    *  left it instead of always defaulting to top-center. */
   pillCompactPosition?: { x: number; y: number };
+  /**
+   * Recording-window appearance:
+   *   "classic" — full pill with waveform + footer hints
+   *   "mini"    — compact dots-only pill at top-center
+   *   "none"    — no pill window shown during recording (silent mode)
+   * Migrated from the legacy `sound.compactPill` boolean on first load.
+   */
+  pillStyle?: "classic" | "mini" | "none";
   /** Selected mic input device id (from navigator.mediaDevices.enumerateDevices).
    *  null/undefined = system default. Settable from the tray's Microphone
    *  Settings submenu. */
@@ -96,6 +104,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   uiLanguage: "en",
   recordingStyle: "toggle",
   onboardingComplete: false,
+  pillStyle: "classic",
   sound: {
     autoGain: true,
     silenceRemoval: false,
@@ -175,11 +184,18 @@ function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): App
     firstName = parts[0];
     if (parts.length > 1) lastName = parts.slice(1).join(" ");
   }
+  // Migrate legacy sound.compactPill (boolean) → top-level pillStyle (3-way).
+  // Only applied if pillStyle wasn't explicitly set yet.
+  let pillStyle = stored.pillStyle;
+  if (!pillStyle) {
+    pillStyle = stored.sound?.compactPill ? "mini" : "classic";
+  }
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
     ...(firstName !== undefined ? { firstName } : {}),
     ...(lastName !== undefined ? { lastName } : {}),
+    pillStyle,
     sound: { ...DEFAULT_SETTINGS.sound, ...(stored.sound ?? {}) },
     modes: stored.modes ?? DEFAULT_SETTINGS.modes,
     vocabulary: stored.vocabulary ?? [],
