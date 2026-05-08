@@ -4,6 +4,16 @@ import { CLEANUP_VARIANTS, LANGUAGES, type VoiceMode } from "../lib/voiceModes";
 import { Button, Section, tokens } from "../components/ui";
 import ModeForm from "./ModeEditor";
 
+// 1×1 fully transparent PNG. Used as the drag image so macOS / WKWebView
+// don't render the default "+" copy-affordance badge over the cursor.
+const TRANSPARENT_DRAG_IMG: HTMLImageElement | null = (() => {
+  if (typeof Image === "undefined") return null;
+  const img = new Image(1, 1);
+  img.src =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+  return img;
+})();
+
 interface ModesPanelProps {
   settings: AppSettings;
   onChange: (patch: Partial<AppSettings>) => Promise<void>;
@@ -74,21 +84,49 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         }
       >
         <div className="flex flex-col gap-1">
-          {settings.modes.map((m) => {
+          {settings.modes.map((m, idx) => {
             const selected = m.id === activeId;
             const isDragging = dragId === m.id;
-            const showDropEdge =
-              dropTarget && dropTarget.id === m.id && dragId !== m.id
-                ? dropTarget.edge
-                : null;
+            const dragIdx = dragId ? settings.modes.findIndex((x) => x.id === dragId) : -1;
+            // Resolve the insertion index that the current dropTarget points at.
+            // Hide the indicator when that index equals the dragged row's slot
+            // or its slot+1 (both are no-op drops).
+            const targetIdx =
+              dropTarget && dragId && dropTarget.id !== dragId
+                ? settings.modes.findIndex((x) => x.id === dropTarget.id) +
+                  (dropTarget.edge === "after" ? 1 : 0)
+                : -1;
+            const isNoOpDrop =
+              dragIdx >= 0 && (targetIdx === dragIdx || targetIdx === dragIdx + 1);
+            const showLineBefore =
+              !!dragId &&
+              dropTarget?.id === m.id &&
+              dropTarget.edge === "before" &&
+              dragId !== m.id &&
+              !isNoOpDrop;
+            const isLast = idx === settings.modes.length - 1;
+            const showLineAfter =
+              isLast &&
+              !!dragId &&
+              dropTarget?.id === m.id &&
+              dropTarget.edge === "after" &&
+              dragId !== m.id &&
+              !isNoOpDrop;
             return (
-              <div
-                key={m.id}
+              <div key={m.id} className="contents">
+                {showLineBefore && <InsertionLine />}
+                <div
                 draggable
                 onDragStart={(e) => {
                   setDragId(m.id);
                   e.dataTransfer.effectAllowed = "move";
                   e.dataTransfer.setData("text/plain", m.id);
+                  // Suppress the macOS / WKWebView "+" copy-affordance badge
+                  // by handing the OS a 1×1 transparent drag image. Without
+                  // this the cursor shows a green plus throughout the drag.
+                  if (TRANSPARENT_DRAG_IMG) {
+                    e.dataTransfer.setDragImage(TRANSPARENT_DRAG_IMG, 0, 0);
+                  }
                 }}
                 onDragEnter={(e) => {
                   // HTML5 DnD requires preventDefault on dragenter AND dragover
@@ -138,14 +176,6 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
                   background: tokens.card,
                   border: `1px solid ${selected ? tokens.fg : tokens.border}`,
                   opacity: isDragging ? 0.5 : 1,
-                  borderTop:
-                    showDropEdge === "before"
-                      ? `2px solid var(--color-primary)`
-                      : `1px solid ${selected ? tokens.fg : tokens.border}`,
-                  borderBottom:
-                    showDropEdge === "after"
-                      ? `2px solid var(--color-primary)`
-                      : `1px solid ${selected ? tokens.fg : tokens.border}`,
                   cursor: isDragging ? "grabbing" : "default",
                 }}
               >
@@ -224,6 +254,8 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
                 >
                   <DuplicateIcon />
                 </button>
+                </div>
+                {showLineAfter && <InsertionLine />}
               </div>
             );
           })}
@@ -248,6 +280,21 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         />
       </Section>
     </>
+  );
+}
+
+function InsertionLine() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        height: 2,
+        background: "var(--color-primary)",
+        borderRadius: 1,
+        margin: "-1px 0",
+        pointerEvents: "none",
+      }}
+    />
   );
 }
 

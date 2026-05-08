@@ -161,19 +161,23 @@ export default function PillWindow() {
       if (desiredCompact) {
         const cp = fresh?.pillCompactPosition;
         if (cp) {
-          setPillSizeAtPosition(COMPACT_W, COMPACT_H, cp.x, cp.y).catch(() => {});
+          await setPillSizeAtPosition(COMPACT_W, COMPACT_H, cp.x, cp.y).catch(() => {});
         } else {
-          setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
+          await setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
         }
       } else {
         const ep = fresh?.pillExpandedPosition;
         if (ep) {
-          setPillSizeAtPosition(PILL_W, PILL_H, ep.x, ep.y).catch(() => {});
+          await setPillSizeAtPosition(PILL_W, PILL_H, ep.x, ep.y).catch(() => {});
         } else {
-          setPillHeight(PILL_H).catch(() => {});
+          await setPillPositionTopCenter(PILL_W, PILL_H).catch(() => {});
         }
       }
       setCompact(desiredCompact);
+      // Show the pill so the user sees the new style as a live preview.
+      // The auto-hide-when-idle path (see noWindow effect) is gated on the
+      // current pillStyle so it won't immediately re-hide a Classic preview.
+      invoke("show_pill").catch(() => {});
     }).then((u) => { unsubPillStyle = u; });
 
     // Tray "Microphone Settings" submenu population + selection.
@@ -683,21 +687,24 @@ export default function PillWindow() {
      listener above. Two competing listeners both responding to Esc
      was the cause of the "sometimes Esc works, sometimes not" race.) */
 
-  /* ── Hide when idle in pill view, or always in "none" mode ──
+  /* ── Hide when "none" pill style is selected ──
    *
    * In "none" pill style the user has opted out of any visible recording
    * UI. The Rust hotkey handler still calls win.show() unconditionally to
    * keep the show-on-press path simple, so we defeat that by re-hiding on
    * every state change. There's a tiny visible flash on the press; minor
    * enough to defer to v1 when we can read settings from Rust directly.
+   *
+   * The previous auto-hide-on-idle-non-compact branch was removed: idle
+   * transitions (post-paste, dismissError, pickMode, Esc, discard) all
+   * hide the pill explicitly at the transition point, so this effect
+   * covered no real case AND was actively hiding the pillStyle:changed
+   * preview before the user could see it.
    */
   useEffect(() => {
-    const noWindow = settings?.pillStyle === "none";
-    if (noWindow) {
+    if (settings?.pillStyle === "none") {
       invoke("hide_pill").catch(() => {});
-      return;
     }
-    if (state === "idle" && view === "pill" && !compact) invoke("hide_pill").catch(() => {});
   }, [state, view, compact, settings?.pillStyle]);
 
   const statusLabel =
