@@ -43,6 +43,13 @@
 
   /* Destructive / warning */
   --s-warning:       var(--color-warning);
+
+  /* Header waveform accent — steel blue in light + dark-ocean, 50% white in dark-night */
+  --s-header-wave:   var(--color-secondary);
+}
+
+[data-theme="dark-night"] {
+  --s-header-wave: rgba(255, 255, 255, 0.50);
 }
 
 /* Focus ring tracks the primary ink colour */

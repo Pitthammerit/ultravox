@@ -25,6 +25,38 @@ pub fn open_privacy_settings(category: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Show or hide the macOS traffic-light buttons (close/minimize/zoom) for the
+/// settings window. Called by the JS header on mouse-enter/leave so the
+/// controls autohide until the user hovers the header region.
+#[tauri::command]
+pub fn set_traffic_lights_visible(app: tauri::AppHandle, visible: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        use objc2::runtime::AnyObject;
+        use objc2::msg_send;
+
+        let win = match app.get_webview_window("settings") {
+            Some(w) => w,
+            None => return,
+        };
+        let ptr = match win.ns_window() {
+            Ok(p) => p as *mut AnyObject,
+            Err(_) => return,
+        };
+        let hidden = !visible;
+        // NSWindowButton enum values: close=0, miniaturize=1, zoom=2
+        unsafe {
+            for btn_type in [0usize, 1usize, 2usize] {
+                let btn: *mut AnyObject = msg_send![ptr, standardWindowButton: btn_type];
+                if !btn.is_null() {
+                    let _: () = msg_send![btn, setHidden: hidden];
+                }
+            }
+        }
+    }
+}
+
 /// Returns the user's macOS preferred language as a short tag — the first
 /// entry of `AppleLanguages` lowercased and split at the dash, e.g. "de"
 /// for "de-DE", "en" for "en-US". Falls back to "en".

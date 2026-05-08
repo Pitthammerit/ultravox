@@ -93,6 +93,10 @@ export async function openPrivacySettings(category: "microphone" | "accessibilit
   await invoke("open_privacy_settings", { category });
 }
 
+export async function setTrafficLightsVisible(visible: boolean): Promise<void> {
+  await invoke("set_traffic_lights_visible", { visible });
+}
+
 /** Unregister every global hotkey. Used during onboarding so that the
  *  moment the user types a key combo into the HotkeyRecorder, the global
  *  hotkey doesn't ALSO fire and start a recording. */

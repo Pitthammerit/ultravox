@@ -5,7 +5,8 @@
  * (--s-* tokens). Inline styles are used intentionally — they're immune
  * to Tailwind v4's compilation quirks with token-based utility classes.
  */
-import { forwardRef, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { setTrafficLightsVisible } from "../lib/tauri-bridge";
 
 const T = {
   page: "var(--s-page)",
@@ -36,25 +37,75 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
+  // Traffic lights autohide — hidden by default, visible only while hovering
+  // the header region. Restored on unmount so closing the window via code
+  // (e.g. onComplete in onboarding) doesn't leave them permanently hidden.
+  useEffect(() => {
+    setTrafficLightsVisible(false).catch(() => {});
+    return () => { setTrafficLightsVisible(true).catch(() => {}); };
+  }, []);
+
   return (
     <header
       data-tauri-drag-region
-      className="relative border-b shrink-0 flex items-center"
-      style={{ borderColor: T.border, background: T.page, height: 40 }}
+      className="relative shrink-0 flex items-center"
+      style={{ background: T.page, height: 40 }}
+      onMouseEnter={() => setTrafficLightsVisible(true).catch(() => {})}
+      onMouseLeave={() => setTrafficLightsVisible(false).catch(() => {})}
     >
-      {/* Center: app name stays absolutely centered (its position never
-          shifts when a breadcrumb appears). Breadcrumb is anchored to the
-          right of the title with a measured offset, so it reads as
-          "ULTRAVOX ‹ Modes" with the title locked at center. */}
-      <CenteredHeaderTitle title="Ultravox" color={T.fg} breadcrumb={breadcrumb} onBack={onBack ?? null} />
+      {/* Title abbreviates to "UV" in sub-pages so the breadcrumb fits */}
+      <CenteredHeaderTitle
+        title={breadcrumb ? "UV" : "Ultravox"}
+        color={T.fg}
+        breadcrumb={breadcrumb}
+        onBack={onBack ?? null}
+      />
 
-      {/* Right slot — only used when no breadcrumb back button is rendered */}
       {right && !breadcrumb && (
         <div className="absolute flex items-center" style={{ right: 16, top: 0, bottom: 0, display: "flex", alignItems: "center" }}>
           {right}
         </div>
       )}
+
+      {/* Mirrored waveform replaces the border-b divider */}
+      <HeaderWaveform />
     </header>
+  );
+}
+
+/** Static mirrored waveform separator — full-width, bottom-aligned, no box. */
+function HeaderWaveform() {
+  // 30 half-bars; mirrored to produce a symmetric waveform
+  const half = [2, 3, 4, 3, 5, 4, 6, 4, 5, 7, 5, 6, 8, 6, 7, 5, 7, 6, 8, 7, 6, 8, 5, 7, 6, 4, 5, 4, 3, 2];
+  const bars = [...half, ...[...half].reverse()];
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 9,
+        display: "flex",
+        alignItems: "flex-end",
+        gap: 1,
+        pointerEvents: "none",
+      }}
+    >
+      {bars.map((h, i) => (
+        <span
+          key={i}
+          style={{
+            flex: 1,
+            height: h,
+            background: "var(--s-header-wave)",
+            borderRadius: "1px 1px 0 0",
+            opacity: 0.55,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
