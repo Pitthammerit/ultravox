@@ -5,7 +5,7 @@
  * (--s-* tokens). Inline styles are used intentionally — they're immune
  * to Tailwind v4's compilation quirks with token-based utility classes.
  */
-import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { setTrafficLightsVisible } from "../lib/tauri-bridge";
 
 const T = {
@@ -118,15 +118,11 @@ function HeaderWaveform() {
   );
 }
 
-/* Internal: title stays absolutely centered, breadcrumb is pinned to
-   `left: 50% + halfTitleWidth + gap` so it visually butts up against the
-   right edge of the title without shifting it.
-
-   We measure the rendered title width with useLayoutEffect (synchronous,
-   pre-paint) and re-measure on font-load and window-resize so it stays
-   aligned across themes / OS font swaps. */
-const TITLE_GAP = 12;
-
+/* Title + optional breadcrumb live in a single flex group that is always
+   centered as a unit. "ULTRAVOX" is wide so the text fills the group and
+   reads as centered. When in a sub-page the group becomes "UV ‹ Modes":
+   "UV" sits left-of-center (making room) while the breadcrumb fills the
+   right — no layout measurement needed. */
 function CenteredHeaderTitle({
   title,
   color,
@@ -138,31 +134,14 @@ function CenteredHeaderTitle({
   breadcrumb?: string | undefined;
   onBack?: (() => void) | null;
 }) {
-  const titleRef = useRef<HTMLSpanElement>(null);
-  const [titleW, setTitleW] = useState<number>(0);
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      if (titleRef.current) setTitleW(titleRef.current.getBoundingClientRect().width);
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    if ("fonts" in document) document.fonts.ready.then(measure).catch(() => {});
-    return () => window.removeEventListener("resize", measure);
-  }, [title]);
-
   return (
-    <>
+    <div
+      className="absolute flex items-center gap-1.5 pointer-events-none"
+      style={{ left: "50%", transform: "translateX(-50%)", top: 0, bottom: 0, whiteSpace: "nowrap" }}
+    >
       <span
-        ref={titleRef}
-        className="absolute left-1/2 text-[15px] font-semibold pointer-events-none"
-        style={{
-          transform: "translateX(-50%)",
-          color,
-          whiteSpace: "nowrap",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}
+        className="text-[15px] font-semibold"
+        style={{ color, textTransform: "uppercase", letterSpacing: "0.08em" }}
       >
         {title}
       </span>
@@ -171,27 +150,14 @@ function CenteredHeaderTitle({
         <button
           onClick={onBack}
           aria-label={`Back from ${breadcrumb}`}
-          className="absolute flex items-center gap-1 text-[15px] font-semibold transition-opacity hover:opacity-70"
-          style={{
-            // Anchor at page-center, then push right by half the title's
-            // width plus the gap so it lands just after the title's right
-            // edge — independent of locale / font.
-            left: `calc(50% + ${titleW / 2 + TITLE_GAP}px)`,
-            top: 0,
-            bottom: 0,
-            color,
-            whiteSpace: "nowrap",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: 0,
-          }}
+          className="flex items-center gap-0.5 text-[15px] font-semibold transition-opacity hover:opacity-70 pointer-events-auto"
+          style={{ color, background: "none", border: "none", cursor: "pointer", padding: 0 }}
         >
           <span style={{ fontSize: 17, lineHeight: 1 }}>‹</span>
           <span>{breadcrumb}</span>
         </button>
       )}
-    </>
+    </div>
   );
 }
 
