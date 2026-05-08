@@ -555,12 +555,12 @@ function LocalWhisperConfig({ activeVariant, onVariantChange }: LocalWhisperConf
       {/* Dropdown rows */}
       {open && (
         <div
-          className="absolute left-0 right-0 z-10 rounded-md overflow-hidden"
+          className="absolute left-0 right-0 z-30 rounded-md overflow-hidden"
           style={{
             top: "calc(100% + 4px)",
-            background: tokens.control,
-            border: `1px solid ${tokens.border}`,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+            background: tokens.card,
+            border: `1px solid ${tokens.borderStrong}`,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
           }}
         >
           {VARIANTS.map((opt, i) => {
