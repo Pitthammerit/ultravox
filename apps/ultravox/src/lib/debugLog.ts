@@ -15,6 +15,7 @@ export type DebugStage =
   | "record-start"
   | "record-stop"
   | "transcribe-token"
+  | "transcribe-backend"
   | "transcribe-post"
   | "transcribe-result"
   | "paste"

@@ -209,6 +209,7 @@ export async function transcribe(
     try {
       const status = await claudeCodeCheck();
       if (status.available) {
+        logDebug("transcribe-backend", { message: `Claude Code CLI v${status.version}` });
         // Phase 1: Whisper raw transcription via the worker
         const raw = await whisperRaw(blob, opts, token, apiUrl);
         if (raw.trim()) {
@@ -237,6 +238,7 @@ export async function transcribe(
   }
 
   // ── Worker path (default) ──
+  logDebug("transcribe-backend", { message: "managed worker" });
   const text = await workerTranscribe(blob, opts, token, apiUrl);
   return { text };
 }

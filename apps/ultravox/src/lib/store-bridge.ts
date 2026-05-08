@@ -66,6 +66,10 @@ export interface AppSettings {
    *  restore where the pill was before the user collapsed it to the top-center
    *  compact state. */
   pillExpandedPosition?: { x: number; y: number };
+  /** Last dragged compact-pill position (LogicalPosition). Saved on every
+   *  mouseup after a compact-pill drag so the pill reopens where the user
+   *  left it instead of always defaulting to top-center. */
+  pillCompactPosition?: { x: number; y: number };
   /** Route LLM cleanup through the local `claude` CLI (Claude Code) instead
    *  of the managed Cloudflare Voice Worker. Falls back to the worker if the
    *  CLI is missing, not logged in, or times out. Off by default — the

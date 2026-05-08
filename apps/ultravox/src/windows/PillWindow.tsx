@@ -113,10 +113,18 @@ export default function PillWindow() {
       if (found) setMode(found);
       const isCompact = s.sound.compactPill ?? false;
       setCompact(isCompact);
-      // If we're booting in compact mode, immediately move the window to the
-      // top-center of the screen so the first paint lands in the right place.
+      // If we're booting in compact mode, restore the last dragged position
+      // (pillCompactPosition) so the pill reopens where the user left it.
+      // Fall back to top-center when there is no saved compact position yet.
       if (isCompact) {
-        setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
+        const cp = s.pillCompactPosition;
+        if (cp) {
+          setPillSizeAtPosition(COMPACT_W, COMPACT_H, cp.x, cp.y).catch(() => {
+            setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
+          });
+        } else {
+          setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
+        }
       } else {
         setPillHeight(PILL_H).catch(() => {});
       }
@@ -269,6 +277,34 @@ export default function PillWindow() {
       captureError(e, { stage: "collapse" });
     }
   }, [settings, state, view]);
+
+  // Save compact pill position after every drag so the next launch restores
+  // where the user left it. data-tauri-drag-region doesn't fire a "drag ended"
+  // event, so we listen to mouseup on the window and snapshot outerPosition.
+  useEffect(() => {
+    if (!compact) return;
+    const onMouseUp = async () => {
+      try {
+        const win = getCurrentWebviewWindow();
+        const physical = await win.outerPosition();
+        const scale = await win.scaleFactor();
+        const pos = {
+          x: Math.round(physical.x / scale),
+          y: Math.round(physical.y / scale),
+        };
+        await patchSettings({ pillCompactPosition: pos });
+      } catch {}
+    };
+    window.addEventListener("mouseup", onMouseUp);
+    return () => window.removeEventListener("mouseup", onMouseUp);
+  }, [compact]);
+
+  // Explicit startDragging on compact pill mousedown — more reliable than
+  // data-tauri-drag-region alone with the non-activating NSPanel setup.
+  const handleCompactDrag = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    getCurrentWebviewWindow().startDragging().catch(() => {});
+  }, []);
 
   // (Auto-expand-on-recording removed: compact mode is now a deliberate
   // mode the user enters/exits manually. It persists through idle →
@@ -537,7 +573,6 @@ export default function PillWindow() {
       >
         <style>{PILL_KEYFRAMES}</style>
         <div
-          data-tauri-drag-region
           className="relative flex items-center justify-center rounded-full overflow-hidden select-none"
           style={{
             ...pillStyle,
@@ -545,6 +580,7 @@ export default function PillWindow() {
             width: COMPACT_PILL_W,
             height: COMPACT_PILL_H,
           }}
+          onMouseDown={handleCompactDrag}
           onDoubleClick={() => { expand("manual"); }}
           title={
             state === "transcribing" ? "Transcribing…"
