@@ -37,7 +37,25 @@ function deriveApiBase(tokenEndpoint: string): string {
   return `${url.protocol}//${url.host}`;
 }
 
+/**
+ * Token cache. Worker issues 5-min HMAC tokens (TOKEN_TTL_SEC = 300 in
+ * apps/worker/index.ts); we cache aggressively to skip the auth round-trip
+ * on every recording. Saves ~200 ms per dictation after the first.
+ *
+ * The cache is per (endpoint), so multiple worker URLs (dev/staging/prod)
+ * don't poison each other. We refresh 30 s before expiry to avoid using a
+ * token that expires mid-upload of a long recording.
+ */
+interface CachedToken { token: string; apiUrl: string; expiresAt: number; }
+const tokenCache = new Map<string, CachedToken>();
+const REFRESH_GUARD_MS = 30_000;
+
 async function fetchToken(endpoint: string): Promise<{ token: string; apiUrl: string }> {
+  const cached = tokenCache.get(endpoint);
+  if (cached && cached.expiresAt - Date.now() > REFRESH_GUARD_MS) {
+    return { token: cached.token, apiUrl: cached.apiUrl };
+  }
+
   const t0 = performance.now();
   const res = await fetch(endpoint);
   const data = (await res.json()) as TokenResponse;
@@ -46,8 +64,30 @@ async function fetchToken(endpoint: string): Promise<{ token: string; apiUrl: st
     logDebug("transcribe-token", { status: res.status, durationMs, error: data.error ?? `HTTP ${res.status}` });
     throw new Error(data.error ?? `token endpoint ${res.status}`);
   }
-  logDebug("transcribe-token", { status: res.status, durationMs });
-  return { token: data.token, apiUrl: deriveApiBase(endpoint) };
+
+  const apiUrl = deriveApiBase(endpoint);
+  // Worker returns expiresIn in seconds; default to 5 min if missing.
+  const ttlMs = (data.expiresIn ?? 300) * 1000;
+  tokenCache.set(endpoint, {
+    token: data.token,
+    apiUrl,
+    expiresAt: Date.now() + ttlMs,
+  });
+  logDebug("transcribe-token", { status: res.status, durationMs, message: "fresh" });
+  return { token: data.token, apiUrl };
+}
+
+/**
+ * Drop the cached token (e.g. after a 401/403 response from a downstream
+ * call so the next attempt re-authenticates with a fresh token).
+ */
+function invalidateToken(endpoint: string): void {
+  tokenCache.delete(endpoint);
+}
+
+/** Test-only: clear all cached tokens. Use in beforeEach to isolate runs. */
+export function _resetTokenCacheForTests(): void {
+  tokenCache.clear();
 }
 
 /**
@@ -212,6 +252,11 @@ async function workerTranscribe(
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
     logDebug("transcribe-result", { status: res.status, durationMs, error: errText.slice(0, 240) });
+    // Auth failures typically mean the cached token expired between fetch
+    // and use; drop it so the next call re-authenticates.
+    if (res.status === 401 || res.status === 403) {
+      invalidateToken(opts.tokenEndpoint);
+    }
     throw new Error(`voice worker ${res.status}: ${errText.slice(0, 200)}`);
   }
   const data = (await res.json()) as { text?: string };

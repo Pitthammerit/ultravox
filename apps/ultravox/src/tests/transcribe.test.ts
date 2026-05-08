@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { transcribe } from "../lib/transcribe";
+import { transcribe, _resetTokenCacheForTests } from "../lib/transcribe";
 import type { VoiceMode } from "../lib/voiceModes";
 
 const fetchMock = vi.fn();
 beforeEach(() => {
   globalThis.fetch = fetchMock;
   fetchMock.mockReset();
+  _resetTokenCacheForTests();
 });
 
 const tokenResponse = { ok: true, token: "tok", expiresIn: 300 };

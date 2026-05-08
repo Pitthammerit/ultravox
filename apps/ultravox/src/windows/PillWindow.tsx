@@ -224,13 +224,19 @@ export default function PillWindow() {
     }
     setCompact(false);
     if (fresh) {
-      const next = { ...fresh, sound: { ...fresh.sound, compactPill: false } };
+      // Sync BOTH the new pillStyle field AND the legacy compactPill so the
+      // user's manual expand sticks across recording sessions and a downgrade
+      // to a pre-0.9.17 build still reads the right state.
+      const next = { ...fresh, pillStyle: "classic" as const, sound: { ...fresh.sound, compactPill: false } };
       setSettings(next);
       await saveSettings(next).catch((e) =>
         logDebug("pill-expand", { error: `saveSettings: ${(e as Error).message?.slice(0, 120)}` }),
       );
     } else {
-      patchSettings({ sound: { ...(settings?.sound ?? {} as AppSettings["sound"]), compactPill: false } }).catch(() => {});
+      patchSettings({
+        pillStyle: "classic",
+        sound: { ...(settings?.sound ?? {} as AppSettings["sound"]), compactPill: false },
+      }).catch(() => {});
     }
     logDebug("pill-expand", { durationMs: Math.round(performance.now() - t0), message: "done" });
   }, [settings]);
@@ -259,6 +265,7 @@ export default function PillWindow() {
         const next: AppSettings = {
           ...fresh,
           pillExpandedPosition: expanded,
+          pillStyle: "mini",
           sound: { ...fresh.sound, compactPill: true },
         };
         setSettings(next);
@@ -266,7 +273,7 @@ export default function PillWindow() {
           logDebug("pill-collapse", { error: `saveSettings: ${(e as Error).message?.slice(0, 120)}` }),
         );
       } else {
-        await patchSettings({ pillExpandedPosition: expanded }).catch(() => {});
+        await patchSettings({ pillExpandedPosition: expanded, pillStyle: "mini" }).catch(() => {});
       }
       try {
         await setPillPositionTopCenter(COMPACT_W, COMPACT_H);

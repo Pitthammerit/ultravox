@@ -36,8 +36,10 @@ export function PillStylePicker({ value, onChange, size = "small" }: PillStylePi
             className="flex flex-col items-center rounded-lg p-2 transition-colors"
             style={{
               width: cardWidth,
-              background: active ? "color-mix(in srgb, var(--color-primary) 12%, transparent)" : tokens.control,
-              border: `2px solid ${active ? "var(--color-primary)" : tokens.border}`,
+              // Same surface for selected and unselected — selection is signaled
+              // by the border alone (matches the Superwhisper-style picker).
+              background: tokens.control,
+              border: `1.5px solid ${active ? "var(--color-primary)" : tokens.border}`,
               cursor: "pointer",
             }}
           >
