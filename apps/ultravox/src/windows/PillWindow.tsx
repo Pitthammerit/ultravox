@@ -147,17 +147,20 @@ export default function PillWindow() {
 
     // Apply pill-style changes from the Settings window IMMEDIATELY — without
     // waiting for the next recording's loadSettings() to refresh local state.
-    // Mirrors the expand()/collapse() behavior so picking a style takes effect
-    // on the very next recording (or instantly, if the pill is currently visible).
+    // This is a SILENT config update: we update internal state + window size
+    // so the next recording uses the new style, but we do NOT show the pill.
+    // The earlier live-preview behavior popped the window on every click in
+    // Settings, which the user read as a half-applied state and re-clicked,
+    // requiring two clicks to make the change "stick".
     listen<NonNullable<AppSettings["pillStyle"]>>("pillStyle:changed", async (e) => {
       const style = e.payload;
       const fresh = await loadSettings().catch(() => null);
       if (fresh) setSettings(fresh);
-      const desiredCompact = style === "mini";
       if (style === "none") {
         invoke("hide_pill").catch(() => {});
         return;
       }
+      const desiredCompact = style === "mini";
       if (desiredCompact) {
         const cp = fresh?.pillCompactPosition;
         if (cp) {
@@ -174,10 +177,6 @@ export default function PillWindow() {
         }
       }
       setCompact(desiredCompact);
-      // Show the pill so the user sees the new style as a live preview.
-      // The auto-hide-when-idle path (see noWindow effect) is gated on the
-      // current pillStyle so it won't immediately re-hide a Classic preview.
-      invoke("show_pill").catch(() => {});
     }).then((u) => { unsubPillStyle = u; });
 
     // Tray "Microphone Settings" submenu population + selection.
