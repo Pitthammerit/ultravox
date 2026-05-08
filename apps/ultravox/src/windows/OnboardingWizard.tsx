@@ -200,7 +200,7 @@ const COPY: Record<Lang, {
     refresh: "I've enabled it — Refresh",
     doneTitle: "You're all set",
     doneBody: (kbd) => (<>Click into any text field — Notes, Mail, a browser — place your cursor, press {kbd} to record, press it again to stop.</>),
-    doneTip: "Tip: enable on-device transcription in Settings → Local transcription for faster, fully-private dictation.",
+    doneTip: "Tip: enable on-device transcription in Settings → Modes & AI Models for faster, fully-private dictation.",
     open: `Open ${BRANDING.appName}`,
     continueBtn: "Continue",
     tryAgain: "Try again",
@@ -272,7 +272,7 @@ const COPY: Record<Lang, {
     refresh: "Aktiviert — aktualisieren",
     doneTitle: "Alles bereit",
     doneBody: (kbd) => (<>Klicke in ein Textfeld — Notizen, Mail, Browser — Cursor platzieren, {kbd} zum Aufnehmen drücken, erneut drücken zum Stoppen.</>),
-    doneTip: "Tipp: Aktiviere die Gerättranskription unter Einstellungen → Lokale Transkription für schnelleres, vollständig privates Diktieren.",
+    doneTip: "Tipp: Aktiviere die Gerättranskription unter Einstellungen → Modes & AI Models für schnelleres, vollständig privates Diktieren.",
     open: `${BRANDING.appName} öffnen`,
     continueBtn: "Weiter",
     tryAgain: "Erneut versuchen",
@@ -302,7 +302,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   const [activeModeId, setActiveModeId] = useState<string>(DEFAULT_MODES[0]?.id ?? "email");
   const [micStatus, setMicStatus] = useState<PermStatus>("idle");
   const [axStatus, setAxStatus] = useState<PermStatus>("idle");
-  const [whisperPicked, setWhisperPicked] = useState<AppSettings["localWhisperActiveVariant"] | null>(null);
+  const [whisperPicked, setWhisperPicked] = useState<string | null>(null);
   const [whisperDownloadingId, setWhisperDownloadingId] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const t = COPY[lang];
@@ -758,10 +758,9 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                     key={opt.id}
                     type="button"
                     onClick={() => {
-                      const v = opt.id as NonNullable<AppSettings["localWhisperActiveVariant"]>;
-                      setWhisperPicked(v);
+                      setWhisperPicked(opt.id);
                       setWhisperDownloadingId(opt.id);
-                      void patchSettings({ localWhisperActiveVariant: v });
+                      void patchSettings({ localWhisperEnabled: true });
                       localWhisperDownloadModel(opt.id).catch(() => {});
                     }}
                     className="flex items-center justify-between rounded-lg px-4 py-3 text-left transition-all"
@@ -790,6 +789,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                 type="button"
                 onClick={() => {
                   setWhisperPicked(null);
+                  void patchSettings({ localWhisperEnabled: false });
                   next();
                 }}
                 className="text-center rounded-lg px-4 py-3 transition-opacity hover:opacity-80"

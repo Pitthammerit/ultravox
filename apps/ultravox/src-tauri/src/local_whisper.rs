@@ -89,10 +89,14 @@ fn models_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-/// Find a model in the models dir. If `preferred_variant` is given and that
-/// model is installed, return it. Otherwise fall back to the first model
-/// alphabetically (same as the v0.10 behaviour).
-fn find_existing_model(preferred_variant: Option<&str>) -> Result<Option<(PathBuf, String)>, String> {
+/// Find a model in the models dir.
+///
+/// Priority:
+/// 1. If `preferred_variant` is Some and the file exists, use it.
+/// 2. If `language` is "en", prefer base.en → base → small (first installed wins).
+/// 3. Otherwise (multilingual or unset), prefer base → small (first installed wins).
+/// 4. Fall back to the first alphabetically if nothing from the priority lists is found.
+fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>) -> Result<Option<(PathBuf, String)>, String> {
     let dir = models_dir()?;
     if let Ok(entries) = std::fs::read_dir(&dir) {
         let mut candidates: Vec<PathBuf> = entries
@@ -107,13 +111,31 @@ fn find_existing_model(preferred_variant: Option<&str>) -> Result<Option<(PathBu
             })
             .collect();
         candidates.sort();
-        // If the user has a preferred variant, try to satisfy it first.
+
+        // 1. Explicit preferred variant takes priority.
         if let Some(pref) = preferred_variant {
             let preferred_path = dir.join(format!("ggml-{pref}.bin"));
             if candidates.contains(&preferred_path) {
                 return Ok(Some((preferred_path, pref.to_string())));
             }
         }
+
+        // 2/3. Auto-route based on language when no explicit variant.
+        if preferred_variant.is_none() {
+            let priority: &[&str] = if language.map(|l| l.trim().eq_ignore_ascii_case("en")).unwrap_or(false) {
+                &["base.en", "base", "small", "tiny", "medium"]
+            } else {
+                &["base", "small", "tiny", "medium"]
+            };
+            for variant in priority {
+                let p = dir.join(format!("ggml-{variant}.bin"));
+                if candidates.contains(&p) {
+                    return Ok(Some((p, variant.to_string())));
+                }
+            }
+        }
+
+        // 4. Fallback: first installed alphabetically.
         if let Some(p) = candidates.into_iter().next() {
             let variant = variant_from_path(&p);
             return Ok(Some((p, variant)));
@@ -128,7 +150,7 @@ fn variant_from_path(p: &Path) -> String {
 }
 
 #[tauri::command]
-pub fn local_whisper_status(preferred_variant: Option<String>) -> Result<LocalWhisperStatus, String> {
+pub fn local_whisper_status(preferred_variant: Option<String>, language: Option<String>) -> Result<LocalWhisperStatus, String> {
     if let Some(cached) = CACHE.lock().map_err(|e| format!("lock: {e}"))?.as_ref() {
         return Ok(LocalWhisperStatus {
             available: true,
@@ -136,7 +158,7 @@ pub fn local_whisper_status(preferred_variant: Option<String>) -> Result<LocalWh
             model_variant: Some(cached.variant.clone()),
         });
     }
-    match find_existing_model(preferred_variant.as_deref())? {
+    match find_existing_model(preferred_variant.as_deref(), language.as_deref())? {
         Some((path, variant)) => Ok(LocalWhisperStatus {
             available: true,
             model_path: Some(path.to_string_lossy().to_string()),
@@ -150,7 +172,7 @@ pub fn local_whisper_status(preferred_variant: Option<String>) -> Result<LocalWh
     }
 }
 
-fn ensure_loaded(preferred_variant: Option<&str>) -> Result<(), String> {
+fn ensure_loaded(preferred_variant: Option<&str>, routing_language: Option<&str>) -> Result<(), String> {
     let mut guard = CACHE.lock().map_err(|e| format!("lock: {e}"))?;
     if let Some(cached) = guard.as_ref() {
         // If the cached model matches the preferred variant (or no preference), keep it.
@@ -172,7 +194,7 @@ fn ensure_loaded(preferred_variant: Option<&str>) -> Result<(), String> {
         // Clear cache so we reload with the preferred model below.
         *guard = None;
     }
-    let (path, variant) = find_existing_model(preferred_variant)?
+    let (path, variant) = find_existing_model(preferred_variant, routing_language)?
         .ok_or_else(|| "no whisper model installed".to_string())?;
     let path_str = path.to_str().ok_or("non-utf8 model path")?;
     let ctx = WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
@@ -186,8 +208,9 @@ pub fn local_whisper_transcribe(
     audio_bytes: Vec<u8>,
     language: Option<String>,
     preferred_variant: Option<String>,
+    routing_language: Option<String>,
 ) -> Result<String, String> {
-    ensure_loaded(preferred_variant.as_deref())?;
+    ensure_loaded(preferred_variant.as_deref(), routing_language.as_deref())?;
 
     let pcm = decode_to_mono_16k(audio_bytes)?;
     if pcm.is_empty() {
@@ -609,7 +632,7 @@ mod tests {
         // returns unavailable. If a developer has dropped a real .bin into
         // ~/Library/Application Support/com.ultravox.dev/whisper-models the
         // assertion below is permissive — only checks the shape.
-        let st = local_whisper_status().expect("status ok");
+        let st = local_whisper_status(None, None).expect("status ok");
         if !st.available {
             assert!(st.model_path.is_none());
             assert!(st.model_variant.is_none());

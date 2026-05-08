@@ -55,6 +55,8 @@ export const CLEANUP_VARIANTS: Array<{ id: VoiceCleanup; label: string; descript
   { id: "raw",   label: "Raw",   description: "No cleanup — pure Whisper output" },
 ];
 
+export type TranscriptionModelValue = "cloud" | "tiny" | "base.en" | "base" | "small" | "medium" | "auto";
+
 export interface VoiceMode {
   id: string;
   name: string;
@@ -64,6 +66,13 @@ export interface VoiceMode {
   cleanup: VoiceCleanup;
   languageModelProvider: LanguageModelProvider;
   languageModel?: string | null;
+  /**
+   * Which Whisper variant (or cloud) to use for transcription in this mode.
+   * "auto" = smart-route based on mode language. "cloud" = always use the
+   * managed worker. Otherwise routes to the named on-device variant, falling
+   * back to cloud if it isn't installed.
+   */
+  transcriptionModel?: TranscriptionModelValue;
   /**
    * User-edited cleanup body. When null/empty, the per-style default template
    * (apps/ultravox/src/lib/cleanupTemplates.ts) is used. When non-empty, it
@@ -100,6 +109,7 @@ export const DEFAULT_MODES: VoiceMode[] = [
     cleanup: "prose",
     languageModelProvider: "openrouter",
     languageModel: "anthropic/claude-haiku-4.5",
+    transcriptionModel: "auto",
     autocapitalize: true,
     insertion: "paste",
     systemPrompt: `You are an email-formatting specialist. Transform the dictated transcript into a clean, ready-to-send email body.
@@ -137,6 +147,7 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     cleanup: "prose",
     languageModelProvider: "openrouter",
     languageModel: "anthropic/claude-haiku-4.5",
+    transcriptionModel: "auto",
     autocapitalize: true,
     insertion: "paste",
   },
@@ -149,6 +160,7 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     cleanup: "note",
     languageModelProvider: "openrouter",
     languageModel: "anthropic/claude-haiku-4.5",
+    transcriptionModel: "auto",
     autocapitalize: true,
     insertion: "paste",
   },
@@ -160,6 +172,7 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     language: "en",
     cleanup: "raw",
     languageModelProvider: "none",
+    transcriptionModel: "auto",
     autocapitalize: false,
     insertion: "paste",
   },
@@ -173,6 +186,7 @@ export const FALLBACK_MODE: VoiceMode = {
   language: "auto",
   cleanup: "raw",
   languageModelProvider: "none",
+  transcriptionModel: "auto",
   autocapitalize: false,
   insertion: "cursor",
 };

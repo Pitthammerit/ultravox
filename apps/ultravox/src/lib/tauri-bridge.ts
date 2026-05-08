@@ -137,15 +137,24 @@ export interface LocalWhisperStatus {
 
 /** Probe whether the on-device Whisper model is downloaded and ready.
  *  Pass preferredVariant to use a specific model if installed; falls back
- *  to whichever model is on disk. */
-export async function localWhisperStatus(preferredVariant?: string): Promise<LocalWhisperStatus> {
-  return invoke<LocalWhisperStatus>("local_whisper_status", { preferredVariant: preferredVariant ?? null });
+ *  to whichever model is on disk. Pass language to enable smart auto-routing
+ *  (e.g. prefer base.en for English). */
+export async function localWhisperStatus(preferredVariant?: string, language?: string): Promise<LocalWhisperStatus> {
+  return invoke<LocalWhisperStatus>("local_whisper_status", {
+    preferredVariant: preferredVariant ?? null,
+    language: language ?? null,
+  });
 }
 
 /** Run on-device Whisper transcription. Throws if the model isn't loaded
  *  or if decoding/transcription fails — caller should fall back to cloud. */
-export async function localWhisperTranscribe(audioBytes: Uint8Array, language: string | null, preferredVariant?: string): Promise<string> {
-  return invoke<string>("local_whisper_transcribe", { audioBytes: Array.from(audioBytes), language, preferredVariant: preferredVariant ?? null });
+export async function localWhisperTranscribe(audioBytes: Uint8Array, language: string | null, preferredVariant?: string, routingLanguage?: string): Promise<string> {
+  return invoke<string>("local_whisper_transcribe", {
+    audioBytes: Array.from(audioBytes),
+    language,
+    preferredVariant: preferredVariant ?? null,
+    routingLanguage: routingLanguage ?? null,
+  });
 }
 
 /** Trigger model download for a given variant. Variants: "tiny" | "base" | "small" | "large-v3-turbo". */

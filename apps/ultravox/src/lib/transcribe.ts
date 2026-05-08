@@ -19,12 +19,8 @@ export interface TranscribeOptions {
   frontmostApp?: { localized_name: string | null; bundle_id: string | null } | null;
   /** Fired once when the upload starts (single phase — server does both). */
   onProgress?: (phase: "transcribing") => void;
-  /** v0.10 — when true and a model is loaded AND mode.cleanup === "raw",
-   *  transcribe on-device. Falls back to cloud on any error. */
+  /** Global toggle — when false, all modes use cloud regardless of per-mode transcriptionModel. */
   localWhisperEnabled?: boolean;
-  /** The user's preferred Whisper variant; passed to Rust so it loads the
-   *  right model when multiple are installed. */
-  localWhisperActiveVariant?: string;
   /** Abort signal — when fired, cancels in-flight worker / claude-code fetch calls.
    *  Local Whisper (Tauri command) cannot be cancelled mid-flight; it completes
    *  silently and the result is discarded. */
@@ -288,17 +284,29 @@ export async function transcribe(
   const provider = opts.mode.languageModelProvider;
   const claudeAlias = opts.mode.languageModel ?? "sonnet";
 
-  // ── Local Whisper path (opt-in, raw modes only, with auto-fallback) ──
-  if (opts.localWhisperEnabled && opts.mode.cleanup === "raw") {
+  // ── Local Whisper routing ──
+  // Global toggle gates all local paths. When enabled, per-mode transcriptionModel
+  // controls routing. "cloud" forces worker regardless; other values attempt local.
+  const transcriptionModel = opts.mode.transcriptionModel ?? "auto";
+  const wantsLocal = opts.localWhisperEnabled && transcriptionModel !== "cloud";
+
+  if (wantsLocal) {
+    // "auto" passes undefined so Rust auto-routes based on language; an explicit
+    // variant passes its id so Rust uses that model if installed.
+    const preferredVariant = transcriptionModel === "auto" ? undefined : transcriptionModel;
+    const language = opts.mode.language && opts.mode.language !== "auto" ? opts.mode.language : undefined;
     try {
-      const status = await localWhisperStatus(opts.localWhisperActiveVariant);
+      const status = await localWhisperStatus(preferredVariant, language);
       if (status.available) {
-        logDebug("transcribe-backend", { message: `local whisper (${status.modelVariant})` });
+        const routingLabel = transcriptionModel === "auto"
+          ? (language === "en" ? "routed=auto-en" : "routed=auto-multilingual")
+          : "routed=explicit";
+        logDebug("transcribe-backend", { message: `local whisper (${status.modelVariant}, ${routingLabel})` });
         const buf = await blob.arrayBuffer();
         const t0 = performance.now();
-        const text = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language, opts.localWhisperActiveVariant);
+        const text = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language ?? null, preferredVariant, language);
         const durationMs = Math.round(performance.now() - t0);
-        logDebug("transcribe-result", { textLength: text.length, durationMs, message: `local-whisper (${status.modelVariant})` });
+        logDebug("transcribe-result", { textLength: text.length, durationMs, message: `local-whisper (${status.modelVariant}, ${routingLabel})` });
         return { text };
       }
       logDebug("transcribe-post", { message: "local-whisper unavailable — falling back to cloud" });

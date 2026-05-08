@@ -22,6 +22,40 @@ const baseMode: VoiceMode = {
   languageModel: "anthropic/claude-haiku-4.5",
 };
 
+describe("transcribe routing", () => {
+  it("skips local whisper when transcriptionModel is 'cloud'", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "cloud result" }) });
+
+    const result = await transcribe(blob, {
+      mode: { ...baseMode, cleanup: "raw", transcriptionModel: "cloud" },
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localWhisperEnabled: true,
+    });
+
+    expect(result.text).toBe("cloud result");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips local whisper when localWhisperEnabled is false", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "cloud fallback" }) });
+
+    const result = await transcribe(blob, {
+      mode: { ...baseMode, cleanup: "raw", transcriptionModel: "auto" },
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localWhisperEnabled: false,
+    });
+
+    expect(result.text).toBe("cloud fallback");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("transcribe", () => {
   it("POSTs to /v1/audio/clean for prose cleanup (Whisper + LLM in one shot)", async () => {
     const phases: string[] = [];

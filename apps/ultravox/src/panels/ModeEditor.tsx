@@ -22,6 +22,8 @@ import {
   tokens,
 } from "../components/ui";
 import { MODE_ICON_NAMES, ModeGlyph } from "../components/ModeIcons";
+import { TranscriptionModelPicker, useTranscriptionModelPicker } from "../components/TranscriptionModelPicker";
+import type { TranscriptionModelValue } from "../lib/voiceModes";
 
 interface ModeFormProps {
   settings: AppSettings;
@@ -47,6 +49,7 @@ function makeBlankMode(): VoiceMode {
     cleanup: "prose",
     languageModelProvider: "openrouter",
     languageModel: "anthropic/claude-haiku-4.5",
+    transcriptionModel: "auto",
     autocapitalize: true,
     insertion: "paste",
   };
@@ -61,6 +64,8 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
 
   const [draft, setDraft] = useState<VoiceMode>(original);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const transcriptionPicker = useTranscriptionModelPicker();
   // For new modes only: tracks whether the user has manually edited the slug.
   // While untouched, the slug field auto-syncs from the name; once touched,
   // it stays as the user typed. Clearing the field resets to untouched.
@@ -217,9 +222,27 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
             />
           }
         />
+        {(settings.localWhisperEnabled ?? true) && (
+          <Field
+            label="Transcription Model"
+            help="Which Whisper variant runs transcription for this mode. Auto smart-routes based on language."
+            control={
+              <TranscriptionModelPicker
+                value={(draft.transcriptionModel ?? "auto") as TranscriptionModelValue}
+                onChange={(transcriptionModel) => setDraft({ ...draft, transcriptionModel })}
+                installedModels={transcriptionPicker.installedModels}
+                downloadProgress={transcriptionPicker.downloadProgress}
+                onDownload={transcriptionPicker.handleDownload}
+                onDelete={transcriptionPicker.handleDelete}
+                removeConfirming={transcriptionPicker.removeConfirming}
+                onRemoveRequest={transcriptionPicker.handleRemoveRequest}
+              />
+            }
+          />
+        )}
         {draft.cleanup !== "raw" && (
           <Field
-            label="Provider"
+            label="Processing Provider"
             help="Cleanup LLM provider"
             control={
               <Select<LanguageModelProvider>
@@ -242,7 +265,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
         )}
         {usesCleanup && providerModels.length > 0 && (
           <Field
-            label="Model"
+            label="Processing AI Model"
             control={
               <Select<string>
                 value={draft.languageModel ?? providerModels[0]!.id}

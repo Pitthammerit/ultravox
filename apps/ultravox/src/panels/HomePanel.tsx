@@ -70,7 +70,7 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
   return (
     <>
       <Section title="Voice">
-        <NavCard title="Modes" onClick={() => onNavigate("modes")} />
+        <NavCard title="Modes & AI Models" onClick={() => onNavigate("modes")} />
         <NavCard title="Vocabulary" onClick={() => onNavigate("vocabulary")} />
         <NavCard title="Sound & Microphone" onClick={() => onNavigate("sound")} />
       </Section>

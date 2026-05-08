@@ -91,16 +91,13 @@ export interface AppSettings {
   history: HistoryEntry[];
   /**
    * Local Whisper transcription via on-device model (whisper-rs + Metal).
-   * When true AND a model is downloaded AND the mode's cleanup is "raw",
-   * transcription runs locally. Falls back to cloud on any error.
-   * Experimental in v0.10 — cleanup LLM stays cloud regardless.
+   * When true, each mode's Transcription Model dropdown is shown and used for
+   * routing. When false, all modes fall back to cloud regardless of per-mode
+   * setting. Falls back to cloud on any error.
    */
   localWhisperEnabled?: boolean;
   /** Path to the downloaded GGML model file. Set when download completes. */
   localWhisperModelPath?: string;
-  /** Which Whisper variant the user wants to use. Falls back to whichever
-   *  model is installed if this one isn't downloaded yet. */
-  localWhisperActiveVariant?: "tiny" | "base.en" | "base" | "small";
 }
 
 export const HISTORY_MAX = 50;
@@ -127,7 +124,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   history: [],
   localWhisperEnabled: true,
-  localWhisperActiveVariant: "base.en",
 };
 
 const STORE_FILE = "settings.json";
@@ -173,6 +169,12 @@ function migrateModes(modes: VoiceMode[]): { modes: VoiceMode[]; changed: boolea
         languageModelProvider: "openrouter",
         languageModel: updated.languageModel ?? "anthropic/claude-haiku-4.5",
       };
+    }
+    // v0.10.8: add transcriptionModel to modes that were saved before this
+    // field existed. Default to "auto" (smart-route based on mode language).
+    if (updated.transcriptionModel === undefined) {
+      changed = true;
+      updated = { ...updated, transcriptionModel: "auto" };
     }
     return updated;
   });

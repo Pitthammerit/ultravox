@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
+import { emit } from "@tauri-apps/api/event";
 import type { AppSettings } from "../lib/store-bridge";
 import { CLEANUP_VARIANTS, LANGUAGES, type VoiceMode } from "../lib/voiceModes";
-import { Button, Section, tokens } from "../components/ui";
+import { Button, Section, ToggleRow, tokens } from "../components/ui";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import ModeForm from "./ModeEditor";
 
@@ -134,6 +135,17 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         }}
         cancelLabel="Cancel"
       />
+      <Section label="Local transcription">
+        <ToggleRow
+          label="Enable local transcription"
+          help="When on, each mode shows a Transcription Model dropdown to route audio on-device. Off = all modes use cloud."
+          checked={settings.localWhisperEnabled ?? true}
+          onChange={(next) => {
+            void onChange({ localWhisperEnabled: next });
+            emit("localWhisperEnabled:changed", next).catch(() => {});
+          }}
+        />
+      </Section>
       <Section
         label="Active mode"
         right={

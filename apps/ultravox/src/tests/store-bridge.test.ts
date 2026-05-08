@@ -101,4 +101,31 @@ describe("store-bridge", () => {
     expect(s.activeModeId).toBe("code");
     expect(s.modes).toEqual(DEFAULT_SETTINGS.modes);
   });
+
+  it("v0.10.8 migration: modes without transcriptionModel receive 'auto'", async () => {
+    const { loadSettings, saveSettings, DEFAULT_SETTINGS } = await importBridge();
+    // Simulate a v0.10.7 settings object: modes have no transcriptionModel field.
+    const legacyModes = DEFAULT_SETTINGS.modes.map(({ transcriptionModel: _drop, ...rest }) => {
+      void _drop;
+      return rest;
+    });
+    await saveSettings({ ...DEFAULT_SETTINGS, modes: legacyModes as never });
+    const s = await loadSettings();
+    for (const m of s.modes) {
+      expect(m.transcriptionModel).toBe("auto");
+    }
+  });
+
+  it("v0.10.8 migration: localWhisperActiveVariant orphan key is harmless", async () => {
+    const { loadSettings, saveSettings, DEFAULT_SETTINGS } = await importBridge();
+    // Simulate a v0.10.7 save that had localWhisperActiveVariant.
+    await saveSettings({ ...DEFAULT_SETTINGS, localWhisperActiveVariant: "base.en" } as never);
+    const s = await loadSettings();
+    // The field should not crash anything; localWhisperEnabled still works.
+    expect(s.localWhisperEnabled).toBe(true);
+    // transcriptionModel on all default modes should be "auto" (already set in defaults).
+    for (const m of s.modes) {
+      expect(m.transcriptionModel).toBe("auto");
+    }
+  });
 });
