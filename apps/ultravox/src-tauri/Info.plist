@@ -3,6 +3,8 @@
 <plist version="1.0">
 <dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Ultravox records your voice to transcribe dictation into any text field.</string>
+    <string>Ultravox uses your microphone to record dictation that gets transcribed into the focused text field.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Ultravox briefly pauses Music and Spotify while you record so they don't interfere with your dictation.</string>
 </dict>
 </plist>

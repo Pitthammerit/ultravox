@@ -74,8 +74,11 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange }: Mode
     setConfirmingDelete(false);
     setSlugTouched(false);
     setSlugInput(isNew ? "" : original.id);
+    // Re-init when modeId changes OR when the duplicate seed changes — clicking
+    // Duplicate on a different row swaps seedDraft.id without modeId changing
+    // (it stays "__duplicate__"), so we must depend on the seed id too.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modeId]);
+  }, [modeId, seedDraft?.id]);
 
   // Auto-derive slug from name while the user hasn't touched the slug field.
   useEffect(() => {

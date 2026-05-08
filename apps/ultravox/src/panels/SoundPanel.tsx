@@ -44,12 +44,6 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
           onChange={(v) => setSound({ autoGain: v })}
         />
         <ToggleRow
-          label="Echo cancellation"
-          help="Avoid feedback when using speakers near the mic. Ducks other system audio while recording — leave off for normal dictation."
-          checked={sound.echoCancellation}
-          onChange={(v) => setSound({ echoCancellation: v })}
-        />
-        <ToggleRow
           label="Noise suppression"
           help="Reduce background noise. Mild quality tradeoff."
           checked={sound.noiseSuppression}
@@ -133,7 +127,6 @@ function TestRecordingRow({ settings }: { settings: AppSettings }) {
         audio: {
           autoGainControl: settings.sound.autoGain,
           noiseSuppression: settings.sound.noiseSuppression,
-          echoCancellation: settings.sound.echoCancellation,
         },
       });
 
@@ -254,7 +247,6 @@ function CompareCleanupRow({ settings }: { settings: AppSettings }) {
         audio: {
           autoGainControl: settings.sound.autoGain,
           noiseSuppression: settings.sound.noiseSuppression,
-          echoCancellation: settings.sound.echoCancellation,
         },
       });
       const candidates = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"];

@@ -90,6 +90,15 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
                   e.dataTransfer.effectAllowed = "move";
                   e.dataTransfer.setData("text/plain", m.id);
                 }}
+                onDragEnter={(e) => {
+                  // HTML5 DnD requires preventDefault on dragenter AND dragover
+                  // for the element to be a valid drop target. WebKit (WKWebView)
+                  // is strict about this — without it, onDrop never fires and the
+                  // cursor shows the "no drop" affordance.
+                  if (!dragId || dragId === m.id) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                }}
                 onDragOver={(e) => {
                   if (!dragId || dragId === m.id) return;
                   e.preventDefault();
