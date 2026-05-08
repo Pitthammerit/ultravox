@@ -58,6 +58,11 @@ export default function App() {
       }
     }).then((u) => unsubs.push(u));
 
+    listen("settings:launch-onboarding", async () => {
+      try { await unregisterAllHotkeys(); } catch (e) { console.warn("unregister hotkeys failed:", e); }
+      setShowOnboarding(true);
+    }).then((u) => unsubs.push(u));
+
     return () => { for (const u of unsubs) u(); };
   }, []);
 

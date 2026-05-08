@@ -288,6 +288,22 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
             </Button>
           }
         />
+        <Row
+          label="Onboarding wizard"
+          help="Re-open the setup wizard. Your settings are preserved."
+          control={
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={async () => {
+                await onChange?.({ onboardingComplete: false, onboardingStep: 0 });
+                await emit("settings:launch-onboarding");
+              }}
+            >
+              Launch
+            </Button>
+          }
+        />
       </Section>
 
       <DiagnosticsSection />
