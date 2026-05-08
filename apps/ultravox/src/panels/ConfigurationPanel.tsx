@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
-import { Button, Row, Section, ToggleRow, tokens } from "../components/ui";
+import { Button, Row, Section, Select, ToggleRow, tokens } from "../components/ui";
 import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission, claudeCodeCheck, type ClaudeCodeStatus } from "../lib/tauri-bridge";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 
@@ -197,6 +197,23 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
             if (onChange) await onChange({ useClaudeCode: next });
           }}
         />
+        {settings?.useClaudeCode && (
+          <Row
+            label="Claude model"
+            help="Haiku is fastest (~2 s). Sonnet balances speed and quality. Opus is most capable but slower."
+            control={
+              <Select<"haiku" | "sonnet" | "opus">
+                value={settings?.claudeModel ?? "sonnet"}
+                onChange={async (v) => { if (onChange) await onChange({ claudeModel: v }); }}
+                options={[
+                  { id: "haiku", label: "Haiku — fastest" },
+                  { id: "sonnet", label: "Sonnet — balanced" },
+                  { id: "opus", label: "Opus — most capable" },
+                ]}
+              />
+            }
+          />
+        )}
       </Section>
 
       <Section label="Maintenance">
