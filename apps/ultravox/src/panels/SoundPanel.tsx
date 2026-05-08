@@ -45,13 +45,13 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
         />
         <ToggleRow
           label="Echo cancellation"
-          description="Avoid feedback when using speakers near the mic. Ducks other system audio while recording — leave off for normal dictation."
+          help="Avoid feedback when using speakers near the mic. Ducks other system audio while recording — leave off for normal dictation."
           checked={sound.echoCancellation}
           onChange={(v) => setSound({ echoCancellation: v })}
         />
         <ToggleRow
           label="Noise suppression"
-          description="Reduce background noise. Mild quality tradeoff."
+          help="Reduce background noise. Mild quality tradeoff."
           checked={sound.noiseSuppression}
           onChange={(v) => setSound({ noiseSuppression: v })}
         />
@@ -66,7 +66,7 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
       <Section label="Sound effects">
         <ToggleRow
           label="Pause music while recording"
-          description="Pause Music and Spotify when a recording starts; resume when it stops."
+          help="Pause Music and Spotify when a recording starts; resume when it stops."
           checked={sound.pauseMediaWhileRecording}
           onChange={(v) => setSound({ pauseMediaWhileRecording: v })}
         />

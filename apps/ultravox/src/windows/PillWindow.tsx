@@ -15,6 +15,8 @@ import {
   setPillPositionTopCenter,
   setPillSizeAtPosition,
   updateMicSubmenu,
+  mediaPause,
+  mediaResume,
 } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
 import { appendHistory, loadSettings, patchSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
@@ -401,15 +403,38 @@ export default function PillWindow() {
     if (state === "idle") invoke("hide_pill").catch(() => {});
   }, [settings, state]);
 
-  /* ── Error display — sticky until user dismisses with Esc ───── */
+  /* ── Error display — sticky until user dismisses with Esc / click ──
+   *
+   * In compact mode the window is COMPACT_W × COMPACT_H, but the error
+   * branch falls through to the full-pill JSX (see render guard). Without
+   * resizing, the full pill renders into the tiny compact window and the
+   * user sees a clipped fragment ("error") with no way to interact —
+   * effectively stuck. Resize back to PILL_W × PILL_H so the full message
+   * + Dismiss hint are visible and the window can become key for Esc.
+   */
   const showError = useCallback((msg: string) => {
     console.error("[pill] showError:", msg);
     setErrorMsg(msg);
     setState("error");
+    if (compact) {
+      setPillPositionTopCenter(PILL_W, PILL_H).catch(() => {});
+    }
     invoke("show_pill").catch(() => {});
-    // No auto-hide. User dismisses by pressing Esc (handled below)
-    // or by triggering a new recording.
-  }, []);
+  }, [compact]);
+
+  const dismissError = useCallback(() => {
+    setView("pill");
+    setState("idle");
+    if (compact) {
+      const cp = settings?.pillCompactPosition;
+      if (cp) {
+        setPillSizeAtPosition(COMPACT_W, COMPACT_H, cp.x, cp.y).catch(() => {});
+      } else {
+        setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
+      }
+    }
+    invoke("hide_pill").catch(() => {});
+  }, [compact, settings]);
 
   /* Single Esc / discard handler — was previously TWO competing
      listeners (one universal "abort and hide", one recording-specific
@@ -435,6 +460,9 @@ export default function PillWindow() {
         if (k === "Escape" || k === "Enter") {
           e.preventDefault();
           recorder.cancel();
+          if (settings?.sound.pauseMediaWhileRecording) {
+            mediaResume().catch(() => {});
+          }
           setState("idle");
           invoke("hide_pill").catch(() => {});
           return;
@@ -447,14 +475,18 @@ export default function PillWindow() {
         setState("discardConfirm");
         return;
       }
-      // idle / error / modes-view → just hide.
+      if (state === "error") {
+        dismissError();
+        return;
+      }
+      // idle / modes-view → just hide.
       setView("pill");
       setState("idle");
       invoke("hide_pill").catch(() => {});
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state, recorder]);
+  }, [state, recorder, settings, dismissError]);
 
   /* ── Recording ──────────────────────────────────────────────── */
   const startRecord = useCallback(async () => {
@@ -481,6 +513,15 @@ export default function PillWindow() {
       };
       if (micId) constraints.deviceId = { exact: micId };
       await recorder.start(constraints);
+      // Pause music AFTER mic stream is live, so the AVAudioSession the
+      // browser opened is fully active before any AppleScript pause runs.
+      // This avoids macOS reordering events such that the pause invalidates
+      // the just-opened input stream.
+      if (cur?.sound.pauseMediaWhileRecording) {
+        mediaPause().catch((err) =>
+          logDebug("error", { message: `mediaPause: ${(err as Error).message?.slice(0, 200)}` }),
+        );
+      }
       setState("recording");
     } catch (e) {
       captureError(e, { stage: "start" });
@@ -496,6 +537,11 @@ export default function PillWindow() {
   const stopAndTranscribe = useCallback(async () => {
     console.log("[pill] stopAndTranscribe begin");
     setState("transcribing");
+    if (settings?.sound.pauseMediaWhileRecording) {
+      mediaResume().catch((err) =>
+        logDebug("error", { message: `mediaResume: ${(err as Error).message?.slice(0, 200)}` }),
+      );
+    }
     // Hold the Transcribing label visible for at least 600ms so it's
     // perceptible even when the worker / claude-code returns instantly.
     // Otherwise the user just sees a flash, then the idle dots, and
@@ -579,9 +625,12 @@ export default function PillWindow() {
   }, []);
   const confirmDiscard = useCallback(() => {
     recorder.cancel();
+    if (settings?.sound.pauseMediaWhileRecording) {
+      mediaResume().catch(() => {});
+    }
     setState("idle");
     invoke("hide_pill").catch(() => {});
-  }, [recorder]);
+  }, [recorder, settings]);
   const resumeRecording = useCallback(() => {
     setState("recording");
   }, []);
@@ -783,9 +832,11 @@ export default function PillWindow() {
         {/* Top area: waveform / ticker / discard-confirm / error */}
         {state === "error" ? (
           <div
-            data-tauri-drag-region
             className="w-full flex items-center px-4"
-            style={{ height: WAVE_H, cursor: "grab" }}
+            style={{ height: WAVE_H, cursor: "pointer" }}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={dismissError}
+            title="Click to dismiss"
           >
             <span
               className="text-[11px] leading-snug"
@@ -947,7 +998,7 @@ export default function PillWindow() {
               />
             )}
             {state === "error" && (
-              <HintRow label="Dismiss" keys={["ESC"]} />
+              <HintRow label="Dismiss" keys={["ESC"]} onClick={dismissError} ariaLabel="Dismiss error" />
             )}
             {state === "idle" && view === "pill" && (
               <HintRow
