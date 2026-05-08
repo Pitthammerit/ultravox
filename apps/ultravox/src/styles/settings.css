@@ -117,15 +117,17 @@ body[data-route="settings"] #root {
 }
 
 @keyframes s-wave-pulse {
-  0%, 100% { transform: scaleY(1); }
-  50%       { transform: scaleY(1.8); }
+  0%   { transform: scaleY(1); }
+  25%  { transform: scaleY(1.5); }
+  50%  { transform: scaleY(1.9); }
+  75%  { transform: scaleY(1.5); }
+  100% { transform: scaleY(1); }
 }
 
 .s-wave-bar {
   transform-origin: center;
 }
 
-/* Trigger on header hover — each bar already has its animationDelay inline */
 .s-wave-bar.s-wave-active {
-  animation: s-wave-pulse var(--s-wave-dur, 1.5s) ease-in-out 1;
+  animation: s-wave-pulse 2s linear 1;
 }

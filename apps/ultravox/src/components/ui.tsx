@@ -54,8 +54,8 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
     if (waveTimer.current) clearTimeout(waveTimer.current);
     setWaveKey((k) => k + 1);
     setWaveActive(true);
-    // 1900ms covers the longest bar duration (max ~1.8 s)
-    waveTimer.current = setTimeout(() => setWaveActive(false), 1900);
+    // 2500ms = 2000ms animation + 300ms max stagger + 200ms buffer
+    waveTimer.current = setTimeout(() => setWaveActive(false), 2500);
   }, []);
 
   return (
@@ -129,9 +129,8 @@ function HeaderWaveform({ active }: { active: boolean }) {
             background: "var(--s-header-wave)",
             borderRadius: 1,
             opacity: 0.6,
-            // Pseudo-random delay and duration per bar for organic feel
-            animationDelay: `-${(Math.abs(Math.sin(i * 1.7 + 0.3)) * 1.5).toFixed(3)}s`,
-            ["--s-wave-dur" as string]: `${(1.2 + Math.abs(Math.sin(i * 2.3)) * 0.6).toFixed(3)}s`,
+            // Positive stagger so every bar starts from rest and does its full curve
+            animationDelay: `${(Math.abs(Math.sin(i * 1.7 + 0.3)) * 0.3).toFixed(3)}s`,
           }}
         />
       ))}
