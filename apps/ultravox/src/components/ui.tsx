@@ -90,7 +90,7 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
  *  there are no bars extending downward. */
 function HeaderWaveform({ active }: { active: boolean }) {
   const HALF = 30;
-  const MAX_H = 14; // max bar height in px (upward only)
+  const MAX_H = 6; // max bar height in px (upward only)
   const rightHalf = Array.from({ length: HALF }, (_, i) => {
     const dist = i / (HALF - 1);
     const envelope = 1 - dist * 0.78;
