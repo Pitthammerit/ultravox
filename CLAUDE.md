@@ -122,7 +122,7 @@ The same approach carries over here: copy `source-material/styles/tokens.css` in
 
 **Colors:** Use Tailwind token classes (`text-color-primary`, `bg-color-primary/20`, `border-color-secondary/30`). When a value must be inline, use `color-mix(in srgb, var(--token) 20%, transparent)`. Hardcoded RGB never acceptable.
 
-**Iteration workflow:** After completing a task: `git commit && git push origin main`. Update the corresponding checkbox in `docs/implementation-plan.md`.
+**Iteration workflow:** After completing each shipped change — bump version (see Versioning below), `git add -A && git commit && git push origin <current-branch>`. Don't ask before pushing ordinary feature/fix iterations; the user expects every increment to land on GitHub immediately. Use `git rev-parse --abbrev-ref HEAD` if unsure of the branch (currently `v1-open-tasks` — when this changes, update this line). Update the corresponding checkbox in `docs/implementation-plan.md` if relevant.
 
 **Cross-runtime helpers:** When a function is needed in both React and Rust, prefer two parallel implementations (TS + Rust) over an FFI bridge unless performance demands otherwise. The bka2brain `app/shared/` pattern (one canonical implementation re-exported to both ends) only works in pure-JS contexts.
 
