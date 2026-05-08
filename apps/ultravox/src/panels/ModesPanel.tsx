@@ -1,5 +1,6 @@
+import { useState } from "react";
 import type { AppSettings } from "../lib/store-bridge";
-import { CLEANUP_VARIANTS, LANGUAGES } from "../lib/voiceModes";
+import { CLEANUP_VARIANTS, LANGUAGES, type VoiceMode } from "../lib/voiceModes";
 import { Button, Section, tokens } from "../components/ui";
 import ModeForm from "./ModeEditor";
 
@@ -8,17 +9,66 @@ interface ModesPanelProps {
   onChange: (patch: Partial<AppSettings>) => Promise<void>;
 }
 
+type DropEdge = "before" | "after";
+
 export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
   const activeId = settings.activeModeId;
   const activeMode =
     settings.modes.find((m) => m.id === activeId) ?? settings.modes[0]!;
+
+  // Transient draft seed for the duplicate flow. Lives only in the panel —
+  // never persisted until the user explicitly clicks Save in the editor.
+  const [pendingDuplicate, setPendingDuplicate] = useState<VoiceMode | null>(null);
+
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; edge: DropEdge } | null>(null);
+
+  const reorder = async (fromId: string, toId: string, edge: DropEdge) => {
+    if (fromId === toId) return;
+    const fromIdx = settings.modes.findIndex((m) => m.id === fromId);
+    const toIdx = settings.modes.findIndex((m) => m.id === toId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const next = settings.modes.slice();
+    const [moved] = next.splice(fromIdx, 1);
+    if (!moved) return;
+    let insertIdx = next.findIndex((m) => m.id === toId);
+    if (edge === "after") insertIdx += 1;
+    if (insertIdx === fromIdx) return;
+    next.splice(insertIdx, 0, moved);
+    if (next.map((m) => m.id).join("|") === settings.modes.map((m) => m.id).join("|")) return;
+    await onChange({ modes: next });
+  };
+
+  const duplicate = (m: VoiceMode) => {
+    const seed: VoiceMode = {
+      ...m,
+      id: `custom-${crypto.randomUUID().slice(0, 8)}`,
+      name: `${m.name} copy`,
+    };
+    setPendingDuplicate(seed);
+    void onChange({ activeModeId: "__duplicate__" });
+  };
+
+  const startNew = () => {
+    setPendingDuplicate(null);
+    void onChange({ activeModeId: "__new__" });
+  };
+
+  const handleEditorChange = async (patch: Partial<AppSettings>) => {
+    // Once the draft commits (modes array grew or activeModeId moved off the
+    // sentinel), drop the pending seed.
+    if (patch.modes || (patch.activeModeId && patch.activeModeId !== "__duplicate__")) {
+      setPendingDuplicate(null);
+    }
+    await onChange(patch);
+  };
 
   return (
     <>
       <Section
         label="Active mode"
         right={
-          <Button size="xs" variant="outline" onClick={() => onChange({ activeModeId: "__new__" })}>
+          <Button size="xs" variant="outline" onClick={startNew}>
             + New
           </Button>
         }
@@ -26,56 +76,189 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         <div className="flex flex-col gap-1">
           {settings.modes.map((m) => {
             const selected = m.id === activeId;
+            const isDragging = dragId === m.id;
+            const showDropEdge =
+              dropTarget && dropTarget.id === m.id && dragId !== m.id
+                ? dropTarget.edge
+                : null;
             return (
-              <button
+              <div
                 key={m.id}
-                onClick={() => onChange({ activeModeId: m.id })}
+                draggable
+                onDragStart={(e) => {
+                  setDragId(m.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", m.id);
+                }}
+                onDragOver={(e) => {
+                  if (!dragId || dragId === m.id) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const edge: DropEdge =
+                    e.clientY < rect.top + rect.height / 2 ? "before" : "after";
+                  if (
+                    !dropTarget ||
+                    dropTarget.id !== m.id ||
+                    dropTarget.edge !== edge
+                  ) {
+                    setDropTarget({ id: m.id, edge });
+                  }
+                }}
+                onDragLeave={(e) => {
+                  // Only clear when leaving the row entirely (not children).
+                  const related = e.relatedTarget as Node | null;
+                  if (related && e.currentTarget.contains(related)) return;
+                  if (dropTarget?.id === m.id) setDropTarget(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const fromId = dragId ?? e.dataTransfer.getData("text/plain");
+                  const edge =
+                    dropTarget?.id === m.id ? dropTarget.edge : "after";
+                  setDragId(null);
+                  setDropTarget(null);
+                  if (fromId) void reorder(fromId, m.id, edge);
+                }}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setDropTarget(null);
+                }}
                 className="flex items-center gap-2 w-full text-left px-3 py-1.5 rounded-lg transition-colors hover:bg-[var(--s-card-hover)]"
                 style={{
                   background: tokens.card,
                   border: `1px solid ${selected ? tokens.fg : tokens.border}`,
+                  opacity: isDragging ? 0.5 : 1,
+                  borderTop:
+                    showDropEdge === "before"
+                      ? `2px solid var(--color-primary)`
+                      : `1px solid ${selected ? tokens.fg : tokens.border}`,
+                  borderBottom:
+                    showDropEdge === "after"
+                      ? `2px solid var(--color-primary)`
+                      : `1px solid ${selected ? tokens.fg : tokens.border}`,
+                  cursor: isDragging ? "grabbing" : "default",
                 }}
               >
                 <span
-                  className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full shrink-0"
+                  title="Drag to reorder"
+                  aria-hidden="true"
+                  className="select-none shrink-0"
                   style={{
-                    border: `1.5px solid ${selected ? tokens.fg : tokens.borderStrong}`,
+                    color: tokens.fgSubtle,
+                    fontSize: 12,
+                    lineHeight: 1,
+                    cursor: "grab",
+                    letterSpacing: "-1px",
                   }}
                 >
-                  {selected && (
-                    <span
-                      className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: tokens.fg }}
-                    />
-                  )}
+                  ⋮⋮
                 </span>
-                <span
-                  className="text-[12.5px] font-medium truncate"
-                  style={{ color: tokens.fg }}
+                <button
+                  type="button"
+                  onClick={() => onChange({ activeModeId: m.id })}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                  style={{ background: "transparent", border: "none", padding: 0 }}
                 >
-                  {m.name}
-                </span>
-                <span
-                  className="text-[11px] truncate ml-auto"
-                  style={{ color: tokens.fgMuted }}
+                  <span
+                    className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full shrink-0"
+                    style={{
+                      border: `1.5px solid ${selected ? tokens.fg : tokens.borderStrong}`,
+                    }}
+                  >
+                    {selected && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: tokens.fg }}
+                      />
+                    )}
+                  </span>
+                  <span
+                    className="text-[12.5px] font-medium truncate"
+                    style={{ color: tokens.fg }}
+                  >
+                    {m.name}
+                  </span>
+                  <span
+                    className="text-[11px] truncate ml-auto"
+                    style={{ color: tokens.fgMuted }}
+                  >
+                    {cleanupLabel(m.cleanup)} · {langLabel(m.language)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    duplicate(m);
+                  }}
+                  title="Duplicate this mode"
+                  aria-label={`Duplicate ${m.name}`}
+                  className="shrink-0 inline-flex items-center justify-center rounded transition-colors"
+                  style={{
+                    width: 22,
+                    height: 22,
+                    color: tokens.fgMuted,
+                    background: "transparent",
+                    border: `1px solid transparent`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = tokens.control;
+                    e.currentTarget.style.borderColor = tokens.border;
+                    e.currentTarget.style.color = tokens.fg;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.borderColor = "transparent";
+                    e.currentTarget.style.color = tokens.fgMuted;
+                  }}
                 >
-                  {cleanupLabel(m.cleanup)} · {langLabel(m.language)}
-                </span>
-              </button>
+                  <DuplicateIcon />
+                </button>
+              </div>
             );
           })}
         </div>
       </Section>
 
-      <Section label={activeId === "__new__" ? "New mode" : `Configure — ${activeMode.name}`}>
+      <Section
+        label={
+          activeId === "__new__"
+            ? "New mode"
+            : activeId === "__duplicate__"
+              ? `New mode — copy of ${pendingDuplicate?.name ?? ""}`
+              : `Configure — ${activeMode.name}`
+        }
+      >
         <ModeForm
           key={activeId}
           settings={settings}
           modeId={activeId}
-          onChange={onChange}
+          seedDraft={activeId === "__duplicate__" ? pendingDuplicate : null}
+          onChange={handleEditorChange}
         />
       </Section>
     </>
+  );
+}
+
+function DuplicateIcon() {
+  // Two overlapping rectangles — universal "copy/duplicate" affordance.
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="5" y="5" width="9" height="9" rx="1.5" />
+      <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" />
+    </svg>
   );
 }
 

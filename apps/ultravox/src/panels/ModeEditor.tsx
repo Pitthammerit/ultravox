@@ -26,6 +26,13 @@ import { MODE_ICON_NAMES, ModeGlyph } from "../components/ModeIcons";
 interface ModeFormProps {
   settings: AppSettings;
   modeId: string;
+  /**
+   * Optional seed for the editor's initial draft state. Used by the duplicate
+   * flow (modeId === "__duplicate__") to prefill the form with a copy of an
+   * existing mode without persisting anything to settings.modes until the
+   * user clicks Save. Same draft semantics as the "+ New mode" flow.
+   */
+  seedDraft?: VoiceMode | null;
   onChange: (patch: Partial<AppSettings>) => Promise<void>;
 }
 
@@ -43,16 +50,20 @@ function makeBlankMode(): VoiceMode {
   };
 }
 
-export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) {
-  const isNew = modeId === "__new__";
-  const original =
-    settings.modes.find((m) => m.id === modeId) ?? makeBlankMode();
+export default function ModeForm({ settings, modeId, seedDraft, onChange }: ModeFormProps) {
+  const isNew = modeId === "__new__" || modeId === "__duplicate__";
+  const isDuplicate = modeId === "__duplicate__";
+  const original = isDuplicate
+    ? (seedDraft ?? makeBlankMode())
+    : (settings.modes.find((m) => m.id === modeId) ?? makeBlankMode());
 
   const [draft, setDraft] = useState<VoiceMode>(original);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // For new modes only: tracks whether the user has manually edited the slug.
   // While untouched, the slug field auto-syncs from the name; once touched,
   // it stays as the user typed. Clearing the field resets to untouched.
+  // For duplicate, pre-mark as touched=false so the slug auto-syncs from the
+  // "X copy" name on first render.
   const [slugTouched, setSlugTouched] = useState(false);
   // Live-edited slug for new modes. For existing modes the slug is locked
   // (draft.id is read-only) and this isn't shown.
@@ -62,7 +73,7 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
     setDraft(original);
     setConfirmingDelete(false);
     setSlugTouched(false);
-    setSlugInput(modeId === "__new__" ? "" : original.id);
+    setSlugInput(isNew ? "" : original.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeId]);
 

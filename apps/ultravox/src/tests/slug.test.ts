@@ -39,6 +39,13 @@ describe("uniqueSlug", () => {
   it("excludes currentId from collision set", () => {
     expect(uniqueSlug("foo", ["foo", "bar"], "foo")).toBe("foo");
   });
+
+  it("dedupes a duplicated mode slug — 'sales-emails-copy' next to itself", () => {
+    // Simulates the duplicate flow: original "sales-emails-copy" already
+    // exists, user duplicates it again → should land on "sales-emails-copy-2".
+    const existing = ["email", "sales-emails", "sales-emails-copy"];
+    expect(uniqueSlug("sales-emails-copy", existing)).toBe("sales-emails-copy-2");
+  });
 });
 
 describe("isValidSlug", () => {
