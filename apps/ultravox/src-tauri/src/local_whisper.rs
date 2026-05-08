@@ -94,10 +94,10 @@ fn models_dir() -> Result<PathBuf, String> {
 /// Priority:
 /// 1. If `preferred_variant` is Some and the file exists, use it.
 /// 2. Auto-route based on `language` and `audio_quality`:
-///    - en + low quality:  large-v3-turbo → medium.en → medium → small → base.en → base → tiny
-///    - en + normal:       medium.en → base.en → base → large-v3-turbo → medium → small → tiny
-///    - multilingual + low quality: large-v3-turbo → medium → small → base → tiny
-///    - multilingual + normal:      large-v3-turbo → medium → small → base → tiny
+///    - en + low quality:  large-v3 → large-v3-turbo → medium.en → medium → small → base.en → base → tiny
+///    - en + normal:       medium.en → base.en → base → large-v3-turbo → large-v3 → medium → small → tiny
+///    - multilingual + low quality:  large-v3 → large-v3-turbo → medium → small → base → tiny
+///    - multilingual + normal:       large-v3-turbo → large-v3 → medium → small → base → tiny
 /// 3. Fall back to the first alphabetically if nothing from the priority lists is found.
 fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>, audio_quality: Option<&str>) -> Result<Option<(PathBuf, String)>, String> {
     let dir = models_dir()?;
@@ -129,12 +129,14 @@ fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>, 
             let is_low = audio_quality.map(|q| q.eq_ignore_ascii_case("low")).unwrap_or(false);
 
             let priority: &[&str] = match (is_en, is_low) {
-                // English + low quality: biggest accurate english model first, then general fallbacks
-                (true, true)  => &["large-v3-turbo", "medium.en", "medium", "small", "base.en", "base", "tiny"],
-                // English + normal quality: prefer english-tuned, then multilingual, then large
-                (true, false) => &["medium.en", "base.en", "base", "large-v3-turbo", "medium", "small", "tiny"],
-                // Multilingual (both quality levels): largest first
-                (false, _)    => &["large-v3-turbo", "medium", "small", "base", "tiny"],
+                // English + low quality: biggest model first (ultra beats turbo for hard audio)
+                (true, true)  => &["large-v3", "large-v3-turbo", "medium.en", "medium", "small", "base.en", "base", "tiny"],
+                // English + normal quality: prefer english-tuned, then turbo (faster), then ultra
+                (true, false) => &["medium.en", "base.en", "base", "large-v3-turbo", "large-v3", "medium", "small", "tiny"],
+                // Multilingual + low quality: ultra first (max accuracy for hard audio)
+                (false, true)  => &["large-v3", "large-v3-turbo", "medium", "small", "base", "tiny"],
+                // Multilingual + normal quality: turbo first (good balance of speed + accuracy)
+                (false, false) => &["large-v3-turbo", "large-v3", "medium", "small", "base", "tiny"],
             };
             for variant in priority {
                 let p = dir.join(format!("ggml-{variant}.bin"));
@@ -691,9 +693,10 @@ mod tests {
         let is_low = audio_quality.map(|q| q.eq_ignore_ascii_case("low")).unwrap_or(false);
 
         let priority: &[&str] = match (is_en, is_low) {
-            (true, true)  => &["large-v3-turbo", "medium.en", "medium", "small", "base.en", "base", "tiny"],
-            (true, false) => &["medium.en", "base.en", "base", "large-v3-turbo", "medium", "small", "tiny"],
-            (false, _)    => &["large-v3-turbo", "medium", "small", "base", "tiny"],
+            (true, true)  => &["large-v3", "large-v3-turbo", "medium.en", "medium", "small", "base.en", "base", "tiny"],
+            (true, false) => &["medium.en", "base.en", "base", "large-v3-turbo", "large-v3", "medium", "small", "tiny"],
+            (false, true)  => &["large-v3", "large-v3-turbo", "medium", "small", "base", "tiny"],
+            (false, false) => &["large-v3-turbo", "large-v3", "medium", "small", "base", "tiny"],
         };
         for variant in priority {
             if installed.contains(variant) {
@@ -728,21 +731,33 @@ mod tests {
     }
 
     #[test]
-    fn routing_multilingual_prefers_large_turbo() {
-        let picked = resolve_priority(&["large-v3-turbo", "medium", "small"], None, None);
+    fn routing_multilingual_prefers_large_turbo_over_large_v3_for_normal() {
+        let picked = resolve_priority(&["large-v3", "large-v3-turbo", "medium", "small"], None, Some("normal"));
         assert_eq!(picked.as_deref(), Some("large-v3-turbo"));
     }
 
     #[test]
-    fn routing_multilingual_low_quality_still_prefers_large_turbo() {
-        let picked = resolve_priority(&["large-v3-turbo", "medium", "base"], None, Some("low"));
-        assert_eq!(picked.as_deref(), Some("large-v3-turbo"));
+    fn routing_multilingual_low_quality_prefers_large_v3_over_turbo() {
+        let picked = resolve_priority(&["large-v3", "large-v3-turbo", "medium", "base"], None, Some("low"));
+        assert_eq!(picked.as_deref(), Some("large-v3"));
     }
 
     #[test]
-    fn routing_multilingual_falls_back_to_medium_without_large_turbo() {
+    fn routing_multilingual_falls_back_to_medium_without_large_models() {
         let picked = resolve_priority(&["medium", "small", "base"], None, Some("low"));
         assert_eq!(picked.as_deref(), Some("medium"));
+    }
+
+    #[test]
+    fn routing_en_low_quality_prefers_large_v3_over_turbo() {
+        let picked = resolve_priority(&["large-v3", "large-v3-turbo", "medium.en"], Some("en"), Some("low"));
+        assert_eq!(picked.as_deref(), Some("large-v3"));
+    }
+
+    #[test]
+    fn routing_multilingual_normal_falls_back_to_large_v3_when_no_turbo() {
+        let picked = resolve_priority(&["large-v3", "medium", "small"], None, Some("normal"));
+        assert_eq!(picked.as_deref(), Some("large-v3"));
     }
 
     #[test]
