@@ -112,16 +112,18 @@ pub fn claude_code_check() -> ClaudeCodeStatus {
 /// that. If Claude Code hangs (network, auth dialog), we abort and the
 /// caller falls back to the worker.
 #[tauri::command]
-pub fn claude_code_cleanup(prompt: String) -> Result<String, String> {
+pub fn claude_code_cleanup(prompt: String, model: Option<String>) -> Result<String, String> {
     let bin = find_claude_binary().ok_or("claude CLI not found")?;
 
     // --tools ""            disables all built-in tools (no file writes, no shell)
     // --strict-mcp-config   only load MCPs from --mcp-config, ignoring global config
     // --mcp-config {...}     empty server list → no MCPs at all (prevents Serena,
     //                        browser-based MCP servers, etc. from being loaded)
+    let model_str = model.unwrap_or_else(|| "sonnet".to_string());
     let mut child = Command::new(&bin)
         .arg("-p")
         .arg(&prompt)
+        .args(["--model", &model_str])
         .args(["--tools", ""])
         .args(["--strict-mcp-config", "--mcp-config", r#"{"mcpServers":{}}"#])
         .env("PATH", augmented_path())

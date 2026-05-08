@@ -70,12 +70,6 @@ export interface AppSettings {
    *  mouseup after a compact-pill drag so the pill reopens where the user
    *  left it instead of always defaulting to top-center. */
   pillCompactPosition?: { x: number; y: number };
-  /** Route LLM cleanup through the local `claude` CLI (Claude Code) instead
-   *  of the managed Cloudflare Voice Worker. Falls back to the worker if the
-   *  CLI is missing, not logged in, or times out. Off by default — the
-   *  Configuration panel exposes a toggle for users who have a Max plan
-   *  and Claude Code installed. */
-  useClaudeCode?: boolean;
   /** Selected mic input device id (from navigator.mediaDevices.enumerateDevices).
    *  null/undefined = system default. Settable from the tray's Microphone
    *  Settings submenu. */
@@ -132,15 +126,28 @@ const MODEL_ID_MIGRATIONS: Record<string, string> = {
   "anthropic/claude-sonnet-4-5": "anthropic/claude-sonnet-4.5",
 };
 
+const VALID_PROVIDERS = new Set(["openrouter", "claude-code", "none"]);
+
 function migrateModes(modes: VoiceMode[]): { modes: VoiceMode[]; changed: boolean } {
   let changed = false;
   const next = modes.map((m) => {
+    let updated = m;
     const target = m.languageModel ? MODEL_ID_MIGRATIONS[m.languageModel] : undefined;
     if (target) {
       changed = true;
-      return { ...m, languageModel: target };
+      updated = { ...updated, languageModel: target };
     }
-    return m;
+    // Normalize unknown / removed providers (e.g. legacy "gemini" / "claude")
+    // to the managed OpenRouter path so existing modes keep working.
+    if (!VALID_PROVIDERS.has(updated.languageModelProvider as string)) {
+      changed = true;
+      updated = {
+        ...updated,
+        languageModelProvider: "openrouter",
+        languageModel: updated.languageModel ?? "anthropic/claude-haiku-4.5",
+      };
+    }
+    return updated;
   });
   return { modes: next, changed };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import {
   CLEANUP_VARIANTS,
@@ -9,6 +9,7 @@ import {
   type VoiceCleanup,
   type VoiceMode,
 } from "../lib/voiceModes";
+import { defaultTemplateFor, PROMPT_VARIABLES } from "../lib/cleanupTemplates";
 import {
   Button,
   Field,
@@ -201,22 +202,13 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
       </Group>
 
       {usesCleanup && (
-        <div>
-          <div
-            className="text-[10.5px] uppercase tracking-[0.14em] font-medium mb-1 px-1"
-            style={{ color: tokens.fgMuted }}
-          >
-            Custom prompt
-          </div>
-          <Textarea
-            value={draft.promptSuffix ?? ""}
-            onChange={(promptSuffix) =>
-              setDraft({ ...draft, promptSuffix: promptSuffix || null })
-            }
-            placeholder="e.g. Use British spelling. Avoid contractions."
-            rows={3}
-          />
-        </div>
+        <CleanupPromptEditor
+          cleanup={draft.cleanup}
+          value={draft.systemPrompt ?? null}
+          onChange={(systemPrompt) =>
+            setDraft({ ...draft, systemPrompt: systemPrompt && systemPrompt.length > 0 ? systemPrompt : null })
+          }
+        />
       )}
 
       {confirmingDelete ? (
@@ -249,6 +241,112 @@ export default function ModeForm({ settings, modeId, onChange }: ModeFormProps) 
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Editable cleanup-prompt textarea. Seeded from the per-style default template;
+ * tracks whether the user has diverged so we can offer "Reset to default".
+ *
+ * The ANTI_CHAT_PREAMBLE safety frame is NOT shown here — it's prepended
+ * server-side on every request and not user-editable.
+ */
+function CleanupPromptEditor({
+  cleanup,
+  value,
+  onChange,
+}: {
+  cleanup: VoiceCleanup;
+  value: string | null;
+  onChange: (next: string | null) => void;
+}) {
+  const defaultText = defaultTemplateFor(cleanup);
+  const effective = value ?? defaultText;
+  const isModified = value != null && value !== defaultText;
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const insertVariable = (name: string) => {
+    const ta = textareaRef.current;
+    const placeholder = `{{${name}}}`;
+    const current = effective;
+    if (!ta) {
+      onChange(current + placeholder);
+      return;
+    }
+    const start = ta.selectionStart ?? current.length;
+    const end = ta.selectionEnd ?? current.length;
+    const next = current.slice(0, start) + placeholder + current.slice(end);
+    onChange(next);
+    // restore cursor after the inserted placeholder on next paint
+    requestAnimationFrame(() => {
+      ta.focus();
+      const pos = start + placeholder.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  };
+
+  const reset = () => onChange(null);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1 px-1">
+        <div
+          className="text-[10.5px] uppercase tracking-[0.14em] font-medium"
+          style={{ color: tokens.fgMuted }}
+        >
+          Cleanup instructions
+        </div>
+        <div className="flex items-center gap-2">
+          {isModified && (
+            <span
+              className="text-[10.5px] font-medium"
+              style={{ color: "var(--color-warning)" }}
+              title="You've edited this from the default. Click Reset to restore."
+            >
+              Modified
+            </span>
+          )}
+          {isModified && (
+            <button
+              type="button"
+              onClick={reset}
+              className="text-[11px] underline"
+              style={{ color: tokens.fgMuted }}
+            >
+              Reset to default
+            </button>
+          )}
+        </div>
+      </div>
+      <Textarea
+        ref={textareaRef}
+        value={effective}
+        onChange={(next) => onChange(next === defaultText ? null : next)}
+        placeholder="Describe how the AI should clean up your dictated text…"
+        rows={10}
+      />
+      <div className="flex items-center flex-wrap gap-1.5 mt-1.5 px-1">
+        <span className="text-[10.5px]" style={{ color: tokens.fgSubtle }}>
+          Insert variable:
+        </span>
+        {PROMPT_VARIABLES.map((v) => (
+          <button
+            key={v.name}
+            type="button"
+            onClick={() => insertVariable(v.name)}
+            title={`${v.description} — e.g. "${v.example}"`}
+            className="font-mono text-[10.5px] px-1.5 py-0.5 rounded transition-colors"
+            style={{
+              background: tokens.control,
+              border: `1px solid ${tokens.border}`,
+              color: tokens.fg,
+            }}
+          >
+            {`{{${v.name}}}`}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -481,7 +481,8 @@ export default function PillWindow() {
         mode,
         vocabulary: settings?.vocabulary ?? [],
         tokenEndpoint: TOKEN_ENDPOINT,
-        useClaudeCode: settings?.useClaudeCode === true,
+        ...(settings?.userName ? { userName: settings.userName } : {}),
+        ...(frontmost ? { frontmostApp: frontmost } : {}),
       });
       console.log("[pill] transcribe result.text length:", result.text.length);
       track("transcription.completed", { modeId: mode.id, length: result.text.length });

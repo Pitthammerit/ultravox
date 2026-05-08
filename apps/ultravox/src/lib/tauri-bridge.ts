@@ -116,6 +116,6 @@ export async function claudeCodeCheck(): Promise<ClaudeCodeStatus> {
 
 /** Run the Claude Code CLI with a one-shot prompt. Returns the model's
  *  stdout. Throws if the CLI is missing, not authenticated, or times out. */
-export async function claudeCodeCleanup(prompt: string): Promise<string> {
-  return invoke<string>("claude_code_cleanup", { prompt });
+export async function claudeCodeCleanup(prompt: string, model?: string): Promise<string> {
+  return invoke<string>("claude_code_cleanup", { prompt, model: model ?? null });
 }

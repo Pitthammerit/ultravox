@@ -5,7 +5,7 @@
  * (--s-* tokens). Inline styles are used intentionally — they're immune
  * to Tailwind v4's compilation quirks with token-based utility classes.
  */
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 const T = {
   page: "var(--s-page)",
@@ -694,19 +694,18 @@ export function Select<T extends string>({
    TEXTAREA
    ───────────────────────────────────────────────────────────── */
 
-export function Textarea({
-  value,
-  onChange,
-  placeholder,
-  rows = 3,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  rows?: number;
-}) {
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  {
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    rows?: number;
+  }
+>(function Textarea({ value, onChange, placeholder, rows = 3 }, ref) {
   return (
     <textarea
+      ref={ref}
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
@@ -722,7 +721,7 @@ export function Textarea({
       }}
     />
   );
-}
+});
 
 /* ─────────────────────────────────────────────────────────────
    HOTKEY CHIP

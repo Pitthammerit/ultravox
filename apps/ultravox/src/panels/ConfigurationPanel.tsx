@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
-import { Button, Row, Section, Select, ToggleRow, tokens } from "../components/ui";
+import { Button, Row, Section, tokens } from "../components/ui";
 import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission, claudeCodeCheck, type ClaudeCodeStatus } from "../lib/tauri-bridge";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 
@@ -35,7 +35,7 @@ async function requestMicrophonePermission(): Promise<boolean> {
   }
 }
 
-export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
+export default function ConfigurationPanel(_props: ConfigurationPanelProps) {
   const [axGranted, setAxGranted] = useState<boolean | null>(null);
   const [axRequesting, setAxRequesting] = useState(false);
   const [micState, setMicState] = useState<MicState>("unknown");
@@ -173,12 +173,12 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
       </Section>
 
       <Section
-        label="AI cleanup backend"
-        help="By default Ultravox sends transcripts to our managed cleanup service. If you have the Anthropic Claude Code CLI installed and signed-in to a Max plan, you can route the cleanup pass through it instead — uses your subscription rather than our pooled service. We auto-fall-back to the managed path on any failure so you'll never get a broken transcription."
+        label="Cleanup backends"
+        help="Per-mode cleanup is configured in the Modes panel. Each mode picks its own provider — OpenRouter (managed) or Claude Code (local CLI). This section just reports whether the local CLI is available."
       >
         <Row
           label="Claude Code CLI"
-          help={claudeStatus?.path ? `Detected at ${claudeStatus.path}` : "Install Claude Code (https://claude.ai/code) and run `claude /login` once to enable."}
+          help={claudeStatus?.path ? `Detected at ${claudeStatus.path}` : "Install Claude Code (https://claude.ai/code) and run `claude /login` once to enable, then select it as a provider in any Mode."}
           control={
             <span style={{ fontSize: 12, color: claudeStatus?.available ? "var(--color-accent)" : tokens.fgMuted }}>
               {claudeStatus == null
@@ -189,31 +189,6 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
             </span>
           }
         />
-        <ToggleRow
-          label="Use Claude Code for cleanup"
-          help="Route the LLM cleanup step through your locally-installed `claude` CLI (Max plan) instead of our managed service. Falls back automatically if the CLI is missing, not signed in, or times out."
-          checked={settings?.useClaudeCode === true}
-          onChange={async (next) => {
-            if (onChange) await onChange({ useClaudeCode: next });
-          }}
-        />
-        {settings?.useClaudeCode && (
-          <Row
-            label="Claude model"
-            help="Haiku is fastest (~2 s). Sonnet balances speed and quality. Opus is most capable but slower."
-            control={
-              <Select<"haiku" | "sonnet" | "opus">
-                value={settings?.claudeModel ?? "sonnet"}
-                onChange={async (v) => { if (onChange) await onChange({ claudeModel: v }); }}
-                options={[
-                  { id: "haiku", label: "Haiku — fastest" },
-                  { id: "sonnet", label: "Sonnet — balanced" },
-                  { id: "opus", label: "Opus — most capable" },
-                ]}
-              />
-            }
-          />
-        )}
       </Section>
 
       <Section label="Maintenance">

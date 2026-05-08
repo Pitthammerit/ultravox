@@ -3,21 +3,32 @@ export type VoiceModelId =
   | "whisper-large-v3-turbo"
   | "whisper-small"
   | "whisper-tiny";
-export type LanguageModelProvider = "openrouter" | "gemini" | "claude" | "none";
+export type LanguageModelProvider = "openrouter" | "claude-code" | "none";
 
 export const LANGUAGE_MODEL_PROVIDERS: Array<{ id: LanguageModelProvider; label: string }> = [
-  { id: "openrouter", label: "OpenRouter" },
-  { id: "none",       label: "No cleanup" },
+  { id: "openrouter",  label: "OpenRouter (managed)" },
+  { id: "claude-code", label: "Claude Code (local CLI)" },
+  { id: "none",        label: "No cleanup" },
 ];
 
 export const LANGUAGE_MODELS: Record<string, Array<{ id: string; label: string; speed: string; accuracy: string }>> = {
   openrouter: [
-    { id: "anthropic/claude-haiku-4.5",  label: "Claude Haiku 4.5",  speed: "fast",    accuracy: "high" },
-    { id: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", speed: "medium",  accuracy: "highest" },
-    { id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6", speed: "medium",  accuracy: "highest" },
-    { id: "anthropic/claude-opus-4.7",   label: "Claude Opus 4.7",   speed: "slow",    accuracy: "highest" },
-    { id: "openai/gpt-4o-mini",          label: "GPT-4o mini",       speed: "fast",    accuracy: "high" },
-    { id: "google/gemini-2.5-flash",     label: "Gemini 2.5 Flash",  speed: "fastest", accuracy: "medium" },
+    { id: "anthropic/claude-haiku-4.5",                   label: "Claude Haiku 4.5",        speed: "fast",    accuracy: "high" },
+    { id: "anthropic/claude-sonnet-4.5",                  label: "Claude Sonnet 4.5",       speed: "medium",  accuracy: "highest" },
+    { id: "anthropic/claude-sonnet-4.6",                  label: "Claude Sonnet 4.6",       speed: "medium",  accuracy: "highest" },
+    { id: "anthropic/claude-opus-4.7",                    label: "Claude Opus 4.7",         speed: "slow",    accuracy: "highest" },
+    { id: "openai/gpt-4o",                                label: "GPT-4o",                  speed: "medium",  accuracy: "highest" },
+    { id: "openai/gpt-4o-mini",                           label: "GPT-4o mini",             speed: "fast",    accuracy: "high" },
+    { id: "amazon/nova-pro-v1",                           label: "Amazon Nova Pro",         speed: "medium",  accuracy: "high" },
+    { id: "amazon/nova-lite-v1",                          label: "Amazon Nova Lite",        speed: "fast",    accuracy: "medium" },
+    { id: "nvidia/llama-3.1-nemotron-70b-instruct",       label: "NVIDIA Nemotron 70B",     speed: "medium",  accuracy: "high" },
+    { id: "google/gemini-2.5-flash",                      label: "Gemini 2.5 Flash",        speed: "fastest", accuracy: "medium" },
+  ],
+  // The Claude Code "model id" is just the alias the local `claude` CLI accepts (`--model`).
+  "claude-code": [
+    { id: "haiku",  label: "Haiku — fastest",       speed: "fastest", accuracy: "high" },
+    { id: "sonnet", label: "Sonnet — balanced",     speed: "medium",  accuracy: "highest" },
+    { id: "opus",   label: "Opus — most capable",   speed: "slow",    accuracy: "highest" },
   ],
   none: [],
 };
@@ -53,6 +64,15 @@ export interface VoiceMode {
   cleanup: VoiceCleanup;
   languageModelProvider: LanguageModelProvider;
   languageModel?: string | null;
+  /**
+   * User-edited cleanup body. When null/empty, the per-style default template
+   * (apps/ultravox/src/lib/cleanupTemplates.ts) is used. When non-empty, it
+   * REPLACES the default body. The worker's ANTI_CHAT_PREAMBLE safety frame
+   * is always prepended server-side regardless.
+   */
+  systemPrompt?: string | null;
+  /** Legacy "additional cleanup context" appended after systemPrompt. Kept for
+   *  back-compat with modes saved before v0.9.15. New modes should use systemPrompt. */
   promptSuffix?: string | null;
   hotkey?: string | null;
   activateWhen?: { panels?: string[]; urls?: string[] };
