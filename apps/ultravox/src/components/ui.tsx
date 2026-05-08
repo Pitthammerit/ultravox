@@ -73,44 +73,52 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
   );
 }
 
-/** Static mirrored waveform separator — same envelope+variance formula as
- *  the pill previews. Right half computed, left half is an exact mirror. */
+/** Mirrored waveform separator. Pill envelope+variance formula, full width.
+ *  On header hover each bar animates with a staggered phase — left→right wave. */
 function HeaderWaveform() {
-  const HALF = 32;
-  const MAX_H = 8;
-  // Compute right half: i=0 = center, i=HALF-1 = right edge
+  const HALF = 30;
+  const MAX_H = 11;
+  // Right half: i=0 = center, i=HALF-1 = edge
   const rightHalf = Array.from({ length: HALF }, (_, i) => {
     const dist = i / (HALF - 1);
-    const envelope = 1 - dist * 0.55;
-    const variance = 0.35 + Math.abs(Math.sin((i + 1) * 0.7) * 0.5 + Math.cos(i * 0.4) * 0.4);
-    return Math.max(1, MAX_H * envelope * Math.min(1, variance));
+    const envelope = 1 - dist * 0.78;  // steeper taper so center bars are clearly taller
+    const variance = 0.4 + Math.abs(Math.sin((i + 1) * 0.7) * 0.5 + Math.cos(i * 0.4) * 0.4);
+    return Math.max(1.5, MAX_H * envelope * Math.min(1, variance));
   });
   const bars = [...[...rightHalf].reverse(), ...rightHalf];
+  const total = bars.length;
+  const ANIM_DURATION = 0.7; // seconds per cycle
 
   return (
     <div
       aria-hidden
+      className="s-header-wave"
       style={{
         position: "absolute",
         bottom: 0,
         left: 0,
         right: 0,
-        height: MAX_H + 1,
+        height: MAX_H + 2,
         display: "flex",
         alignItems: "flex-end",
         gap: 1,
         pointerEvents: "none",
+        overflow: "visible",
       }}
     >
       {bars.map((h, i) => (
         <span
           key={i}
+          className="s-wave-bar"
           style={{
             flex: 1,
             height: h,
             background: "var(--s-header-wave)",
             borderRadius: "1px 1px 0 0",
-            opacity: 0.55,
+            opacity: 0.6,
+            transformOrigin: "bottom center",
+            // Traveling left→right wave: each bar is phase-offset through the cycle
+            animationDelay: `-${(i / total) * ANIM_DURATION}s`,
           }}
         />
       ))}

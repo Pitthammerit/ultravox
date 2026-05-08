@@ -115,3 +115,17 @@ body[data-route="settings"] #root {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@keyframes s-wave-pulse {
+  0%, 100% { transform: scaleY(1); }
+  50%       { transform: scaleY(1.8); }
+}
+
+.s-wave-bar {
+  transform-origin: bottom center;
+}
+
+/* Trigger on header hover — each bar already has its animationDelay inline */
+header:hover .s-wave-bar {
+  animation: s-wave-pulse 0.7s ease-in-out infinite;
+}
