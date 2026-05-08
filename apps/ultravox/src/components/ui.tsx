@@ -73,11 +73,20 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
   );
 }
 
-/** Static mirrored waveform separator — full-width, bottom-aligned, no box. */
+/** Static mirrored waveform separator — same envelope+variance formula as
+ *  the pill previews. Right half computed, left half is an exact mirror. */
 function HeaderWaveform() {
-  // 30 half-bars; mirrored to produce a symmetric waveform
-  const half = [2, 3, 4, 3, 5, 4, 6, 4, 5, 7, 5, 6, 8, 6, 7, 5, 7, 6, 8, 7, 6, 8, 5, 7, 6, 4, 5, 4, 3, 2];
-  const bars = [...half, ...[...half].reverse()];
+  const HALF = 32;
+  const MAX_H = 8;
+  // Compute right half: i=0 = center, i=HALF-1 = right edge
+  const rightHalf = Array.from({ length: HALF }, (_, i) => {
+    const dist = i / (HALF - 1);
+    const envelope = 1 - dist * 0.55;
+    const variance = 0.35 + Math.abs(Math.sin((i + 1) * 0.7) * 0.5 + Math.cos(i * 0.4) * 0.4);
+    return Math.max(1, MAX_H * envelope * Math.min(1, variance));
+  });
+  const bars = [...[...rightHalf].reverse(), ...rightHalf];
+
   return (
     <div
       aria-hidden
@@ -86,7 +95,7 @@ function HeaderWaveform() {
         bottom: 0,
         left: 0,
         right: 0,
-        height: 9,
+        height: MAX_H + 1,
         display: "flex",
         alignItems: "flex-end",
         gap: 1,
