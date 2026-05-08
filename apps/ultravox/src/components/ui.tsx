@@ -207,8 +207,24 @@ export function SectionLabel({
 }
 
 export function HelpIcon({ tooltip }: { tooltip?: string }) {
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const [tipLeft, setTipLeft] = useState<string | null>(null);
+
+  function clampOnEnter() {
+    if (!tipRef.current) return;
+    // The tip is opacity:0 but laid out — measure before transition starts.
+    // Adjust `left` so it never overflows either edge of the viewport.
+    const rect = tipRef.current.getBoundingClientRect();
+    const pad = 8; // px gap from viewport edge
+    const overRight = rect.right - window.innerWidth + pad;
+    const overLeft = pad - rect.left;
+    if (overRight > 0) setTipLeft(`calc(50% - ${overRight}px)`);
+    else if (overLeft > 0) setTipLeft(`calc(50% + ${overLeft}px)`);
+    else setTipLeft(null);
+  }
+
   return (
-    <span className="ux-help inline-flex items-center">
+    <span className="ux-help inline-flex items-center" onMouseEnter={clampOnEnter}>
       <span
         className="inline-flex items-center justify-center cursor-help shrink-0"
         style={{ width: 13, height: 13, color: T.fgSubtle }}
@@ -232,7 +248,16 @@ export function HelpIcon({ tooltip }: { tooltip?: string }) {
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       </span>
-      {tooltip && <span className="ux-help-tip" role="tooltip">{tooltip}</span>}
+      {tooltip && (
+        <span
+          ref={tipRef}
+          className="ux-help-tip"
+          role="tooltip"
+          style={tipLeft ? ({ "--tip-left": tipLeft } as React.CSSProperties) : undefined}
+        >
+          {tooltip}
+        </span>
+      )}
     </span>
   );
 }

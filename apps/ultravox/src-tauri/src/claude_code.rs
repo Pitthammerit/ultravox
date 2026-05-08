@@ -14,6 +14,25 @@ use std::time::Duration;
 
 use serde::Serialize;
 
+/// Build a PATH string that includes common node/tool locations on top of
+/// whatever the process inherited. Tauri apps launch with a minimal PATH
+/// (/usr/bin:/bin only) that misses Homebrew, nvm, volta, fnm, and the
+/// /usr/local/bin node that Claude Code's wrapper script needs to exec.
+fn augmented_path() -> String {
+    let existing = std::env::var("PATH").unwrap_or_default();
+    let extra = [
+        "/usr/local/bin",
+        "/opt/homebrew/bin",
+        "/opt/homebrew/sbin",
+        "/usr/local/sbin",
+    ];
+    let mut parts: Vec<&str> = extra.iter().copied().collect();
+    if !existing.is_empty() {
+        parts.push(&existing);
+    }
+    parts.join(":")
+}
+
 /// Search a small list of well-known install locations for the `claude`
 /// binary. Tauri apps inherit a minimal PATH that often misses Homebrew,
 /// asdf, bun, and similar — so $PATH alone is unreliable here.
@@ -70,6 +89,7 @@ pub fn claude_code_check() -> ClaudeCodeStatus {
 
     let version = Command::new(&bin)
         .arg("--version")
+        .env("PATH", augmented_path())
         .output()
         .ok()
         .and_then(|o| if o.status.success() {
@@ -100,6 +120,7 @@ pub fn claude_code_cleanup(prompt: String) -> Result<String, String> {
     let mut child = Command::new(&bin)
         .arg("-p")
         .arg(&prompt)
+        .env("PATH", augmented_path())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
