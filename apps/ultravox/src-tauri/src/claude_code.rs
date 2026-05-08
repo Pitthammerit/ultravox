@@ -115,11 +115,15 @@ pub fn claude_code_check() -> ClaudeCodeStatus {
 pub fn claude_code_cleanup(prompt: String) -> Result<String, String> {
     let bin = find_claude_binary().ok_or("claude CLI not found")?;
 
-    // Spawn with stdin piped so we can ALSO accept text via stdin if the
-    // prompt is large — but our single-arg path keeps it simple for now.
+    // --tools ""            disables all built-in tools (no file writes, no shell)
+    // --strict-mcp-config   only load MCPs from --mcp-config, ignoring global config
+    // --mcp-config {...}     empty server list → no MCPs at all (prevents Serena,
+    //                        browser-based MCP servers, etc. from being loaded)
     let mut child = Command::new(&bin)
         .arg("-p")
         .arg(&prompt)
+        .args(["--tools", ""])
+        .args(["--strict-mcp-config", "--mcp-config", r#"{"mcpServers":{}}"#])
         .env("PATH", augmented_path())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
