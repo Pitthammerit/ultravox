@@ -141,7 +141,7 @@ function CenteredHeaderTitle({
     >
       <span
         className="text-[15px] font-semibold"
-        style={{ color, textTransform: "uppercase", letterSpacing: "0.08em" }}
+        style={{ color, textTransform: "uppercase", letterSpacing: "0.08em", opacity: breadcrumb ? 0.5 : 1 }}
       >
         {title}
       </span>
