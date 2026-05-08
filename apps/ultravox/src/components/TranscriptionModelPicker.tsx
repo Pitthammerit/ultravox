@@ -21,6 +21,7 @@ interface VariantMeta {
   description: string;
   tooltip: string;
   isCloud?: boolean;
+  isEnglish?: boolean;
 }
 
 const VARIANTS: VariantMeta[] = [
@@ -34,11 +35,11 @@ const VARIANTS: VariantMeta[] = [
     isCloud: true,
   },
   { id: "tiny",           label: "Tiny",               size: "~75 MB",   description: "Fastest, lower accuracy",       tooltip: "Tiny is the smallest Whisper model (~75 MB). Transcription is near-instant but accuracy is lower, especially for accents or fast speech." },
-  { id: "base.en",        label: "Base.en",            size: "~142 MB",  description: "More accurate, English",        tooltip: "Base.en is trained on English-only data — more accurate than Tiny for English dictation at a modest size increase (~142 MB)." },
+  { id: "base.en",        label: "Base",               size: "~142 MB",  description: "More accurate, English",        tooltip: "Base.en is trained on English-only data — more accurate than Tiny for English dictation at a modest size increase (~142 MB).", isEnglish: true },
   { id: "base",           label: "Base",               size: "~142 MB",  description: "Multilingual, balanced",        tooltip: "Base is the multilingual sibling of Base.en (~142 MB). Handles non-English languages with good accuracy and reasonable speed." },
   { id: "small",          label: "Small",              size: "~466 MB",  description: "Good accuracy, moderate speed", tooltip: "Small delivers good transcription quality (~466 MB) at a moderate speed." },
   { id: "medium",         label: "Medium",             size: "~1.5 GB",  description: "High accuracy, multilingual",   tooltip: "Medium is a large multilingual model (~1.5 GB). High quality across all languages; significantly slower than Small." },
-  { id: "medium.en",      label: "Medium.en",          size: "~1.5 GB",  description: "High accuracy, English",        tooltip: "Medium.en is trained exclusively on English data (~1.5 GB). Best English-tuned option when Large-v3-turbo isn't needed." },
+  { id: "medium.en",      label: "Medium",             size: "~1.5 GB",  description: "High accuracy, English",        tooltip: "Medium.en is trained exclusively on English data (~1.5 GB). Best English-tuned option when Large-v3-turbo isn't needed.", isEnglish: true },
   { id: "large-v3-turbo", label: "Large-v3-turbo",     size: "~1.6 GB",  description: "Best accuracy, decent speed",   tooltip: "Large-v3-turbo (~1.6 GB) is the highest-accuracy local model. Faster than full Large-v3 thanks to a distilled decoder, while matching its quality. Multilingual." },
 ];
 
@@ -149,6 +150,7 @@ export function TranscriptionModelPicker({
         <span className="flex items-center gap-1.5">
           {activeInfo.isCloud && <Cloud size={11} style={{ color: tokens.fgMuted, flexShrink: 0 }} />}
           <span className="font-medium">{activeInfo.label}</span>
+          {activeInfo.isEnglish && <EnPill />}
           <span style={{ color: tokens.fgMuted, marginLeft: 4 }}>—</span>
           <span style={{ color: tokens.fgMuted, marginLeft: 4 }}>{activeInfo.description}</span>
         </span>
@@ -183,7 +185,7 @@ export function TranscriptionModelPicker({
                 className="cursor-pointer px-3 py-2"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "14px 100px 1fr 52px 24px",
+                  gridTemplateColumns: "14px 130px 1fr 52px 24px",
                   alignItems: "center",
                   gap: "0 6px",
                   borderBottom: i < VARIANTS.length - 1 ? `1px solid ${tokens.border}` : "none",
@@ -203,6 +205,7 @@ export function TranscriptionModelPicker({
                 <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
                   {opt.isCloud && <Cloud size={11} style={{ color: tokens.fgMuted, flexShrink: 0 }} />}
                   <span className="font-medium" style={{ fontSize: 12, color: tokens.fg, whiteSpace: "nowrap" }}>{opt.label}</span>
+                  {opt.isEnglish && <EnPill />}
                   <PickerTooltip text={opt.tooltip}>
                     <span
                       className="inline-flex items-center justify-center rounded-full"
@@ -298,6 +301,29 @@ export function formatPickerBytes(b: number): string {
   if (b < 1024) return `${b}B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)}KB`;
   return `${(b / 1024 / 1024).toFixed(0)}MB`;
+}
+
+function EnPill() {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "1px 3px",
+        borderRadius: 3,
+        background: tokens.control,
+        border: `1px solid ${tokens.border}`,
+        fontSize: 9,
+        fontWeight: 600,
+        color: tokens.fgMuted,
+        lineHeight: 1,
+        flexShrink: 0,
+        letterSpacing: "0.03em",
+      }}
+    >
+      EN
+    </span>
+  );
 }
 
 function PickerTooltip({ text, children }: { text: string; children: React.ReactNode }) {
