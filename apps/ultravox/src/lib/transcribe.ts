@@ -3,7 +3,7 @@ import type { VocabularyEntry } from "./voiceVocabulary";
 import type { VoiceMode } from "./voiceModes";
 import { CLEANUP_TEMPLATES } from "./cleanupTemplates";
 import { logDebug } from "./debugLog";
-import { claudeCodeCheck, claudeCodeCleanup } from "./tauri-bridge";
+import { claudeCodeCheck, claudeCodeCleanup, localWhisperStatus, localWhisperTranscribe } from "./tauri-bridge";
 
 export type { VocabularyEntry };
 
@@ -19,6 +19,9 @@ export interface TranscribeOptions {
   frontmostApp?: { localized_name: string | null; bundle_id: string | null } | null;
   /** Fired once when the upload starts (single phase — server does both). */
   onProgress?: (phase: "transcribing") => void;
+  /** v0.10 — when true and a model is loaded AND mode.cleanup === "raw",
+   *  transcribe on-device. Falls back to cloud on any error. */
+  localWhisperEnabled?: boolean;
 }
 
 export interface TranscribeResult {
@@ -275,6 +278,26 @@ export async function transcribe(
   const cleanup = opts.mode.cleanup ?? "prose";
   const provider = opts.mode.languageModelProvider;
   const claudeAlias = opts.mode.languageModel ?? "sonnet";
+
+  // ── Local Whisper path (opt-in, raw modes only, with auto-fallback) ──
+  if (opts.localWhisperEnabled && opts.mode.cleanup === "raw") {
+    try {
+      const status = await localWhisperStatus();
+      if (status.available) {
+        logDebug("transcribe-backend", { message: `local whisper (${status.modelVariant})` });
+        const buf = await blob.arrayBuffer();
+        const text = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language);
+        logDebug("transcribe-result", { textLength: text.length, message: `local-whisper (${status.modelVariant})` });
+        return { text };
+      }
+      logDebug("transcribe-post", { message: "local-whisper unavailable — falling back to cloud" });
+    } catch (e) {
+      logDebug("transcribe-post", {
+        message: "local-whisper failed, falling back to cloud",
+        error: (e as Error).message?.slice(0, 200),
+      });
+    }
+  }
 
   // ── Claude Code path (per-mode opt-in, with auto-fallback) ──
   if (provider === "claude-code" && cleanup !== "raw") {

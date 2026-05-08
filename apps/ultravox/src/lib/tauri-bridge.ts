@@ -119,3 +119,29 @@ export async function claudeCodeCheck(): Promise<ClaudeCodeStatus> {
 export async function claudeCodeCleanup(prompt: string, model?: string): Promise<string> {
   return invoke<string>("claude_code_cleanup", { prompt, model: model ?? null });
 }
+
+/* ───────── Local Whisper (on-device whisper-rs + Metal) ───────── */
+
+export interface LocalWhisperStatus {
+  /** True if a model is loaded and ready. */
+  available: boolean;
+  modelPath: string | null;
+  /** e.g. "ggml-base.en.bin" */
+  modelVariant: string | null;
+}
+
+/** Probe whether the on-device Whisper model is downloaded and ready. */
+export async function localWhisperStatus(): Promise<LocalWhisperStatus> {
+  return invoke<LocalWhisperStatus>("local_whisper_status");
+}
+
+/** Run on-device Whisper transcription. Throws if the model isn't loaded
+ *  or if decoding/transcription fails — caller should fall back to cloud. */
+export async function localWhisperTranscribe(audioBytes: Uint8Array, language: string | null): Promise<string> {
+  return invoke<string>("local_whisper_transcribe", { audioBytes: Array.from(audioBytes), language });
+}
+
+/** Trigger model download for a given variant. Variants: "tiny" | "base" | "small" | "large-v3-turbo". */
+export async function localWhisperDownloadModel(variant: string): Promise<void> {
+  await invoke("local_whisper_download_model", { variant });
+}

@@ -89,6 +89,15 @@ export interface AppSettings {
   selectedMicDeviceId?: string | null;
   /** Recent transcription history (capped at HISTORY_MAX). */
   history: HistoryEntry[];
+  /**
+   * Local Whisper transcription via on-device model (whisper-rs + Metal).
+   * When true AND a model is downloaded AND the mode's cleanup is "raw",
+   * transcription runs locally. Falls back to cloud on any error.
+   * Experimental in v0.10 — cleanup LLM stays cloud regardless.
+   */
+  localWhisperEnabled?: boolean;
+  /** Path to the downloaded GGML model file. Set when download completes. */
+  localWhisperModelPath?: string;
 }
 
 export const HISTORY_MAX = 50;
@@ -114,6 +123,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     compactPill: false,
   },
   history: [],
+  localWhisperEnabled: false,
 };
 
 const STORE_FILE = "settings.json";

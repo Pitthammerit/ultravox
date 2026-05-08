@@ -3,7 +3,7 @@ import { emit } from "@tauri-apps/api/event";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
-import { Button, Input, Row, Section, tokens } from "../components/ui";
+import { Button, Input, Row, Section, ToggleRow, tokens } from "../components/ui";
 import { PillStylePicker } from "../components/PillStylePicker";
 import { registerHotkeys, checkAccessibilityPermission, requestAccessibilityPermission, claudeCodeCheck, type ClaudeCodeStatus } from "../lib/tauri-bridge";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
@@ -139,6 +139,18 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
               size="small"
             />
           }
+        />
+      </Section>
+
+      <Section
+        label="Local transcription (experimental)"
+        help="Run Whisper on this Mac instead of in the cloud. Audio never leaves your device."
+      >
+        <ToggleRow
+          label="Enable local transcription"
+          help="Transcribe on-device using a downloaded Whisper model. Faster + private, but requires ~150 MB model download. v0.10 is experimental — falls back to cloud on any error."
+          checked={settings?.localWhisperEnabled ?? false}
+          onChange={(next) => { if (onChange) void onChange({ localWhisperEnabled: next }); }}
         />
       </Section>
 

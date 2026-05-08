@@ -14,6 +14,9 @@ mod frontmost;
 #[cfg(target_os = "macos")]
 mod media;
 
+#[cfg(target_os = "macos")]
+mod local_whisper;
+
 mod pill_window;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -112,6 +115,9 @@ pub fn run() {
         system::open_privacy_settings,
         claude_code::claude_code_check,
         claude_code::claude_code_cleanup,
+        local_whisper::local_whisper_status,
+        local_whisper::local_whisper_transcribe,
+        local_whisper::local_whisper_download_model,
         tray::update_mic_submenu,
     ]);
 

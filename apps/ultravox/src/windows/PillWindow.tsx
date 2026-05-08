@@ -645,6 +645,7 @@ export default function PillWindow() {
         ...(settings?.firstName ? { firstName: settings.firstName } : {}),
         ...(settings?.lastName ? { lastName: settings.lastName } : {}),
         ...(frontmost ? { frontmostApp: frontmost } : {}),
+        localWhisperEnabled: settings?.localWhisperEnabled ?? false,
       });
       console.log("[pill] transcribe result.text length:", result.text.length);
       track("transcription.completed", { modeId: mode.id, length: result.text.length });
