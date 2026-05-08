@@ -42,20 +42,19 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
     return () => { setTrafficLightsVisible(true).catch(() => {}); };
   }, []);
 
-  // Wave animation: starts on mouseenter and always completes its full
-  // cycle — not cut short when the mouse leaves. key increment forces
-  // a fresh animation restart on each hover entry.
-  const [waveKey, setWaveKey] = useState(0);
   const [waveActive, setWaveActive] = useState(false);
   const waveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const waveRunning = useRef(false); // true while the 2500ms window is open
 
   const handleMouseEnter = useCallback(() => {
     setTrafficLightsVisible(true).catch(() => {});
-    if (waveTimer.current) clearTimeout(waveTimer.current);
-    setWaveKey((k) => k + 1);
+    if (waveRunning.current) return; // let the current cycle finish uninterrupted
+    waveRunning.current = true;
     setWaveActive(true);
-    // 2500ms = 2000ms animation + 300ms max stagger + 200ms buffer
-    waveTimer.current = setTimeout(() => setWaveActive(false), 2500);
+    waveTimer.current = setTimeout(() => {
+      waveRunning.current = false;
+      setWaveActive(false);
+    }, 2500);
   }, []);
 
   return (
@@ -67,7 +66,7 @@ export function PageHeader({ breadcrumb, onBack, right }: PageHeaderProps) {
       onMouseLeave={() => setTrafficLightsVisible(false).catch(() => {})}
     >
       {/* Waveform first — painter's algorithm keeps it behind everything */}
-      <HeaderWaveform key={waveKey} active={waveActive} />
+      <HeaderWaveform active={waveActive} />
 
       {/* Title abbreviates to "UV" in sub-pages so the breadcrumb fits */}
       <CenteredHeaderTitle
