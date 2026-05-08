@@ -87,8 +87,6 @@ function HeaderWaveform() {
     return Math.max(1, MAX_HALF_H * envelope * Math.min(1, variance));
   });
   const bars = [...[...rightHalf].reverse(), ...rightHalf];
-  const total = bars.length;
-  const ANIM_DURATION = 0.7;
 
   return (
     <div
@@ -101,10 +99,11 @@ function HeaderWaveform() {
         right: 0,
         height: MAX_HALF_H * 2 + 2,
         display: "flex",
-        alignItems: "center", // center axis — bars grow up AND down
+        alignItems: "center",
         gap: 1,
         pointerEvents: "none",
         overflow: "visible",
+        zIndex: 0,
       }}
     >
       {bars.map((h, i) => (
@@ -113,11 +112,13 @@ function HeaderWaveform() {
           className="s-wave-bar"
           style={{
             flex: 1,
-            height: h * 2, // total height = half × 2, centered on axis
+            height: h * 2,
             background: "var(--s-header-wave)",
             borderRadius: 1,
             opacity: 0.6,
-            animationDelay: `-${(i / total) * ANIM_DURATION}s`,
+            // Pseudo-random delay and duration per bar for organic feel
+            animationDelay: `-${(Math.abs(Math.sin(i * 1.7 + 0.3)) * 1.5).toFixed(3)}s`,
+            ["--s-wave-dur" as string]: `${(1.2 + Math.abs(Math.sin(i * 2.3)) * 0.6).toFixed(3)}s`,
           }}
         />
       ))}
@@ -144,7 +145,7 @@ function CenteredHeaderTitle({
   return (
     <div
       className="absolute flex items-center gap-1.5 pointer-events-none"
-      style={{ left: "50%", transform: "translateX(-50%)", top: 0, bottom: 0, whiteSpace: "nowrap" }}
+      style={{ left: "50%", transform: "translateX(-50%)", top: 0, bottom: 0, whiteSpace: "nowrap", zIndex: 1 }}
     >
       <span
         className="text-[15px] font-semibold"
