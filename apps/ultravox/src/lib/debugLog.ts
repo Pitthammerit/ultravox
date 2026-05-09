@@ -9,12 +9,13 @@
 
 import { LazyStore } from "@tauri-apps/plugin-store";
 
-export const DEBUG_LOG_MAX = 80;
+export const DEBUG_LOG_MAX = 240;
 
 export type DebugStage =
   | "record-start"
   | "record-stop"
   | "transcribe-token"
+  | "transcribe-pre"
   | "transcribe-backend"
   | "transcribe-post"
   | "transcribe-result"

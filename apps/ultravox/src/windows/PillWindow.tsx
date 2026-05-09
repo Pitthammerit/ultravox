@@ -639,9 +639,11 @@ export default function PillWindow() {
     const abortController = new AbortController();
     transcribeAbortRef.current = abortController;
     try {
+      logDebug("transcribe-pre", { message: "stage=stop-begin", modeId: mode.id });
       const blob = await recorder.stop();
       console.log("[pill] recorder.stop returned blob:", blob ? `${blob.size} bytes, ${blob.type}` : "null");
       if (!blob || blob.size === 0) {
+        logDebug("transcribe-pre", { message: "stage=blob-empty", error: blob ? `${blob.size} bytes` : "null blob" });
         showError(blob ? "Recording produced 0 bytes — mimeType not supported by WebKit?" : "No audio captured.");
         return;
       }
@@ -649,6 +651,7 @@ export default function PillWindow() {
       // hallucinates random words (often non-English) on near-silent audio.
       const peakLevel = recorder.getPeakLevel();
       console.log("[pill] peak level:", peakLevel.toFixed(4), "threshold:", SILENCE_PEAK_THRESHOLD);
+      logDebug("transcribe-pre", { message: `stage=peak-checked peak=${peakLevel.toFixed(4)} bytes=${blob.size}` });
       if (peakLevel < SILENCE_PEAK_THRESHOLD) {
         track("transcription.silenced", { peakLevel: Number(peakLevel.toFixed(4)) });
         showSilenceFlow("No speech detected. Move closer to the mic or check your input device.");
@@ -657,6 +660,9 @@ export default function PillWindow() {
       const audioQuality = peakLevel < LOW_SIGNAL_PEAK_THRESHOLD ? "low" : "normal" as const;
       const frontmost = await getFrontmostApp();
       console.log("[pill] frontmost app:", frontmost);
+      logDebug("transcribe-pre", {
+        message: `stage=ready-to-transcribe modeId=${mode.id} audioQuality=${audioQuality} provider=${mode.languageModelProvider ?? "default"} model=${mode.languageModel ?? "default"} localWhisper=${settings?.localWhisperEnabled ?? false} transcriptionModel=${mode.transcriptionModel ?? "auto"}`,
+      });
       const result = await transcribe(blob, {
         mode,
         vocabulary: settings?.vocabulary ?? [],
@@ -695,10 +701,17 @@ export default function PillWindow() {
         showError("Transcription returned empty text — silence detected, or the worker didn't decode the audio.");
       }
     } catch (e) {
-      // Esc during transcribing calls abortController.abort() — swallow silently.
-      if ((e as Error)?.name === "AbortError") return;
+      const errName = (e as Error)?.name ?? "Error";
+      const errMsg = (e as Error)?.message ?? String(e);
+      // Esc during transcribing calls abortController.abort() — swallow silently
+      // but still log so we can tell aborts apart from real failures in the log.
+      if (errName === "AbortError") {
+        logDebug("transcribe-pre", { message: "stage=aborted (Esc / cancel)", error: errMsg });
+        return;
+      }
+      logDebug("transcribe-pre", { message: `stage=error name=${errName}`, error: errMsg.slice(0, 240) });
       captureError(e, { stage: "transcribe" });
-      showError(`Transcribe error: ${(e as Error).message || e}`);
+      showError(`Transcribe error: ${errMsg || e}`);
     } finally {
       transcribeAbortRef.current = null;
     }

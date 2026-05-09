@@ -271,7 +271,14 @@ async function workerTranscribe(
   }
   const data = (await res.json()) as { text?: string };
   const text = data.text ?? "";
-  logDebug("transcribe-result", { status: res.status, durationMs, textLength: text.length });
+  const resultProvider = opts.mode.languageModelProvider ?? "default";
+  const resultModel = opts.mode.languageModel ?? "default";
+  logDebug("transcribe-result", {
+    status: res.status,
+    durationMs,
+    textLength: text.length,
+    message: `worker ${endpoint} provider=${resultProvider} model=${resultModel}`,
+  });
   return text;
 }
 
@@ -393,7 +400,7 @@ export async function transcribe(
           logDebug("transcribe-result", {
             status: 200,
             textLength: cleaned.length,
-            message: `claude-code (${status.version})`,
+            message: `claude-code v${status.version} model=${claudeAlias} (transcribe=whisper-cloud cleanup=local-claude)`,
           });
           return { text: cleaned };
         }
@@ -412,7 +419,11 @@ export async function transcribe(
   }
 
   // ── Worker path (default) ──
-  logDebug("transcribe-backend", { message: `managed worker (${cleanup})` });
+  const workerProvider = provider ?? "default";
+  const workerModel = opts.mode.languageModel ?? "default";
+  logDebug("transcribe-backend", {
+    message: `managed worker — transcribe=whisper(cloud) cleanup=${cleanup} provider=${workerProvider} model=${workerModel}`,
+  });
   const text = await workerTranscribe(blob, opts, token, apiUrl);
   return { text };
 }
