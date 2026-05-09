@@ -148,6 +148,12 @@ tell application "Finder"
       set theViewOptions to the icon view options of container window
       set arrangement of theViewOptions to not arranged
       set icon size of theViewOptions to 96
+      -- Re-set background picture explicitly. Tauri's bundle_dmg.sh stages
+      -- the TIFF at /Volumes/Ultravox/.background/background.tiff and writes
+      -- it into the .DS_Store. When our AppleScript reopens the container
+      -- window for icon-position edits, Finder rewrites .DS_Store and can
+      -- drop the background reference if we don't reaffirm it here.
+      set background picture of theViewOptions to file ".background:background.tiff"
     end try
     try
       set position of item "Ultravox.app" to {${APP_X}, ${APP_Y}}

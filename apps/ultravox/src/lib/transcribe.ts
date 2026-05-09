@@ -132,7 +132,7 @@ async function whisperRaw(
     throw new Error(`whisper ${res.status}: ${errText.slice(0, 200)}`);
   }
   const data = (await res.json()) as { text?: string };
-  return data.text ?? "";
+  return stripSoundAnnotations(data.text ?? "");
 }
 
 /**
@@ -270,7 +270,7 @@ async function workerTranscribe(
     throw new Error(`voice worker ${res.status}: ${errText.slice(0, 200)}`);
   }
   const data = (await res.json()) as { text?: string };
-  const text = data.text ?? "";
+  const text = stripSoundAnnotations(data.text ?? "");
   const resultProvider = opts.mode.languageModelProvider ?? "default";
   const resultModel = opts.mode.languageModel ?? "default";
   logDebug("transcribe-result", {
@@ -280,6 +280,18 @@ async function workerTranscribe(
     message: `worker ${endpoint} provider=${resultProvider} model=${resultModel}`,
   });
   return text;
+}
+
+/**
+ * Strip Whisper's "sound annotation" tokens like [typing], [music], [applause].
+ * Whisper transcribes ambient sounds (typing, background music, breathing,
+ * silence, etc.) into bracketed pseudo-tags; they bleed into output and the
+ * downstream LLM cleanup often preserves them verbatim. Single regex catches
+ * the common ones; we collapse leftover whitespace afterwards.
+ */
+const SOUND_TAG_RE = /\s*\[(typing|music|applause|laughing|laughter|noise|silence|inaudible|breathing|coughing|sigh|sighs|sneeze|cough|background music|background noise|sound|sounds|clicking|keyboard|keys|pause|silent|chuckles|chuckle|yawn|yawns|whisper|whispering|murmuring|crowd|crowd noise|static)\]\s*/gi;
+function stripSoundAnnotations(text: string): string {
+  return text.replace(SOUND_TAG_RE, " ").replace(/[ \t]{2,}/g, " ").replace(/\s+\n/g, "\n").trim();
 }
 
 export async function transcribe(
@@ -317,7 +329,8 @@ export async function transcribe(
         logDebug("transcribe-backend", { message: `local whisper (${status.modelVariant}, ${routingLabel})` });
         const buf = await blob.arrayBuffer();
         const t0 = performance.now();
-        const text = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language ?? null, preferredVariant, language, audioQuality);
+        const rawText = await localWhisperTranscribe(new Uint8Array(buf), opts.mode.language ?? null, preferredVariant, language, audioQuality);
+        const text = stripSoundAnnotations(rawText);
         const durationMs = Math.round(performance.now() - t0);
         logDebug("transcribe-result", { textLength: text.length, durationMs, message: `local-whisper (${status.modelVariant}, ${routingLabel})` });
         return { text };
@@ -347,13 +360,14 @@ export async function transcribe(
           const llmAudioQuality = transcriptionModel === "auto" ? (opts.audioQuality ?? "normal") : undefined;
           const buf = await blob.arrayBuffer();
           const t0 = performance.now();
-          raw = await localWhisperTranscribe(
+          const rawWhisper = await localWhisperTranscribe(
             new Uint8Array(buf),
             opts.mode.language ?? null,
             preferredVariant,
             llmLang,
             llmAudioQuality,
           );
+          raw = stripSoundAnnotations(rawWhisper);
           logDebug("transcribe-result", {
             textLength: raw.length,
             durationMs: Math.round(performance.now() - t0),

@@ -21,7 +21,8 @@ import {
 } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
 import { appendHistory, loadSettings, patchSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
-import { pickAutoMode } from "../lib/autoMode";
+// pickAutoMode intentionally unused — see startRecord comment.
+// import { pickAutoMode } from "../lib/autoMode";
 import { invoke } from "@tauri-apps/api/core";
 import { captureError, track } from "../lib/telemetry";
 import { logDebug } from "../lib/debugLog";
@@ -624,8 +625,15 @@ export default function PillWindow() {
       const cur = fresh ?? settings ?? null;
       const frontmost = await getFrontmostApp();
       const modes = cur?.modes ?? DEFAULT_MODES;
-      const fallbackId = cur?.activeModeId ?? modes[0]!.id;
-      const picked = pickAutoMode(frontmost?.bundle_id ?? null, modes, fallbackId);
+      // Trust the user's manually-selected activeModeId. The previous
+      // pickAutoMode(...) call silently overrode their selection whenever the
+      // frontmost app was in apps.json (browsers → "note", IDEs → "code"
+      // etc.) — recording in a custom mode like Raw v3 Turbo while a browser
+      // was focused always reverted to Note. Auto-mode-by-frontmost-app will
+      // come back as an opt-in toggle later; respecting the explicit choice
+      // is the right default.
+      const activeId = cur?.activeModeId ?? modes[0]!.id;
+      const picked = modes.find((m) => m.id === activeId) ?? modes[0]!;
       setMode(picked);
       track("recording.started", { modeId: picked.id, bundleId: frontmost?.bundle_id ?? null });
       if (cur?.sound.chime) playStartChime(cur.sound.chimeVolume);
