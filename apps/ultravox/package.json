@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dmg": "bash scripts/build-dmg.sh"
+    "dmg": "bash scripts/build-dmg.sh",
+    "app": "PATH=/usr/bin:$PATH pnpm tauri build --bundles app"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

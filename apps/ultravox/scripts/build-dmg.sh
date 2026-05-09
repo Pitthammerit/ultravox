@@ -131,16 +131,24 @@ echo "→ copying Uninstall Ultravox.app onto the mounted volume"
 cp -R "$UNINSTALLER_SRC" "$MOUNT_POINT/"
 
 echo "→ positioning Uninstall icon at (${UNINSTALL_X}, ${UNINSTALL_Y})"
+# Each setter is wrapped in `try` because newer macOS Finder rejects some
+# of these on the volume's container window with -10006 ("Can't set …").
+# We only really need the icon position setters; everything else is best-
+# effort polish.
 osascript <<APPLESCRIPT
 tell application "Finder"
   tell disk "${VOLNAME}"
-    set current view of container window to icon view
-    set toolbar visible of container window to false
-    set statusbar visible of container window to false
-    set the bounds of container window to {200, 100, $((200 + WINDOW_W)), $((100 + WINDOW_H))}
-    set theViewOptions to the icon view options of container window
-    set arrangement of theViewOptions to not arranged
-    set icon size of theViewOptions to 96
+    try
+      set current view of container window to icon view
+    end try
+    try
+      set the bounds of container window to {200, 100, $((200 + WINDOW_W)), $((100 + WINDOW_H))}
+    end try
+    try
+      set theViewOptions to the icon view options of container window
+      set arrangement of theViewOptions to not arranged
+      set icon size of theViewOptions to 96
+    end try
     try
       set position of item "Ultravox.app" to {${APP_X}, ${APP_Y}}
     end try
@@ -150,9 +158,13 @@ tell application "Finder"
     try
       set position of item "Uninstall Ultravox.app" to {${UNINSTALL_X}, ${UNINSTALL_Y}}
     end try
-    update without registering applications
+    try
+      update without registering applications
+    end try
     delay 0.5
-    close
+    try
+      close
+    end try
   end tell
 end tell
 APPLESCRIPT
