@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dmg": "bash scripts/build-dmg.sh",
-    "app": "PATH=/usr/bin:$PATH pnpm tauri build --bundles app"
+    "app": "PATH=/usr/bin:$PATH pnpm tauri build --bundles app",
+    "notarize": "bash scripts/notarize-dmg.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
