@@ -83,10 +83,10 @@
       "entitlements": "Entitlements.plist",
       "minimumSystemVersion": "12.0",
       "dmg": {
-        "background": "dmg-assets/background.png",
-        "windowSize": { "width": 660, "height": 400 },
-        "appPosition": { "x": 180, "y": 200 },
-        "applicationFolderPosition": { "x": 480, "y": 200 }
+        "background": "dmg-assets/background.tiff",
+        "windowSize": { "width": 800, "height": 600 },
+        "appPosition": { "x": 220, "y": 240 },
+        "applicationFolderPosition": { "x": 580, "y": 240 }
       }
     }
   },
