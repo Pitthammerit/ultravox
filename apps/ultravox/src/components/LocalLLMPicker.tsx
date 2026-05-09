@@ -88,7 +88,9 @@ export function LocalLLMPicker({
     const naturalHeight = panelRef.current.scrollHeight;
 
     const maxPanelWidth = window.innerWidth - VIEWPORT_PAD * 2;
-    const width = Math.min(triggerRect.width, maxPanelWidth);
+    // Panel is wider than the trigger so row text fits without truncation.
+    // Falls back to viewport width on narrow windows.
+    const width = Math.min(Math.max(triggerRect.width, 420), maxPanelWidth);
 
     const GAP = 4;
     const spaceBelow = window.innerHeight - triggerRect.bottom - VIEWPORT_PAD - GAP;

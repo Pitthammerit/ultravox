@@ -298,7 +298,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
         )}
         {usesCleanup && providerModels.length > 0 && (
           <Field
-            label="Processing AI Model"
+            label="Processing AI"
             control={
               draft.languageModelProvider === "local" ? (
                 <LocalLLMPicker

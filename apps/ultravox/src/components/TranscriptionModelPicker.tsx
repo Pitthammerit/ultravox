@@ -96,7 +96,9 @@ export function TranscriptionModelPicker({
     // Width: match trigger; clamp to viewport so a narrow Settings window
     // never causes horizontal clipping.
     const maxPanelWidth = window.innerWidth - VIEWPORT_PAD * 2;
-    const width = Math.min(triggerRect.width, maxPanelWidth);
+    // Panel is wider than the trigger so row text fits without truncation.
+    // Falls back to viewport width on narrow windows.
+    const width = Math.min(Math.max(triggerRect.width, 420), maxPanelWidth);
 
     // Open BELOW the trigger by default (NSPopUpButton-style "selected row
     // aligns with trigger" was confusing — panel drifted way above when the
