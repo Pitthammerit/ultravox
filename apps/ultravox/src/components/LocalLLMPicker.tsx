@@ -86,28 +86,30 @@ export function LocalLLMPicker({
     if (!open || !triggerRef.current || !panelRef.current) return;
     const triggerRect = triggerRef.current.getBoundingClientRect();
     const naturalHeight = panelRef.current.scrollHeight;
-    const panelWidth = panelRef.current.offsetWidth;
-    const selectedIndex = LLM_VARIANTS.findIndex((v) => v.id === value);
-    const selectedRowOffset = Math.max(0, selectedIndex) * ROW_HEIGHT;
 
-    // Cap the panel height to the viewport (minus padding on both sides) so a
-    // long list scrolls inside the panel rather than being clipped by the window.
-    const maxPanelHeight = window.innerHeight - VIEWPORT_PAD * 2;
+    const maxPanelWidth = window.innerWidth - VIEWPORT_PAD * 2;
+    const width = Math.min(triggerRect.width, maxPanelWidth);
+
+    const GAP = 4;
+    const spaceBelow = window.innerHeight - triggerRect.bottom - VIEWPORT_PAD - GAP;
+    const spaceAbove = triggerRect.top - VIEWPORT_PAD - GAP;
+    const openAbove = spaceBelow < Math.min(naturalHeight, 200) && spaceAbove > spaceBelow;
+    const maxPanelHeight = Math.max(120, openAbove ? spaceAbove : spaceBelow);
     const panelHeight = Math.min(naturalHeight, maxPanelHeight);
 
-    const desiredTop = triggerRect.top - selectedRowOffset;
-    const maxTop = window.innerHeight - panelHeight - VIEWPORT_PAD;
-    const top = Math.max(VIEWPORT_PAD, Math.min(desiredTop, maxTop));
+    const top = openAbove
+      ? Math.max(VIEWPORT_PAD, triggerRect.top - GAP - panelHeight)
+      : triggerRect.bottom + GAP;
 
     const desiredLeft = triggerRect.left;
-    const maxLeft = window.innerWidth - panelWidth - VIEWPORT_PAD;
+    const maxLeft = window.innerWidth - width - VIEWPORT_PAD;
     const left = Math.max(VIEWPORT_PAD, Math.min(desiredLeft, maxLeft));
 
     setPanelStyle({
       position: "fixed",
       top,
       left,
-      minWidth: 360,
+      width,
       maxHeight: maxPanelHeight,
       overflowY: "auto",
       visibility: "visible",
@@ -155,10 +157,21 @@ export function LocalLLMPicker({
           color: tokens.fg,
         }}
       >
-        <span className="flex items-center gap-1.5">
-          <span className="font-medium">{activeInfo.label}</span>
-          <span style={{ color: tokens.fgMuted, marginLeft: 4 }}>—</span>
-          <span style={{ color: tokens.fgMuted, marginLeft: 4 }}>{activeInfo.description}</span>
+        <span className="flex items-center gap-1.5" style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
+          <span className="font-medium" style={{ flexShrink: 0 }}>{activeInfo.label}</span>
+          <span style={{ color: tokens.fgMuted, marginLeft: 4, flexShrink: 0 }}>—</span>
+          <span
+            style={{
+              color: tokens.fgMuted,
+              marginLeft: 4,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              minWidth: 0,
+            }}
+          >
+            {activeInfo.description}
+          </span>
         </span>
         <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ color: tokens.fgMuted, flexShrink: 0 }}>
           <path d={open ? "M1 5L5 1L9 5" : "M1 1L5 5L9 1"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -291,9 +304,13 @@ export function LocalLLMPicker({
 }
 
 export function formatPickerBytes(b: number): string {
-  if (b < 1024) return `${b}B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)}KB`;
-  return `${(b / 1024 / 1024).toFixed(0)}MB`;
+  const GB = 1024 * 1024 * 1024;
+  const MB = 1024 * 1024;
+  const KB = 1024;
+  if (b < KB) return `${b} B`;
+  if (b < MB) return `${(b / KB).toFixed(1)} KB`;
+  if (b < GB) return `${(b / MB).toFixed(0)} MB`;
+  return `${(b / GB).toFixed(1)} GB`;
 }
 
 function PickerTooltip({ text, children }: { text: string; children: React.ReactNode }) {
