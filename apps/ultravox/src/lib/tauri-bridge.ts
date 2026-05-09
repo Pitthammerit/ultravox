@@ -71,6 +71,18 @@ export async function updateMicSubmenu(devices: TrayMicDevice[], selectedId: str
   await invoke("update_mic_submenu", { devices, selectedId });
 }
 
+export interface TrayModeEntry { id: string; label: string; }
+
+/**
+ * Push the current settings.modes list into the tray's "Mode" submenu.
+ * `activeId` controls which row gets the ✓ checkmark. Called on settings
+ * load and on every modes / activeModeId change so the tray reflects the
+ * user's actual mode list (custom names and all), not a hardcoded set.
+ */
+export async function updateModeSubmenu(modes: TrayModeEntry[], activeId: string | null): Promise<void> {
+  await invoke("update_mode_submenu", { modes, activeId });
+}
+
 export async function mediaPause(): Promise<void> {
   await invoke("media_pause");
 }

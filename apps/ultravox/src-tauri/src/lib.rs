@@ -128,6 +128,7 @@ pub fn run() {
         local_llm::local_llm_delete_model,
         local_llm::local_llm_list_models,
         tray::update_mic_submenu,
+        tray::update_mode_submenu,
     ]);
 
     #[cfg(not(target_os = "macos"))]
@@ -151,6 +152,7 @@ pub fn run() {
         claude_code::claude_code_check,
         claude_code::claude_code_cleanup,
         tray::update_mic_submenu,
+        tray::update_mode_submenu,
     ]);
 
     #[cfg(not(target_os = "macos"))]
@@ -174,6 +176,7 @@ pub fn run() {
         claude_code::claude_code_check,
         claude_code::claude_code_cleanup,
         tray::update_mic_submenu,
+        tray::update_mode_submenu,
         local_llm::local_llm_status,
         local_llm::local_llm_cleanup,
         local_llm::local_llm_download_model,

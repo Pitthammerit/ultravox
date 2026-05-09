@@ -224,6 +224,37 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
             />
           }
         />
+        <Field
+          label="Language"
+          control={
+            <Select<string>
+              value={draft.language}
+              onChange={(language) => setDraft({ ...draft, language })}
+              options={LANGUAGES.map((l) => ({ id: l.id, label: l.label }))}
+            />
+          }
+        />
+        <Field
+          label="Auto-capitalize"
+          help="Server-side capitalize after punctuation"
+          control={
+            <input
+              type="checkbox"
+              checked={!!draft.autocapitalize}
+              onChange={(e) =>
+                setDraft({ ...draft, autocapitalize: e.currentTarget.checked })
+              }
+              style={{ accentColor: tokens.fg, width: 18, height: 18, cursor: "pointer" }}
+            />
+          }
+        />
+      </Group>
+
+      <AccordionGroup
+        label="Models"
+        open={settings.modelsBoxOpen ?? true}
+        onToggle={(next) => onChange({ modelsBoxOpen: next })}
+      >
         {(settings.localWhisperEnabled ?? true) && (
           <Field
             label="Transcription"
@@ -295,31 +326,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
             }
           />
         )}
-        <Field
-          label="Language"
-          control={
-            <Select<string>
-              value={draft.language}
-              onChange={(language) => setDraft({ ...draft, language })}
-              options={LANGUAGES.map((l) => ({ id: l.id, label: l.label }))}
-            />
-          }
-        />
-        <Field
-          label="Auto-capitalize"
-          help="Server-side capitalize after punctuation"
-          control={
-            <input
-              type="checkbox"
-              checked={!!draft.autocapitalize}
-              onChange={(e) =>
-                setDraft({ ...draft, autocapitalize: e.currentTarget.checked })
-              }
-              style={{ accentColor: tokens.fg, width: 18, height: 18, cursor: "pointer" }}
-            />
-          }
-        />
-      </Group>
+      </AccordionGroup>
 
       {usesCleanup && (
         <CleanupPromptEditor
@@ -583,6 +590,70 @@ function IconPicker({
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ACCORDION GROUP — same visual frame as <Group> but with a
+   clickable header and rotating chevron. Open state is owned
+   by the parent so it persists to settings.
+   ───────────────────────────────────────────────────────────── */
+
+function AccordionGroup({
+  label,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: (next: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="flex flex-col rounded-lg"
+      style={{ background: tokens.card, border: `1px solid ${tokens.border}` }}
+    >
+      <button
+        type="button"
+        onClick={() => onToggle(!open)}
+        className="flex items-center justify-between w-full px-3 py-2 text-left"
+        style={{
+          fontSize: 12,
+          fontWeight: 500,
+          color: tokens.fg,
+          background: "transparent",
+          cursor: "pointer",
+          borderBottom: open ? `1px solid ${tokens.border}` : "none",
+        }}
+      >
+        <span>{label}</span>
+        <svg
+          width="10"
+          height="6"
+          viewBox="0 0 10 6"
+          fill="none"
+          style={{
+            color: tokens.fgMuted,
+            transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+            transition: "transform 120ms ease-out",
+            flexShrink: 0,
+          }}
+        >
+          <path
+            d="M1 1L5 5L9 1"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open && (
+        <div className="flex flex-col gap-0.5 px-3 py-2">{children}</div>
       )}
     </div>
   );

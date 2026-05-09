@@ -15,6 +15,7 @@ import {
   setPillPositionTopCenter,
   setPillSizeAtPosition,
   updateMicSubmenu,
+  updateModeSubmenu,
   mediaPause,
   mediaResume,
 } from "../lib/tauri-bridge";
@@ -206,6 +207,39 @@ export default function PillWindow() {
     };
     navigator.mediaDevices.addEventListener?.("devicechange", onDeviceChange);
 
+    // Tray "Mode" submenu population — mirrors the mic-submenu pattern.
+    // Pushed on settings load, on every settings:saved broadcast (covers
+    // mode renames / additions / deletions / activeModeId changes from any
+    // window), and immediately after a tray:set-mode click so the checkmark
+    // moves to the new active mode without a round-trip through saveSettings.
+    const pushModes = async (s: AppSettings | null) => {
+      const list = (s?.modes ?? DEFAULT_MODES).map((m) => ({ id: m.id, label: m.name }));
+      const activeId = s?.activeModeId ?? null;
+      try {
+        await updateModeSubmenu(list, activeId);
+      } catch (e) {
+        logDebug("error", { message: `updateModeSubmenu: ${(e as Error).message?.slice(0, 200)}` });
+      }
+    };
+    loadSettings().then(pushModes).catch(() => pushModes(null));
+
+    let unsubSettingsSaved: (() => void) | undefined;
+    listen("settings:saved", async () => {
+      try { await pushModes(await loadSettings()); } catch { /* ignore */ }
+    }).then((u) => { unsubSettingsSaved = u; });
+
+    let unsubTraySetMode: (() => void) | undefined;
+    listen<string>("tray:set-mode", async (e) => {
+      // App.tsx (Settings window) also listens for this and persists. We
+      // additionally re-push the tray immediately so the ✓ moves without
+      // waiting for the settings:saved broadcast round-trip.
+      const id = e.payload;
+      if (typeof id === "string" && id.length > 0) {
+        const fresh = await loadSettings().catch(() => null);
+        if (fresh) await pushModes({ ...fresh, activeModeId: id });
+      }
+    }).then((u) => { unsubTraySetMode = u; });
+
     listen<string>("tray:set-mic-device", async (e) => {
       const id = e.payload && e.payload.length > 0 ? e.payload : null;
       logDebug("record-start", { message: `tray:set-mic-device → ${id ?? "default"}` });
@@ -224,6 +258,8 @@ export default function PillWindow() {
       unsubTheme?.();
       unsubMic?.();
       unsubPillStyle?.();
+      unsubSettingsSaved?.();
+      unsubTraySetMode?.();
       navigator.mediaDevices.removeEventListener?.("devicechange", onDeviceChange);
     };
   }, []);

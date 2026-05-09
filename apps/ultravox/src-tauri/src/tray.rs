@@ -8,18 +8,30 @@ use tauri::{
 /// Holds runtime handles to menu pieces we need to mutate after creation.
 /// The mic submenu is rebuilt every time the frontend reports new device
 /// enumeration results from `navigator.mediaDevices.enumerateDevices()`.
+/// The mode submenu is rebuilt whenever settings.modes or activeModeId
+/// changes so the tray always reflects the user's current mode list.
 pub struct TrayMenuState<R: Runtime> {
     pub mic_submenu: Mutex<Option<Submenu<R>>>,
+    pub mode_submenu: Mutex<Option<Submenu<R>>>,
 }
 
 impl<R: Runtime> Default for TrayMenuState<R> {
     fn default() -> Self {
-        Self { mic_submenu: Mutex::new(None) }
+        Self {
+            mic_submenu: Mutex::new(None),
+            mode_submenu: Mutex::new(None),
+        }
     }
 }
 
 #[derive(serde::Deserialize)]
 pub struct MicDevice {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct ModeEntry {
     pub id: String,
     pub label: String,
 }
@@ -97,6 +109,51 @@ pub fn update_mic_submenu<R: Runtime>(
     Ok(())
 }
 
+/// Rebuild the contents of the Mode submenu from the current settings.modes
+/// list. Each entry's id becomes `mode:<id>` so the on-menu-event handler can
+/// route generic clicks back to the frontend via the `tray:set-mode` event.
+/// `active_id` controls which row gets the ✓ checkmark.
+#[tauri::command]
+pub fn update_mode_submenu<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, TrayMenuState<R>>,
+    modes: Vec<ModeEntry>,
+    active_id: Option<String>,
+) -> Result<(), String> {
+    let guard = state.mode_submenu.lock().map_err(|e| e.to_string())?;
+    let Some(submenu) = guard.as_ref() else { return Ok(()); };
+
+    while submenu
+        .remove_at(0)
+        .map_err(|e| e.to_string())?
+        .is_some()
+    {}
+
+    if modes.is_empty() {
+        let placeholder = MenuItem::with_id(
+            &app,
+            "mode_loading",
+            "    (no modes configured)",
+            false,
+            None::<&str>,
+        )
+        .map_err(|e| e.to_string())?;
+        submenu.append(&placeholder).map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    for m in modes {
+        let is_active = active_id.as_deref() == Some(m.id.as_str());
+        let prefix = if is_active { "✓  " } else { "    " };
+        let label = format!("{prefix}{}", m.label);
+        let id = format!("mode:{}", m.id);
+        let item = MenuItem::with_id(&app, id, label, true, None::<&str>)
+            .map_err(|e| e.to_string())?;
+        submenu.append(&item).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let toggle_record =
         MenuItem::with_id(app, "toggle_record", "Toggle Recording", true, None::<&str>)?;
@@ -133,16 +190,16 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         None::<&str>,
     )?;
 
-    let mode_email = MenuItem::with_id(app, "mode:email", "Email", true, None::<&str>)?;
-    let mode_message = MenuItem::with_id(app, "mode:message", "Message", true, None::<&str>)?;
-    let mode_note = MenuItem::with_id(app, "mode:note", "Note", true, None::<&str>)?;
-    let mode_code = MenuItem::with_id(app, "mode:code", "Code", true, None::<&str>)?;
-    let mode_submenu = Submenu::with_items(
+    // Placeholder; the frontend pushes the real mode list via update_mode_submenu
+    // as soon as settings load and on every settings.modes / activeModeId change.
+    let mode_loading = MenuItem::with_id(
         app,
-        "Mode",
-        true,
-        &[&mode_email, &mode_message, &mode_note, &mode_code],
+        "mode_loading",
+        "    (loading modes…)",
+        false,
+        None::<&str>,
     )?;
+    let mode_submenu = Submenu::with_items(app, "Mode", true, &[&mode_loading])?;
 
     let sep2 = PredefinedMenuItem::separator(app)?;
 
@@ -173,6 +230,9 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     if let Some(state) = app.try_state::<TrayMenuState<R>>() {
         if let Ok(mut g) = state.mic_submenu.lock() {
             *g = Some(mic_submenu.clone());
+        }
+        if let Ok(mut g) = state.mode_submenu.lock() {
+            *g = Some(mode_submenu.clone());
         }
     }
 
@@ -205,15 +265,15 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
                         let _ = crate::system::open_privacy_settings("accessibility".into());
                     });
                 }
-                "mode:email" => { let _ = app.emit("tray:set-mode", "email"); }
-                "mode:message" => { let _ = app.emit("tray:set-mode", "message"); }
-                "mode:note" => { let _ = app.emit("tray:set-mode", "note"); }
-                "mode:code" => { let _ = app.emit("tray:set-mode", "code"); }
                 "quit" => app.exit(0),
                 other if other.starts_with("mic_dev:") => {
                     let dev_id = &other["mic_dev:".len()..];
                     let payload = if dev_id == "__default__" { "" } else { dev_id };
                     let _ = app.emit("tray:set-mic-device", payload.to_string());
+                }
+                other if other.starts_with("mode:") => {
+                    let mode_id = &other["mode:".len()..];
+                    let _ = app.emit("tray:set-mode", mode_id.to_string());
                 }
                 _ => {}
             }

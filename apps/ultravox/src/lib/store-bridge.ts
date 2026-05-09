@@ -1,4 +1,5 @@
 import { LazyStore } from "@tauri-apps/plugin-store";
+import { emit } from "@tauri-apps/api/event";
 import { DEFAULT_MODES, type VoiceMode } from "./voiceModes";
 
 export interface VocabularyEntry {
@@ -98,6 +99,9 @@ export interface AppSettings {
   localWhisperEnabled?: boolean;
   /** Path to the downloaded GGML model file. Set when download completes. */
   localWhisperModelPath?: string;
+  /** Whether the "Models" accordion in the Mode editor is expanded. Defaults
+   *  to open; collapsed state is persisted across sessions. */
+  modelsBoxOpen?: boolean;
 }
 
 export const HISTORY_MAX = 50;
@@ -124,6 +128,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   history: [],
   localWhisperEnabled: true,
+  modelsBoxOpen: true,
 };
 
 const STORE_FILE = "settings.json";
@@ -243,6 +248,10 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
   const store = getStore();
   await store.set(SETTINGS_KEY, settings);
   await store.save();
+  // Broadcast so other windows (the pill, in particular) can react —
+  // e.g. re-push the tray Mode submenu when modes / activeModeId change.
+  // Best-effort: a missing emit must never break a save.
+  try { await emit("settings:saved"); } catch { /* swallow */ }
 }
 
 export async function patchSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
