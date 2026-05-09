@@ -26,8 +26,6 @@ interface TranscriptionModelPickerProps {
   onRemoveRequest: (variant: string) => void;
 }
 
-// Each row: py-1.5 (6px top+bottom) + 16px line height = 28px. Used for anchored-popup math.
-const ROW_HEIGHT = 28;
 const VIEWPORT_PAD = 8;
 
 export function TranscriptionModelPicker({

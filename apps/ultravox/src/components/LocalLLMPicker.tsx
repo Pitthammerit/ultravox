@@ -23,7 +23,6 @@ export interface LocalLLMPickerProps {
   onRemoveRequest: (variant: string) => void;
 }
 
-const ROW_HEIGHT = 28;
 const VIEWPORT_PAD = 8;
 
 export function LocalLLMPicker({
