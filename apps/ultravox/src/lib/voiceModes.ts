@@ -32,7 +32,9 @@ export const LANGUAGE_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: "opus",   label: "Opus — most capable",   speed: "slow",    accuracy: "highest" },
   ],
   local: [
-    { id: "_placeholder", label: "Coming in v0.11 (Llama, Mistral, Phi)", speed: "—", accuracy: "—" },
+    { id: "phi-3.5", label: "Lite — fastest",   speed: "fastest", accuracy: "high" },
+    { id: "qwen2.5-3b", label: "Balance — compact", speed: "fastest", accuracy: "medium" },
+    { id: "mistral-7b", label: "Plus — highest quality", speed: "slow",    accuracy: "highest" },
   ],
   none: [],
 };

@@ -15,6 +15,7 @@ mod frontmost;
 mod media;
 
 #[cfg(target_os = "macos")]
+mod local_llm;
 mod local_whisper;
 
 mod pill_window;
@@ -121,6 +122,11 @@ pub fn run() {
         local_whisper::local_whisper_download_model,
         local_whisper::local_whisper_delete_model,
         local_whisper::local_whisper_list_models,
+        local_llm::local_llm_status,
+        local_llm::local_llm_cleanup,
+        local_llm::local_llm_download_model,
+        local_llm::local_llm_delete_model,
+        local_llm::local_llm_list_models,
         tray::update_mic_submenu,
     ]);
 
@@ -145,6 +151,34 @@ pub fn run() {
         claude_code::claude_code_check,
         claude_code::claude_code_cleanup,
         tray::update_mic_submenu,
+    ]);
+
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        paste::paste_to_frontmost,
+        hotkey::show_pill,
+        hotkey::hide_pill,
+        hotkey::show_mode_overlay,
+        hotkey::hide_mode_overlay,
+        hotkey::set_pill_height,
+        hotkey::set_pill_size,
+        hotkey::set_pill_position_top_center,
+        hotkey::set_pill_size_at_position,
+        hotkey::ultravox_register_hotkeys,
+        hotkey::unregister_all_hotkeys,
+        permissions::check_accessibility_permission,
+        permissions::request_accessibility_permission,
+        system::get_system_language,
+        system::open_privacy_settings,
+        system::set_traffic_lights_visible,
+        claude_code::claude_code_check,
+        claude_code::claude_code_cleanup,
+        tray::update_mic_submenu,
+        local_llm::local_llm_status,
+        local_llm::local_llm_cleanup,
+        local_llm::local_llm_download_model,
+        local_llm::local_llm_delete_model,
+        local_llm::local_llm_list_models,
     ]);
 
     builder

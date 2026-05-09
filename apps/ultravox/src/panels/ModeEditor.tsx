@@ -23,6 +23,7 @@ import {
 } from "../components/ui";
 import { MODE_ICON_NAMES, ModeGlyph } from "../components/ModeIcons";
 import { TranscriptionModelPicker, useTranscriptionModelPicker } from "../components/TranscriptionModelPicker";
+import { LocalLLMPicker, useLocalLLMPicker } from "../components/LocalLLMPicker";
 import type { TranscriptionModelValue } from "../lib/voiceModes";
 
 interface ModeFormProps {
@@ -66,6 +67,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const transcriptionPicker = useTranscriptionModelPicker();
+  const llmPicker = useLocalLLMPicker();
   // For new modes only: tracks whether the user has manually edited the slug.
   // While untouched, the slug field auto-syncs from the name; once touched,
   // it stays as the user typed. Clearing the field resets to untouched.
@@ -279,9 +281,16 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
                   }))}
                 />
                 {draft.languageModelProvider === "local" && (
-                  <span className="text-[11px]" style={{ color: tokens.fgSubtle }}>
-                    coming in v0.11
-                  </span>
+                  <LocalLLMPicker
+                    value={draft.languageModel ?? "auto"}
+                    onChange={(languageModel) => setDraft({ ...draft, languageModel })}
+                    installedModels={llmPicker.installedModels}
+                    downloadProgress={llmPicker.downloadProgress}
+                    onDownload={llmPicker.handleDownload}
+                    onDelete={llmPicker.handleDelete}
+                    removeConfirming={llmPicker.removeConfirming}
+                    onRemoveRequest={llmPicker.handleRemoveRequest}
+                  />
                 )}
               </div>
             }

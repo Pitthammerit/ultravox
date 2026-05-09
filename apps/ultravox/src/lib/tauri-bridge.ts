@@ -205,3 +205,75 @@ export function subscribeToDownloadComplete(handler: (p: LocalWhisperDownloadCom
 export function subscribeToDownloadError(handler: (p: LocalWhisperDownloadError) => void): Promise<UnlistenFn> {
   return listen<LocalWhisperDownloadError>("local_whisper:download-error", (e) => handler(e.payload));
 }
+
+/* ───────── Local LLM (on-device llama.cpp + Metal) ───────── */
+
+export interface LocalLlmStatus {
+  /** True if a model is loaded and ready. */
+  available: boolean;
+  modelPath: string | null;
+  /** e.g. "phi-3.5", "qwen2.5-3b", "mistral-7b" */
+  modelVariant: string | null;
+}
+
+export interface LocalLlmModelInfo {
+  variant: string;
+  sizeBytes: number;
+}
+
+/** Probe whether an on-device LLM model is downloaded and ready. */
+export async function localLlmStatus(preferredVariant?: string): Promise<LocalLlmStatus> {
+  return invoke<LocalLlmStatus>("local_llm_status", {
+    preferredVariant: preferredVariant ?? null,
+  });
+}
+
+/** Run on-device LLM cleanup. Throws if the model isn't loaded or inference fails. */
+export async function localLlmCleanup(prompt: string, preferredVariant?: string): Promise<string> {
+  return invoke<string>("local_llm_cleanup", {
+    prompt,
+    preferredVariant: preferredVariant ?? null,
+  });
+}
+
+/** Trigger model download for a given variant. Variants: "phi-3.5" | "qwen2.5-3b" | "mistral-7b". */
+export async function localLlmDownloadModel(variant: string): Promise<void> {
+  await invoke("local_llm_download_model", { variant });
+}
+
+export async function localLlmDeleteModel(variant: string): Promise<void> {
+  await invoke("local_llm_delete_model", { variant });
+}
+
+export async function localLlmListModels(): Promise<LocalLlmModelInfo[]> {
+  return invoke<LocalLlmModelInfo[]>("local_llm_list_models");
+}
+
+export interface LocalLlmDownloadProgress {
+  variant: string;
+  downloaded: number;
+  total: number;
+  percent: number;
+}
+
+export interface LocalLlmDownloadComplete {
+  variant: string;
+  modelPath: string;
+}
+
+export interface LocalLlmDownloadError {
+  variant: string;
+  error: string;
+}
+
+export function subscribeToLlmDownloadProgress(handler: (p: LocalLlmDownloadProgress) => void): Promise<UnlistenFn> {
+  return listen<LocalLlmDownloadProgress>("local_llm:download-progress", (e) => handler(e.payload));
+}
+
+export function subscribeToLlmDownloadComplete(handler: (p: LocalLlmDownloadComplete) => void): Promise<UnlistenFn> {
+  return listen<LocalLlmDownloadComplete>("local_llm:download-complete", (e) => handler(e.payload));
+}
+
+export function subscribeToLlmDownloadError(handler: (p: LocalLlmDownloadError) => void): Promise<UnlistenFn> {
+  return listen<LocalLlmDownloadError>("local_llm:download-error", (e) => handler(e.payload));
+}

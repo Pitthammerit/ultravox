@@ -3,7 +3,7 @@ import type { VocabularyEntry } from "./voiceVocabulary";
 import type { VoiceMode } from "./voiceModes";
 import { CLEANUP_TEMPLATES } from "./cleanupTemplates";
 import { logDebug } from "./debugLog";
-import { claudeCodeCheck, claudeCodeCleanup, localWhisperStatus, localWhisperTranscribe } from "./tauri-bridge";
+import { claudeCodeCheck, claudeCodeCleanup, localWhisperStatus, localWhisperTranscribe, localLlmStatus, localLlmCleanup } from "./tauri-bridge";
 
 export type { VocabularyEntry };
 
@@ -324,9 +324,58 @@ export async function transcribe(
     }
   }
 
-  // ── Local LLM path — not yet wired; fall back to worker until v0.11 ──
+  // ── Local LLM path ──
   if (provider === "local" && cleanup !== "raw") {
-    logDebug("transcribe-backend", { message: "local-llm not yet implemented, falling back to managed worker" });
+    try {
+      const llmVariant = opts.mode.languageModel ?? "auto";
+      const status = await localLlmStatus(llmVariant === "auto" ? undefined : llmVariant);
+      if (status.available) {
+        logDebug("transcribe-backend", { message: `local LLM (${status.modelVariant})` });
+        // Get raw transcript from local Whisper if available, otherwise from worker
+        let raw: string;
+        if (wantsLocal) {
+          // Reuse the same routing logic as the local-Whisper branch above.
+          const preferredVariant = transcriptionModel === "auto" ? undefined : transcriptionModel;
+          const llmLang = opts.mode.language && opts.mode.language !== "auto" ? opts.mode.language : undefined;
+          const llmAudioQuality = transcriptionModel === "auto" ? (opts.audioQuality ?? "normal") : undefined;
+          const buf = await blob.arrayBuffer();
+          const t0 = performance.now();
+          raw = await localWhisperTranscribe(
+            new Uint8Array(buf),
+            opts.mode.language ?? null,
+            preferredVariant,
+            llmLang,
+            llmAudioQuality,
+          );
+          logDebug("transcribe-result", {
+            textLength: raw.length,
+            durationMs: Math.round(performance.now() - t0),
+            message: `local-whisper for LLM input`,
+          });
+        } else {
+          // Fall back to worker for raw transcription
+          raw = await whisperRaw(blob, opts, token, apiUrl);
+        }
+        if (raw.trim()) {
+          const prompt = buildClaudePrompt(raw, opts);
+          const t0 = performance.now();
+          const cleaned = await localLlmCleanup(prompt, llmVariant === "auto" ? undefined : llmVariant);
+          logDebug("transcribe-result", {
+            textLength: cleaned.length,
+            durationMs: Math.round(performance.now() - t0),
+            message: `local-llm (${status.modelVariant})`,
+          });
+          return { text: cleaned };
+        }
+        return { text: raw };
+      }
+      logDebug("transcribe-post", { message: "local-llm not available — falling back to worker" });
+    } catch (e) {
+      logDebug("transcribe-post", {
+        message: "local-llm path failed, falling back to worker",
+        error: (e as Error).message?.slice(0, 200),
+      });
+    }
   }
 
   // ── Claude Code path (per-mode opt-in, with auto-fallback) ──
