@@ -269,7 +269,18 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
           <Field
             label="Processing AI Model"
             control={
-              <div className="flex flex-col gap-1">
+              draft.languageModelProvider === "local" ? (
+                <LocalLLMPicker
+                  value={draft.languageModel ?? "auto"}
+                  onChange={(languageModel) => setDraft({ ...draft, languageModel })}
+                  installedModels={llmPicker.installedModels}
+                  downloadProgress={llmPicker.downloadProgress}
+                  onDownload={llmPicker.handleDownload}
+                  onDelete={llmPicker.handleDelete}
+                  removeConfirming={llmPicker.removeConfirming}
+                  onRemoveRequest={llmPicker.handleRemoveRequest}
+                />
+              ) : (
                 <Select<string>
                   value={draft.languageModel ?? providerModels[0]!.id}
                   onChange={(languageModel) =>
@@ -280,19 +291,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
                     label: m.label,
                   }))}
                 />
-                {draft.languageModelProvider === "local" && (
-                  <LocalLLMPicker
-                    value={draft.languageModel ?? "auto"}
-                    onChange={(languageModel) => setDraft({ ...draft, languageModel })}
-                    installedModels={llmPicker.installedModels}
-                    downloadProgress={llmPicker.downloadProgress}
-                    onDownload={llmPicker.handleDownload}
-                    onDelete={llmPicker.handleDelete}
-                    removeConfirming={llmPicker.removeConfirming}
-                    onRemoveRequest={llmPicker.handleRemoveRequest}
-                  />
-                )}
-              </div>
+              )
             }
           />
         )}

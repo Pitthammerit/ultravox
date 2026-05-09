@@ -91,10 +91,15 @@ export function TranscriptionModelPicker({
   useLayoutEffect(() => {
     if (!open || !triggerRef.current || !panelRef.current) return;
     const triggerRect = triggerRef.current.getBoundingClientRect();
-    const panelHeight = panelRef.current.offsetHeight;
+    const naturalHeight = panelRef.current.scrollHeight;
     const panelWidth = panelRef.current.offsetWidth;
     const selectedIndex = TRANSCRIPTION_VARIANTS.findIndex((v) => v.id === value);
     const selectedRowOffset = Math.max(0, selectedIndex) * ROW_HEIGHT;
+
+    // Cap the panel height to the viewport (minus padding on both sides) so a
+    // long list scrolls inside the panel rather than being clipped by the window.
+    const maxPanelHeight = window.innerHeight - VIEWPORT_PAD * 2;
+    const panelHeight = Math.min(naturalHeight, maxPanelHeight);
 
     const desiredTop = triggerRect.top - selectedRowOffset;
     const maxTop = window.innerHeight - panelHeight - VIEWPORT_PAD;
@@ -104,7 +109,15 @@ export function TranscriptionModelPicker({
     const maxLeft = window.innerWidth - panelWidth - VIEWPORT_PAD;
     const left = Math.max(VIEWPORT_PAD, Math.min(desiredLeft, maxLeft));
 
-    setPanelStyle({ position: "fixed", top, left, minWidth: 360, visibility: "visible" });
+    setPanelStyle({
+      position: "fixed",
+      top,
+      left,
+      minWidth: 360,
+      maxHeight: maxPanelHeight,
+      overflowY: "auto",
+      visibility: "visible",
+    });
   }, [open, value]);
 
   const selectVariant = useCallback((variantId: string) => {
