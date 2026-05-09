@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local build secrets (Apple notarization). See .env.build.example.
+.env.build

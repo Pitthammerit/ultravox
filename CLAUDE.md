@@ -52,12 +52,39 @@ Standalone macOS Tauri 2 voice-dictation companion app. Inspired by Superwhisper
 ## Commands (after scaffolding in Phase 2)
 
 ```bash
-pnpm install          # install deps
-pnpm tauri dev        # run Tauri dev (opens settings window + pill window)
-pnpm tauri build      # produce signed + notarized DMG (requires APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID env vars)
-pnpm test             # vitest for React + ts logic
-cd src-tauri && cargo test   # Rust unit tests
+pnpm install               # install deps
+pnpm tauri dev             # run Tauri dev (opens settings window + pill window)
+pnpm --filter @ultravox/app dmg   # signed (and optionally notarized) DMG via scripts/build-dmg.sh
+pnpm test                  # vitest for React + ts logic
+cd src-tauri && cargo test # Rust unit tests
 ```
+
+### Shipping a DMG — `pnpm dmg` not `pnpm tauri build`
+
+`apps/ultravox/scripts/build-dmg.sh` (wired as `pnpm dmg`) is the canonical
+build path. It encapsulates two non-obvious fixes that a plain `pnpm tauri
+build` will fail on:
+
+1. **`PATH=/usr/bin:$PATH`.** The user has `~/Library/Python/3.9/bin/xattr`
+   (Python's xattr) ahead of `/usr/bin` in PATH. Tauri's bundler runs
+   `xattr -crs <app>` to strip extended attributes; the Python version
+   doesn't support `-crs` and the build dies with `failed to run xattr`.
+   The script prepends `/usr/bin` so macOS's system xattr wins.
+
+2. **`.env.build` autoload.** Notarization needs `APPLE_ID`,
+   `APPLE_PASSWORD` (an *app-specific* password, not the main Apple ID
+   password), and `APPLE_TEAM_ID`. Putting them in `apps/ultravox/.env.build`
+   (gitignored — see `.env.build.example`) means subsequent builds notarize
+   automatically without the next person rediscovering the env-var trick.
+
+**One-time per machine:** the terminal you run `pnpm dmg` from must have
+**Full Disk Access** (System Settings → Privacy & Security → Full Disk
+Access → Terminal/iTerm). Without it, `hdiutil` can't read the .app it
+just unpacked into `/Volumes/Ultravox` and the DMG step fails with
+`Operation not permitted`. This can't be fixed in code — it's a TCC
+permission on the calling process.
+
+DMG output: `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg`
 
 ## Dev iteration
 

@@ -10,7 +10,7 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dmg": "PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH pnpm tauri build --bundles dmg"
+    "dmg": "bash scripts/build-dmg.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
