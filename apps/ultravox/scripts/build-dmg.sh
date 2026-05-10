@@ -135,6 +135,13 @@ hdiutil attach "$RW_DMG" -mountpoint "$MOUNT_POINT" -noverify -nobrowse >/dev/nu
 echo "→ copying Uninstall Ultravox.app onto the mounted volume"
 cp -R "$UNINSTALLER_SRC" "$MOUNT_POINT/"
 
+echo "→ deleting existing .DS_Store so AppleScript creates a fresh one"
+# Without this step, Finder's cached WindowBounds wins on next open and
+# our AppleScript `set bounds` is silently ignored. Deleting forces
+# Finder to write a fresh .DS_Store reflecting whatever our AppleScript
+# leaves the window in.
+rm -f "$MOUNT_POINT/.DS_Store"
+
 echo "→ positioning Uninstall icon at (${UNINSTALL_X}, ${UNINSTALL_Y})"
 # Each setter is wrapped in `try` because newer macOS Finder rejects some
 # of these on the volume's container window with -10006 ("Can't set …").

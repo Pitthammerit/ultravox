@@ -69,6 +69,13 @@ hdiutil convert "$DMG_PATH" -format UDRW -o "$RW_DMG" >/dev/null
 echo "→ mounting at $MOUNT_POINT"
 hdiutil attach "$RW_DMG" -mountpoint "$MOUNT_POINT" -noverify -nobrowse >/dev/null
 
+echo "→ deleting .DS_Store so AppleScript creates a fresh one with our bounds"
+# Without this step, Finder reads the existing .DS_Store on open and
+# uses its cached WindowBounds — overriding our AppleScript `set bounds`
+# call. Deleting forces Finder to write a fresh .DS_Store from whatever
+# our AppleScript leaves the window in.
+rm -f "$MOUNT_POINT/.DS_Store"
+
 echo "→ AppleScript reposition"
 osascript <<APPLESCRIPT
 tell application "Finder"
