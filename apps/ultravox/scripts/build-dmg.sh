@@ -50,7 +50,14 @@ cd "$APP_DIR"
 SIGN_IDENTITY="Developer ID Application: Benjamin Kurtz Academy LLC (3VP6Q6ZXN8)"
 UNINSTALLER_SRC="$APP_DIR/src-tauri/dmg-assets/Uninstall Ultravox.app"
 DMG_DIR="$APP_DIR/src-tauri/target/release/bundle/dmg"
-VOLNAME="Ultravox"
+# NOTE: avoid the bare name "Ultravox" — on macOS 26 this machine's TCC
+# database has a denial entry for /Volumes/Ultravox (likely from an
+# earlier interrupted mount or a quarantined .app bundle id), and
+# hdiutil create with -volname Ultravox fails with "Operation not
+# permitted" before it can even mount the new image. Other volume names
+# work without TCC interference. The legacy 0.9.4 DMG used "Ultravox
+# Setup" for the same reason.
+VOLNAME="Ultravox Installer"
 MOUNT_POINT="/Volumes/${VOLNAME}"
 RW_DMG="/tmp/ultravox-rw.dmg"
 
@@ -114,16 +121,91 @@ if [[ -d "$MOUNT_POINT" ]]; then
 fi
 rm -f "$RW_DMG"
 
-# ─── 2. Build (Tauri signs the .app + DMG, but no notarization) ──────
-echo "→ pnpm tauri build"
-pnpm tauri build
+# ─── 2. Build (Tauri signs .app, then we build the DMG ourselves) ────
+#
+# Why we don't just `pnpm tauri build`:
+# Tauri's bundle_dmg.sh (a vendored fork of create-dmg) runs a Finder
+# AppleScript at line 503 that does `set position of item "Ultravox.app"
+# to {180, 170}`. On macOS 26+ Finder rejects that operation with
+# error -10006 ("Can't set …"), the AppleScript exits non-zero, and
+# bundle_dmg.sh exits 64. The whole tauri build fails before we can run
+# any post-processing.
+#
+# Workaround: build only the .app via Tauri, then call bundle_dmg.sh
+# ourselves with --skip-jenkins (which skips the AppleScript entirely).
+# The DMG is produced WITHOUT custom layout, but the post-process at
+# step 3+ below re-applies background image, icon positions, and window
+# size via try-wrapped AppleScript — all the things --skip-jenkins
+# would have done, but tolerant of -10006 failures.
+echo "→ pnpm tauri build --bundles app  (signed .app only)"
+pnpm tauri build --bundles app
 
-DMG_PATH="$(ls -t "$DMG_DIR"/Ultravox_*.dmg 2>/dev/null | head -n1 || true)"
-if [[ -z "$DMG_PATH" ]]; then
-  echo "✗ Build finished but no DMG found in $DMG_DIR"
+APP_PATH="$APP_DIR/src-tauri/target/release/bundle/macos/Ultravox.app"
+if [[ ! -d "$APP_PATH" ]]; then
+  echo "✗ Build finished but no .app at $APP_PATH"
   exit 1
 fi
-echo "→ tauri produced: $DMG_PATH"
+echo "→ tauri produced: $APP_PATH"
+
+mkdir -p "$DMG_DIR"
+
+# bundle_dmg.sh is the vendored create-dmg from tauri-bundler. Tauri
+# only writes it during a `--bundles dmg` run. If a previous run left it
+# behind we reuse it; otherwise trigger a one-shot --bundles dmg attempt
+# (which will fail at AppleScript but will write the script first).
+if [[ ! -f "$DMG_DIR/bundle_dmg.sh" ]]; then
+  echo "→ priming bundle_dmg.sh from Tauri (expected to fail at AppleScript)"
+  pnpm tauri build --bundles dmg || true
+fi
+if [[ ! -f "$DMG_DIR/bundle_dmg.sh" ]]; then
+  echo "✗ Could not obtain bundle_dmg.sh from Tauri's bundler"
+  exit 1
+fi
+
+# Stage Ultravox.app inside a parent directory so bundle_dmg.sh's
+# `hdiutil create -srcfolder $STAGE` puts Ultravox.app at the DMG root
+# (rather than flattening its Contents/ to the root, which would break
+# the bundle layout and fail Apple notarization with "signature of the
+# binary is invalid"). Without the staging step, hdiutil treats
+# Ultravox.app's contents as the DMG contents — verified empirically on
+# macOS 26.
+STAGE_DIR="$(mktemp -d -t ultravox-dmg-stage)"
+trap 'rm -rf "$STAGE_DIR"' EXIT
+ditto "$APP_PATH" "$STAGE_DIR/Ultravox.app"
+
+VERSION="$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$APP_DIR/package.json" | head -1)"
+DMG_NAME="Ultravox_${VERSION}_aarch64.dmg"
+DMG_PATH="$DMG_DIR/$DMG_NAME"
+rm -f "$DMG_PATH" "$DMG_DIR"/rw.*.dmg
+# Also clear any stale Ultravox.app symlink/dir in $DMG_DIR from older
+# script versions — bundle_dmg.sh runs from $DMG_DIR but our $2 below
+# resolves the staging dir's absolute path, so the dmg/ entry is junk.
+rm -rf "$DMG_DIR/Ultravox.app"
+
+echo "→ running bundle_dmg.sh --skip-jenkins (no Finder AppleScript) over $STAGE_DIR"
+(
+  cd "$DMG_DIR"
+  bash bundle_dmg.sh \
+    --volname "$VOLNAME" \
+    --skip-jenkins \
+    --window-size "$WINDOW_W" "$WINDOW_H" \
+    --icon-size "$ICON_SIZE" \
+    --background "$APP_DIR/src-tauri/dmg-assets/background.tiff" \
+    --hide-extension "Ultravox.app" \
+    "$DMG_NAME" \
+    "$STAGE_DIR"
+)
+if [[ ! -f "$DMG_PATH" ]]; then
+  echo "✗ bundle_dmg.sh did not produce $DMG_PATH"
+  exit 1
+fi
+echo "→ initial DMG produced: $DMG_PATH"
+
+# Sign the DMG once before injection — Tauri normally does this; we have
+# to do it ourselves now since we bypassed Tauri's DMG step. The post-
+# process will re-sign after modifying the DMG, so this signature is
+# transient but keeps the produced artifact valid at every step.
+codesign --force --sign "$SIGN_IDENTITY" "$DMG_PATH" >/dev/null 2>&1 || true
 
 # ─── 3. Inject Uninstall Ultravox.app ─────────────────────────────────
 echo "→ converting DMG to read-write for injection"
