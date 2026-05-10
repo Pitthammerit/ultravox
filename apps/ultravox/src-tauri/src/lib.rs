@@ -97,6 +97,7 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         paste::paste_to_frontmost,
+        paste::copy_to_clipboard,
         frontmost::get_frontmost_app,
         hotkey::show_pill,
         hotkey::hide_pill,
@@ -139,6 +140,7 @@ pub fn run() {
     #[cfg(not(target_os = "macos"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         paste::paste_to_frontmost,
+        paste::copy_to_clipboard,
         hotkey::show_pill,
         hotkey::hide_pill,
         hotkey::show_mode_overlay,
@@ -166,6 +168,7 @@ pub fn run() {
     #[cfg(not(target_os = "macos"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         paste::paste_to_frontmost,
+        paste::copy_to_clipboard,
         hotkey::show_pill,
         hotkey::hide_pill,
         hotkey::show_mode_overlay,

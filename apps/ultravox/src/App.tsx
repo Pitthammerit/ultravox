@@ -5,7 +5,7 @@ import OnboardingWizard from "./windows/OnboardingWizard";
 import { loadSettings, patchSettings, saveSettings } from "./lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { tokens } from "./components/ui";
-import { registerHotkeys, unregisterAllHotkeys } from "./lib/tauri-bridge";
+import { registerHotkeys, unregisterAllHotkeys, copyToClipboard } from "./lib/tauri-bridge";
 import { checkForUpdate, type UpdateInfo } from "./lib/updater";
 
 export default function App() {
@@ -64,14 +64,17 @@ export default function App() {
     }).then((u) => unsubs.push(u));
 
     // Tray "Copy Last Transcription": load fresh settings, write the most-
-    // recent history entry to the system clipboard. Best-effort — silent
-    // if there's no history yet.
+    // recent history entry to the system clipboard via the Rust path.
+    // Routing through Rust avoids the WKWebView clipboard policy: a tray-
+    // menu click is an AppKit gesture, not a DOM gesture, so
+    // navigator.clipboard.writeText would silently fail with no user
+    // activation. The Rust clipboard plugin has no such restriction.
     listen("tray:copy-last", async () => {
       try {
         const fresh = await loadSettings();
         const last = fresh.history?.[0];
         if (last?.text) {
-          await navigator.clipboard.writeText(last.text);
+          await copyToClipboard(last.text);
         }
       } catch (e) {
         console.warn("[App] tray:copy-last failed:", e);

@@ -10,7 +10,7 @@ import {
   tokens,
 } from "../components/ui";
 import { HotkeyRecorder } from "../components/HotkeyRecorder";
-import { registerHotkeys } from "../lib/tauri-bridge";
+import { registerHotkeys, copyToClipboard } from "../lib/tauri-bridge";
 
 interface HomePanelProps {
   settings: AppSettings;
@@ -79,7 +79,10 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
   const copyLast = async () => {
     if (!lastEntry?.text) return;
     try {
-      await navigator.clipboard.writeText(lastEntry.text);
+      // Route through Rust for consistency with the tray-menu path —
+      // dodges any WKWebView clipboard-policy quirks on different macOS
+      // versions and gives one source of truth for clipboard writes.
+      await copyToClipboard(lastEntry.text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
     } catch (e) {

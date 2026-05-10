@@ -92,6 +92,20 @@ fn dispatch_paste_combo(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| format!("main-thread paste dropped: {e}"))?
 }
 
+/// Write a string to the system clipboard from the Rust side.
+///
+/// Useful for callers that don't have a propagated user-activation gesture
+/// (e.g. tray-menu actions). WKWebView's `navigator.clipboard.writeText`
+/// requires a recent user activation in the WebView's DOM, which a native
+/// AppKit menu click does not propagate. The Rust clipboard path has no
+/// such restriction — it always succeeds when the app is running.
+#[tauri::command]
+pub fn copy_to_clipboard(app: AppHandle, text: String) -> Result<(), String> {
+    app.clipboard()
+        .write_text(text)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn paste_to_frontmost(
     app: AppHandle,

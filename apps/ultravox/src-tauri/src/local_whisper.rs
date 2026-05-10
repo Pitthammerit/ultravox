@@ -336,15 +336,29 @@ async fn download_model_inner(app: &tauri::AppHandle, v: &str) -> Result<String,
     // button now retrofits CoreML acceleration without re-fetching the
     // multi-GB weights.
     if final_path.exists() {
+        let bin_size = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
         let _ = app.emit(
             "local_whisper:download-progress",
-            DownloadProgress { variant: v, downloaded: 0, total: 0, percent: 100.0 },
+            DownloadProgress {
+                variant: v,
+                downloaded: bin_size,
+                total: bin_size,
+                percent: 100.0,
+            },
         );
         if let Err(e) = download_coreml_for(app, v, &dir).await {
             let _ = app.emit(
                 "local_whisper:coreml-skipped",
                 CoremlSkipped { variant: v.to_string(), reason: e },
             );
+        }
+        // Whisper.cpp picks up the .mlmodelc directory at WhisperContext
+        // construction time, not per-call. Invalidate any cached context so
+        // the next transcription rebuilds with CoreML enabled — otherwise
+        // the user installs ANE acceleration, sees the badge update, but
+        // doesn't actually benefit until app restart.
+        if let Ok(mut guard) = CACHE.lock() {
+            *guard = None;
         }
         return Ok(final_path.to_string_lossy().to_string());
     }
@@ -449,15 +463,25 @@ async fn download_coreml_for(
     variant: &str,
     dir: &std::path::Path,
 ) -> Result<(), String> {
+    use futures_util::StreamExt;
+    use std::io::Write as _;
+
     let dest_dir = dir.join(format!("ggml-{variant}-encoder.mlmodelc"));
-    if dest_dir.is_dir() {
-        return Ok(()); // already installed
+    if is_complete_mlmodelc(&dest_dir) {
+        return Ok(()); // already installed and validated
+    }
+    // If a partial extraction exists from a previous interrupted run,
+    // wipe it so we re-extract cleanly. The sentinel check above protects
+    // against returning success with a half-extracted directory.
+    if dest_dir.exists() {
+        let _ = std::fs::remove_dir_all(&dest_dir);
     }
 
     let url = format!(
         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{variant}-encoder.mlmodelc.zip",
     );
     let zip_path = dir.join(format!("ggml-{variant}-encoder.mlmodelc.zip"));
+    let zip_tmp_path = dir.join(format!("ggml-{variant}-encoder.mlmodelc.zip.part"));
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60 * 30))
@@ -474,14 +498,45 @@ async fn download_coreml_for(
         return Err(format!("http {} (no CoreML companion published)", res.status()));
     }
 
-    let bytes = res
-        .bytes()
-        .await
-        .map_err(|e| format!("coreml read: {e}"))?;
-    std::fs::write(&zip_path, &bytes).map_err(|e| format!("coreml write zip: {e}"))?;
+    // Stream to disk via .part tmp file — same atomicity contract as the
+    // .bin download. Avoids a 700+ MB RAM spike for Large v3 Turbo and
+    // gives us byte-level progress reporting along the way.
+    let total = res.content_length().unwrap_or(0);
+    let mut file = std::fs::File::create(&zip_tmp_path)
+        .map_err(|e| format!("coreml create tmp: {e}"))?;
+    let mut stream = res.bytes_stream();
+    let mut downloaded: u64 = 0;
+    let mut last_emit: u64 = 0;
+    const EMIT_EVERY: u64 = 256 * 1024;
+    let _ = app.emit(
+        "local_whisper:coreml-progress",
+        CoremlProgress { variant: variant.to_string(), downloaded: 0, total, percent: 0.0 },
+    );
+    while let Some(chunk) = stream.next().await {
+        let bytes = chunk.map_err(|e| {
+            let _ = std::fs::remove_file(&zip_tmp_path);
+            format!("coreml chunk: {e}")
+        })?;
+        file.write_all(&bytes).map_err(|e| format!("coreml write: {e}"))?;
+        downloaded = downloaded.saturating_add(bytes.len() as u64);
+        if downloaded - last_emit >= EMIT_EVERY {
+            last_emit = downloaded;
+            let percent = if total > 0 {
+                (downloaded as f32 / total as f32 * 100.0).min(99.9)
+            } else {
+                0.0
+            };
+            let _ = app.emit(
+                "local_whisper:coreml-progress",
+                CoremlProgress { variant: variant.to_string(), downloaded, total, percent },
+            );
+        }
+    }
+    drop(file);
+    std::fs::rename(&zip_tmp_path, &zip_path).map_err(|e| format!("coreml rename: {e}"))?;
 
-    // Inform the UI that CoreML extraction is happening — useful when the
-    // user sees the .bin progress hit 100% but the spinner persists.
+    // Inform the UI that CoreML extraction is happening — the unzip step
+    // is short relative to the download but visible on slow disks.
     let _ = app.emit(
         "local_whisper:coreml-extracting",
         CoremlExtracting { variant: variant.to_string() },
@@ -498,10 +553,17 @@ async fn download_coreml_for(
     let _ = std::fs::remove_file(&zip_path);
 
     if !status.success() {
+        let _ = std::fs::remove_dir_all(&dest_dir);
         return Err(format!("unzip exited with {status}"));
     }
-    if !dest_dir.is_dir() {
-        return Err("unzip succeeded but dest dir missing".to_string());
+    // Verify a sentinel file exists before claiming success — guards
+    // against a "partial unzip" scenario where the directory was created
+    // but not all files extracted (e.g. disk full mid-extraction). Without
+    // this, coreml_installed: true would be reported and inference would
+    // hard-fail at the next transcription.
+    if !is_complete_mlmodelc(&dest_dir) {
+        let _ = std::fs::remove_dir_all(&dest_dir);
+        return Err("unzip succeeded but extraction is incomplete".to_string());
     }
 
     let _ = app.emit(
@@ -509,6 +571,14 @@ async fn download_coreml_for(
         CoremlReady { variant: variant.to_string() },
     );
     Ok(())
+}
+
+/// A `.mlmodelc` bundle ships with `coremldata.bin` at its top level;
+/// every published Whisper encoder zip on HuggingFace contains this file.
+/// Checking for it discriminates a complete extraction from an empty or
+/// half-populated directory.
+fn is_complete_mlmodelc(dir: &std::path::Path) -> bool {
+    dir.is_dir() && dir.join("coremldata.bin").is_file()
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -519,6 +589,15 @@ struct CoremlExtracting {
 #[derive(Clone, serde::Serialize)]
 struct CoremlReady {
     variant: String,
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CoremlProgress {
+    variant: String,
+    downloaded: u64,
+    total: u64,
+    percent: f32,
 }
 
 #[tauri::command]
@@ -582,7 +661,7 @@ pub fn local_whisper_list_models() -> Result<Vec<LocalWhisperModelInfo>, String>
         out.push(LocalWhisperModelInfo {
             variant,
             size_bytes,
-            coreml_installed: coreml_dir.is_dir(),
+            coreml_installed: is_complete_mlmodelc(&coreml_dir),
         });
     }
     out.sort_by(|a, b| a.variant.cmp(&b.variant));

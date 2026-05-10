@@ -143,12 +143,22 @@ fn set_volume(app_name: &str, volume: i32) {
 /// already ducked, the second call is a no-op (we don't compound).
 #[tauri::command]
 pub fn media_duck(state: State<MediaState>, percent: u8) {
-    // Skip if we've already ducked — prevents compounding when the recorder
-    // hot-restarts within a single session.
-    if let Ok(g) = state.ducked.lock() {
-        if !g.is_empty() {
-            return;
-        }
+    // Hold the mutex across the entire read-modify-write window so two
+    // concurrent media_duck calls (rapid record-stop/restart, or fast
+    // toggle of the duck setting) can't race past the empty-check, both
+    // run AppleScript, and overwrite each other's snapshots — leaving
+    // the wrong "original" volume to restore later.
+    //
+    // The AppleScript I/O happens while holding the lock, which is fine:
+    // the only competing caller would be a duplicate duck, and the lock
+    // is uncontended in steady-state recording. media_unduck takes the
+    // same lock so it serialises against this naturally.
+    let mut guard = match state.ducked.lock() {
+        Ok(g) => g,
+        Err(_) => return,
+    };
+    if !guard.is_empty() {
+        return; // already ducked — don't compound
     }
     let pct = percent.min(100) as f32;
     let factor = 1.0 - pct / 100.0;
@@ -163,9 +173,7 @@ pub fn media_duck(state: State<MediaState>, percent: u8) {
             });
         }
     }
-    if let Ok(mut guard) = state.ducked.lock() {
-        *guard = snapshots;
-    }
+    *guard = snapshots;
 }
 
 /// Restore Music + Spotify to whatever volume they had before media_duck

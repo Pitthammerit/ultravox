@@ -980,7 +980,7 @@ export default function PillWindow() {
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={(e) => { e.stopPropagation(); recorder.cancel(); setState("idle"); invoke("hide_pill").catch(() => {}); }}
+                  onClick={(e) => { e.stopPropagation(); confirmDiscard(); }}
                   title="Discard"
                 >
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">

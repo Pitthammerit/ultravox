@@ -21,6 +21,17 @@ export async function pasteToFrontmost(text: string, pid?: number): Promise<void
   await invoke("paste_to_frontmost", { text, targetPid: pid ?? null });
 }
 
+/**
+ * Write text to the system clipboard via the Rust clipboard plugin.
+ * Use instead of `navigator.clipboard.writeText` when the call is
+ * triggered without an in-WebView user gesture (e.g. tray-menu clicks),
+ * since WKWebView's clipboard policy requires recent user activation in
+ * the DOM — which AppKit menu clicks don't propagate.
+ */
+export async function copyToClipboard(text: string): Promise<void> {
+  await invoke("copy_to_clipboard", { text });
+}
+
 export interface FrontmostApp {
   bundle_id: string | null;
   localized_name: string | null;

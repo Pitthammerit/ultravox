@@ -1,7 +1,14 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use crate::pill_window;
+
+/// True while a recording session is active. Used to re-arm the global
+/// Escape shortcut after any `unregister_all`-style operation (e.g. user
+/// edits a hotkey mid-recording, onboarding wipes shortcuts) so the
+/// "Escape from any window discards" guarantee survives those operations.
+static RECORDING_ESCAPE_DESIRED: AtomicBool = AtomicBool::new(false);
 
 /// Parse a Tauri-style accelerator string like "Cmd+Shift+;" into a `Shortcut`.
 /// Accepts the friendly aliases the JS side emits (Cmd, Ctrl, Alt, Shift,
@@ -170,7 +177,28 @@ fn register_hotkeys_inner<R: Runtime>(
     })
     .map_err(|e| e.to_string())?;
 
+    // If a recording is currently active, the unregister_all at the top of
+    // this function just wiped the recording-Escape shortcut. Re-arm it so
+    // hitting Escape from any window still reaches the discard prompt — the
+    // very symptom Phase A (v0.12.8) was meant to fix would otherwise come
+    // back the moment the user touches a hotkey mid-recording.
+    if RECORDING_ESCAPE_DESIRED.load(Ordering::SeqCst) {
+        let _ = arm_recording_escape(app);
+    }
+
     Ok(())
+}
+
+fn arm_recording_escape<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let gs = app.global_shortcut();
+    let escape = Shortcut::new(None, Code::Escape);
+    let app_clone = app.clone();
+    gs.on_shortcut(escape, move |_app, _shortcut, event| {
+        if event.state() == ShortcutState::Pressed {
+            let _ = app_clone.emit("recording:escape", ());
+        }
+    })
+    .map_err(|e| e.to_string())
 }
 
 /// Re-register both hotkeys with new accelerator strings. Called from JS
@@ -188,8 +216,14 @@ pub fn ultravox_register_hotkeys<R: Runtime>(
 /// that the moment the user types a key combo into the HotkeyRecorder, the
 /// global hotkey doesn't simultaneously trigger a recording. App.tsx calls
 /// this when the wizard mounts and re-registers when onboarding completes.
+///
+/// Onboarding deliberately wants every shortcut gone — including the
+/// recording-Escape — so this command intentionally does NOT re-arm it.
+/// Callers that need Escape preserved should use unregister selectively
+/// rather than this nuclear option.
 #[tauri::command]
 pub fn unregister_all_hotkeys<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    RECORDING_ESCAPE_DESIRED.store(false, Ordering::SeqCst);
     let gs = app.global_shortcut();
     gs.unregister_all().map_err(|e| e.to_string())
 }
@@ -208,15 +242,8 @@ pub fn unregister_all_hotkeys<R: Runtime>(app: AppHandle<R>) -> Result<(), Strin
 /// pairing in PillWindow's recording-state effect.
 #[tauri::command]
 pub fn register_recording_escape<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
-    let gs = app.global_shortcut();
-    let escape = Shortcut::new(None, Code::Escape);
-    let app_clone = app.clone();
-    gs.on_shortcut(escape, move |_app, _shortcut, event| {
-        if event.state() == ShortcutState::Pressed {
-            let _ = app_clone.emit("recording:escape", ());
-        }
-    })
-    .map_err(|e| e.to_string())
+    RECORDING_ESCAPE_DESIRED.store(true, Ordering::SeqCst);
+    arm_recording_escape(&app)
 }
 
 /// Release the global Escape shortcut. Called the moment the recording
@@ -225,6 +252,7 @@ pub fn register_recording_escape<R: Runtime>(app: AppHandle<R>) -> Result<(), St
 /// duplicate calls are safe.
 #[tauri::command]
 pub fn unregister_recording_escape<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    RECORDING_ESCAPE_DESIRED.store(false, Ordering::SeqCst);
     let gs = app.global_shortcut();
     let escape = Shortcut::new(None, Code::Escape);
     // unregister returns Err if the shortcut isn't currently registered;
