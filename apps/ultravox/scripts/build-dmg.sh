@@ -55,11 +55,16 @@ MOUNT_POINT="/Volumes/${VOLNAME}"
 RW_DMG="/tmp/ultravox-rw.dmg"
 
 # Window/icon coordinates inside the DMG. Match the legacy 0.9.4 layout.
-WINDOW_W=800
-WINDOW_H=600
-APP_X=220 ; APP_Y=180            # set by tauri.conf.json — repeated here for clarity
-APPS_X=580; APPS_Y=180
-UNINSTALL_X=400 ; UNINSTALL_Y=440
+WINDOW_W=660
+WINDOW_H=540
+ICON_SIZE=128
+# Exact match for legacy ~/Desktop/Ultravox-0.9.4.dmg .DS_Store. Do NOT
+# rescale these autonomously — the TIFF was painted to fit this exact
+# layout. If a future change requires different values, extract from a
+# new reference DMG (see docs/shipping.md → "How to extract layout").
+APP_X=180 ; APP_Y=170
+APPS_X=480; APPS_Y=170
+UNINSTALL_X=330 ; UNINSTALL_Y=380
 
 # ─── 0. Load notarization secrets if present ──────────────────────────
 if [[ -f "$APP_DIR/.env.build" ]]; then
@@ -130,6 +135,13 @@ hdiutil attach "$RW_DMG" -mountpoint "$MOUNT_POINT" -noverify -nobrowse >/dev/nu
 echo "→ copying Uninstall Ultravox.app onto the mounted volume"
 cp -R "$UNINSTALLER_SRC" "$MOUNT_POINT/"
 
+echo "→ deleting existing .DS_Store so AppleScript creates a fresh one"
+# Without this step, Finder's cached WindowBounds wins on next open and
+# our AppleScript `set bounds` is silently ignored. Deleting forces
+# Finder to write a fresh .DS_Store reflecting whatever our AppleScript
+# leaves the window in.
+rm -f "$MOUNT_POINT/.DS_Store"
+
 echo "→ positioning Uninstall icon at (${UNINSTALL_X}, ${UNINSTALL_Y})"
 # Each setter is wrapped in `try` because newer macOS Finder rejects some
 # of these on the volume's container window with -10006 ("Can't set …").
@@ -142,12 +154,18 @@ tell application "Finder"
       set current view of container window to icon view
     end try
     try
-      set the bounds of container window to {200, 100, $((200 + WINDOW_W)), $((100 + WINDOW_H))}
+      -- Center the window on the user's display.
+      set deskBounds to bounds of window of desktop
+      set screenW to (item 3 of deskBounds) - (item 1 of deskBounds)
+      set screenH to (item 4 of deskBounds) - (item 2 of deskBounds)
+      set leftPos to ((screenW - ${WINDOW_W}) / 2) as integer
+      set topPos to ((screenH - ${WINDOW_H}) / 2) as integer
+      set the bounds of container window to {leftPos, topPos, leftPos + ${WINDOW_W}, topPos + ${WINDOW_H}}
     end try
     try
       set theViewOptions to the icon view options of container window
       set arrangement of theViewOptions to not arranged
-      set icon size of theViewOptions to 96
+      set icon size of theViewOptions to ${ICON_SIZE}
       -- Re-set background picture explicitly. Tauri's bundle_dmg.sh stages
       -- the TIFF at /Volumes/Ultravox/.background/background.tiff and writes
       -- it into the .DS_Store. When our AppleScript reopens the container
@@ -164,6 +182,27 @@ tell application "Finder"
     try
       set position of item "Uninstall Ultravox.app" to {${UNINSTALL_X}, ${UNINSTALL_Y}}
     end try
+    -- Park hidden items off-screen so they don't bleed into the
+    -- visible window when the user has "show hidden files" enabled.
+    -- (500, 600) is the tightest verified parking spot. y=600 is 60pt past the 540 bottom edge — far enough that the icon center plus its 64pt half-height clears the visible window. Legacy used (1500, 1100); confirmed empirically via reposition + visual check.
+    try
+      set position of item ".background" to {500, 600}
+    end try
+    try
+      set position of item ".DS_Store" to {500, 600}
+    end try
+    try
+      set position of item ".fseventsd" to {500, 600}
+    end try
+    try
+      set position of item ".Trashes" to {500, 600}
+    end try
+    try
+      set position of item ".Spotlight-V100" to {500, 600}
+    end try
+    try
+      set position of item ".VolumeIcon.icns" to {500, 600}
+    end try
     try
       update without registering applications
     end try
@@ -175,10 +214,52 @@ tell application "Finder"
 end tell
 APPLESCRIPT
 
+# Inject bwsp.WindowBounds — Finder doesn't persist it from AppleScript's
+# `set bounds`, so without this the DMG opens at Finder's cached default
+# window size. Iloc records are already written by AppleScript; we only
+# touch bwsp to avoid the ds_store __setitem__ tuple bug on Python 3.13.
+echo "→ injecting bwsp.WindowBounds = {{200, 120}, {${WINDOW_W}, ${WINDOW_H}}}"
+DS="$MOUNT_POINT/.DS_Store"
+PYBIN=""
+for c in /opt/homebrew/bin/python3 /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3.12 /opt/homebrew/bin/python3.11 /usr/local/bin/python3; do
+  if [[ -x "$c" ]] && "$c" -c "import ds_store" >/dev/null 2>&1; then PYBIN="$c"; break; fi
+done
+[[ -z "$PYBIN" ]] && { echo "  ✗ no python with ds_store available"; exit 1; }
+"$PYBIN" - "$DS" "${WINDOW_W}" "${WINDOW_H}" <<'PY'
+import sys
+from ds_store import DSStore
+ds_path, w, h = sys.argv[1:]
+w, h = int(w), int(h)
+with DSStore.open(ds_path, "r+") as d:
+    bwsp_partial = d["."]
+    try:
+        existing = bwsp_partial["bwsp"]
+    except KeyError:
+        existing = {}
+    existing["WindowBounds"] = f"{{{{200, 120}}, {{{w}, {h}}}}}"
+    bwsp_partial["bwsp"] = existing
+print(f"  ✓ bwsp.WindowBounds set")
+PY
+
 sync
 
 echo "→ unmounting"
-hdiutil detach "$MOUNT_POINT" -force >/dev/null
+# hdiutil detach can fail with "resource busy" (exit 16) when Finder/Spotlight
+# is still indexing or holding the just-mutated volume. Retry with backoff.
+detach_retry() {
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    if hdiutil detach "$MOUNT_POINT" -force >/dev/null 2>&1; then
+      return 0
+    fi
+    # Quit Finder windows showing the volume so Finder releases it.
+    osascript -e "tell application \"Finder\" to close (every window whose name is \"${VOLNAME}\")" >/dev/null 2>&1 || true
+    sleep $((attempt * 2))
+  done
+  echo "✗ detach failed after 5 attempts; volume still busy at $MOUNT_POINT"
+  return 1
+}
+detach_retry
 
 echo "→ recompressing DMG (UDZO, level 9)"
 rm -f "$DMG_PATH"

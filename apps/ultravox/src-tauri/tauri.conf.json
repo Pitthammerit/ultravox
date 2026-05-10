@@ -84,9 +84,9 @@
       "minimumSystemVersion": "12.0",
       "dmg": {
         "background": "dmg-assets/background.tiff",
-        "windowSize": { "width": 800, "height": 600 },
-        "appPosition": { "x": 220, "y": 180 },
-        "applicationFolderPosition": { "x": 580, "y": 180 }
+        "windowSize": { "width": 660, "height": 540 },
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 }
       }
     }
   },
