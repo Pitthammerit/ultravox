@@ -818,7 +818,13 @@ export default function PillWindow() {
         appendHistory({ id: crypto.randomUUID(), ts: Date.now(), modeId: mode.id, bundleId: frontmost?.bundle_id ?? null, text: result.text })
           .catch((e) => captureError(e, { stage: "history-append" }));
       } else {
-        showError("Transcription returned empty text — silence detected, or the worker didn't decode the audio.");
+        // Empty transcript with non-zero audio peak — usually a brief
+        // grunt, fan noise that crossed the peak threshold, or a worker
+        // decode glitch. Treat the same as the up-front silence path:
+        // brief auto-dismissing toast, NOT a sticky red error. The user
+        // didn't actually speak; surfacing an alarming dismiss-required
+        // error trains them to ignore real errors later.
+        showSilenceFlow("Nothing to transcribe.");
       }
     } catch (e) {
       const errName = (e as Error)?.name ?? "Error";

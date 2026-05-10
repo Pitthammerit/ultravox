@@ -7,7 +7,9 @@ beforeEach(() => {
   navigator.mediaDevices = {
     getUserMedia: vi.fn().mockResolvedValue({
       getTracks: () => [{ stop: vi.fn() }],
-      getAudioTracks: () => [{ stop: vi.fn() }],
+      getAudioTracks: () => [
+        { stop: vi.fn(), getSettings: () => ({ autoGainControl: true, noiseSuppression: true, echoCancellation: false }) },
+      ],
     }),
   };
 });
@@ -48,13 +50,16 @@ describe("useMicStream", () => {
     expect(firstCall.audio.echoCancellation).toBe(false);
   });
 
-  it("falls back to constraints without echoCancellation when WebKit rejects the preferred set", async () => {
-    // First call: WebKit's "Invalid constraint" / OverconstrainedError on macOS 26
-    // when echoCancellation:false is requested. Second call: same constraints
-    // minus the echoCancellation key → succeeds (stream returned).
+  it("falls back by stripping deviceId FIRST (preserves echoCancellation:false) when preferred is rejected", async () => {
+    // Real-world failure mode: stale/exact deviceId triggers
+    // OverconstrainedError. Stripping deviceId fixes it, AND we want to
+    // keep echoCancellation:false so music doesn't duck. The new ladder
+    // tries no-device BEFORE dropping the EC key.
     const fakeStream = {
       getTracks: () => [{ stop: vi.fn() }],
-      getAudioTracks: () => [{ stop: vi.fn() }],
+      getAudioTracks: () => [
+        { stop: vi.fn(), getSettings: () => ({ echoCancellation: false }) },
+      ],
     };
     const overconstrained = Object.assign(new Error("Invalid constraint"), {
       name: "OverconstrainedError",
@@ -68,16 +73,65 @@ describe("useMicStream", () => {
 
     const { result } = renderHook(() => useMicStream());
     await act(async () => {
-      await result.current.start();
+      await result.current.start({
+        autoGainControl: true,
+        noiseSuppression: true,
+        echoCancellation: false,
+        deviceId: { exact: "stale-device-id" },
+      });
     });
 
     expect(getUserMedia).toHaveBeenCalledTimes(2);
     const firstAudio = getUserMedia.mock.calls[0]![0].audio;
     const secondAudio = getUserMedia.mock.calls[1]![0].audio;
+    // Level 1: full constraints with deviceId
+    expect(firstAudio.deviceId).toEqual({ exact: "stale-device-id" });
     expect(firstAudio.echoCancellation).toBe(false);
-    expect("echoCancellation" in secondAudio).toBe(false);
+    // Level 2 (no-device): deviceId removed, EC:false PRESERVED — this is
+    // the whole point of the new ladder (don't sacrifice no-ducking just
+    // because deviceId was the rejection trigger).
+    expect("deviceId" in secondAudio).toBe(false);
+    expect(secondAudio.echoCancellation).toBe(false);
     expect(secondAudio.autoGainControl).toBe(true);
     expect(secondAudio.noiseSuppression).toBe(true);
+    expect(result.current.stream).toBeTruthy();
+  });
+
+  it("falls through to no-ec-key when both preferred AND no-device are rejected", async () => {
+    // Some macOS 26 setups reject EC:false even without a deviceId. Drop
+    // the EC key on level 3 so WebKit defaults to true and the stream
+    // succeeds. Music ducking returns, but recording works.
+    const fakeStream = {
+      getTracks: () => [{ stop: vi.fn() }],
+      getAudioTracks: () => [
+        { stop: vi.fn(), getSettings: () => ({ echoCancellation: true }) },
+      ],
+    };
+    const overconstrained = Object.assign(new Error("Invalid constraint"), {
+      name: "OverconstrainedError",
+    });
+    const getUserMedia = vi
+      .fn()
+      .mockRejectedValueOnce(overconstrained) // level 1 — preferred
+      .mockRejectedValueOnce(overconstrained) // level 2 — no-device
+      .mockResolvedValueOnce(fakeStream);     // level 3 — no-ec-key wins
+    // @ts-expect-error mock
+    navigator.mediaDevices = { getUserMedia };
+
+    const { result } = renderHook(() => useMicStream());
+    await act(async () => {
+      await result.current.start({
+        autoGainControl: true,
+        noiseSuppression: true,
+        echoCancellation: false,
+      });
+    });
+
+    expect(getUserMedia).toHaveBeenCalledTimes(3);
+    const thirdAudio = getUserMedia.mock.calls[2]![0].audio;
+    expect("echoCancellation" in thirdAudio).toBe(false);
+    expect(thirdAudio.autoGainControl).toBe(true);
+    expect(thirdAudio.noiseSuppression).toBe(true);
     expect(result.current.stream).toBeTruthy();
   });
 

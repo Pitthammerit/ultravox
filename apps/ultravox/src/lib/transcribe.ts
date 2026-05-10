@@ -294,7 +294,14 @@ async function workerTranscribe(
  * downstream LLM cleanup often preserves them verbatim. Single regex catches
  * the common ones; we collapse leftover whitespace afterwards.
  */
-const SOUND_TAG_RE = /\s*\[(typing|music|applause|laughing|laughter|noise|silence|inaudible|breathing|coughing|sigh|sighs|sneeze|cough|background music|background noise|sound|sounds|clicking|keyboard|keys|pause|silent|chuckles|chuckle|yawn|yawns|whisper|whispering|murmuring|crowd|crowd noise|static|blank_audio|blank audio)\]\s*/gi;
+// Whisper emits bracketed sound annotations for non-speech audio:
+// [BLANK_AUDIO], [MUSIC], [SPEAKING GERMAN], [FOREIGN LANGUAGE] etc.
+// We strip them so they don't end up pasted as literal text. Three groups:
+// 1. Fixed short tags (typing, music, applause, …)
+// 2. [SPEAKING <LANG>] for any language Whisper recognised but didn't
+//    transcribe — covers the long tail (German, Spanish, French, etc.)
+// 3. Compound tags ([SINGING IN ITALIAN], [BACKGROUND CONVERSATION], …)
+const SOUND_TAG_RE = /\s*\[(typing|music|applause|laughing|laughter|noise|silence|inaudible|breathing|coughing|sigh|sighs|sneeze|cough|background music|background noise|background conversation|crowd chatter|sound|sounds|clicking|keyboard|keys|pause|silent|chuckles|chuckle|yawn|yawns|whisper|whispering|murmuring|crowd|crowd noise|static|blank_audio|blank audio|speaking [a-z\s\-]+|foreign language|non-english(?: speech)?|singing(?: in [a-z\s\-]+)?|instrumental|music playing)\]\s*/gi;
 function stripSoundAnnotations(text: string): string {
   return text.replace(SOUND_TAG_RE, " ").replace(/[ \t]{2,}/g, " ").replace(/\s+\n/g, "\n").trim();
 }
