@@ -193,6 +193,33 @@ tell application "Finder"
 end tell
 APPLESCRIPT
 
+# Inject bwsp.WindowBounds — Finder doesn't persist it from AppleScript's
+# `set bounds`, so without this the DMG opens at Finder's cached default
+# window size. Iloc records are already written by AppleScript; we only
+# touch bwsp to avoid the ds_store __setitem__ tuple bug on Python 3.13.
+echo "→ injecting bwsp.WindowBounds = {{200, 120}, {${WINDOW_W}, ${WINDOW_H}}}"
+DS="$MOUNT_POINT/.DS_Store"
+PYBIN=""
+for c in /opt/homebrew/bin/python3 /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3.12 /opt/homebrew/bin/python3.11 /usr/local/bin/python3; do
+  if [[ -x "$c" ]] && "$c" -c "import ds_store" >/dev/null 2>&1; then PYBIN="$c"; break; fi
+done
+[[ -z "$PYBIN" ]] && { echo "  ✗ no python with ds_store available"; exit 1; }
+"$PYBIN" - "$DS" "${WINDOW_W}" "${WINDOW_H}" <<'PY'
+import sys
+from ds_store import DSStore
+ds_path, w, h = sys.argv[1:]
+w, h = int(w), int(h)
+with DSStore.open(ds_path, "r+") as d:
+    bwsp_partial = d["."]
+    try:
+        existing = bwsp_partial["bwsp"]
+    except KeyError:
+        existing = {}
+    existing["WindowBounds"] = f"{{{{200, 120}}, {{{w}, {h}}}}}"
+    bwsp_partial["bwsp"] = existing
+print(f"  ✓ bwsp.WindowBounds set")
+PY
+
 sync
 
 echo "→ unmounting"

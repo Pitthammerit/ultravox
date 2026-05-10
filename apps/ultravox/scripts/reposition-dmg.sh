@@ -118,6 +118,39 @@ tell application "Finder"
 end tell
 APPLESCRIPT
 
+# After AppleScript closes the window, Finder writes a fresh .DS_Store with
+# Iloc records (icon positions) + view options. But it does NOT persist
+# bwsp.WindowBounds — that's why the window opens at Finder's cached default
+# size on next open. Inject bwsp.WindowBounds via ds_store directly. We
+# only set the bwsp dict (which the library handles correctly); leaving Iloc
+# alone avoids the ds_store __setitem__ tuple bug on Python 3.13.
+echo "→ injecting bwsp.WindowBounds = {{200, 120}, {${WINDOW_W}, ${WINDOW_H}}}"
+DS="$MOUNT_POINT/.DS_Store"
+PYBIN=""
+for c in /opt/homebrew/bin/python3 /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3.12 /opt/homebrew/bin/python3.11 /usr/local/bin/python3; do
+  if [[ -x "$c" ]] && "$c" -c "import ds_store" >/dev/null 2>&1; then PYBIN="$c"; break; fi
+done
+[[ -z "$PYBIN" ]] && { echo "  ✗ no python with ds_store available; install via 'brew install python && /opt/homebrew/bin/python3 -m pip install ds_store mac_alias'"; exit 1; }
+"$PYBIN" - "$DS" "${WINDOW_W}" "${WINDOW_H}" <<'PY'
+import sys
+from ds_store import DSStore
+ds_path, w, h = sys.argv[1:]
+w, h = int(w), int(h)
+with DSStore.open(ds_path, "r+") as d:
+    # Correct ds_store API: d[filename] returns a Partial, partial[code]
+    # = value calls Partial.__setitem__. The d[fn, code] = v shorthand
+    # silently goes through DSStore's missing __setitem__ and corrupts
+    # the BTree with tuple-keyed entries.
+    bwsp_partial = d["."]
+    try:
+        existing = bwsp_partial["bwsp"]
+    except KeyError:
+        existing = {}
+    existing["WindowBounds"] = f"{{{{200, 120}}, {{{w}, {h}}}}}"
+    bwsp_partial["bwsp"] = existing
+print(f"  ✓ bwsp.WindowBounds set")
+PY
+
 sync
 
 echo "→ unmounting (with retry)"
