@@ -182,6 +182,27 @@ tell application "Finder"
     try
       set position of item "Uninstall Ultravox.app" to {${UNINSTALL_X}, ${UNINSTALL_Y}}
     end try
+    -- Park hidden items off-screen so they don't bleed into the
+    -- visible window when the user has "show hidden files" enabled.
+    -- (1500, 1100) matches the legacy 0.9.4 DMG.
+    try
+      set position of item ".background" to {1500, 1100}
+    end try
+    try
+      set position of item ".DS_Store" to {1500, 1100}
+    end try
+    try
+      set position of item ".fseventsd" to {1500, 1100}
+    end try
+    try
+      set position of item ".Trashes" to {1500, 1100}
+    end try
+    try
+      set position of item ".Spotlight-V100" to {1500, 1100}
+    end try
+    try
+      set position of item ".VolumeIcon.icns" to {1500, 1100}
+    end try
     try
       update without registering applications
     end try
