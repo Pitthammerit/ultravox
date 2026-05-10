@@ -717,7 +717,14 @@ export default function PillWindow() {
       setState("recording");
     } catch (e) {
       captureError(e, { stage: "start" });
+      // captureError is a Sentry no-op until VITE_SENTRY_DSN is set; that
+      // means production catches HERE used to vanish silently — no entry in
+      // debug-log.json — leaving us blind to the actual error class. Always
+      // log to debug-log so user-shared logs include the failure detail.
       const err = e as DOMException;
+      logDebug("error", {
+        message: `startRecord caught ${err?.name ?? "Error"}: ${(e as Error)?.message ?? String(e)}`,
+      });
       const friendly = err?.name === "NotAllowedError"
         ? "Microphone access denied — enable in System Settings → Privacy → Microphone."
         : err?.name === "NotFoundError" ? "No microphone found."

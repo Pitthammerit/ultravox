@@ -40,13 +40,19 @@ export function useMicStream(): MicStreamControls {
 
     let lastErr: unknown = null;
     for (const attempt of attempts) {
+      // Log EVERY attempt (not just rejections) so the debug log proves which
+      // level the user's macOS actually accepted. Without this, a successful
+      // fallback at level=preferred is invisible in the log and indistinguishable
+      // from "fallback never ran".
+      const audioStr = attempt.audio === true ? "true" : JSON.stringify(attempt.audio);
+      logDebug("record-start", {
+        message: `mic constraint trying level=${attempt.label} audio=${audioStr}`,
+      });
       try {
         const s = await navigator.mediaDevices.getUserMedia({ audio: attempt.audio });
-        if (attempt.label !== "preferred") {
-          logDebug("record-start", {
-            message: `mic constraint fallback applied: level=${attempt.label} (preferred constraints rejected)`,
-          });
-        }
+        logDebug("record-start", {
+          message: `mic constraint accepted level=${attempt.label}`,
+        });
         streamRef.current = s;
         setStream(s);
         return s;
@@ -56,10 +62,10 @@ export function useMicStream(): MicStreamControls {
         const isConstraint =
           err?.name === "OverconstrainedError" ||
           (err?.message ?? "").toLowerCase().includes("constraint");
-        if (!isConstraint) throw e; // permission/notfound/etc → don't keep retrying
-        logDebug("record-start", {
-          message: `mic constraint level=${attempt.label} rejected: ${err?.message ?? err?.name ?? "unknown"}`,
+        logDebug("error", {
+          message: `mic constraint level=${attempt.label} threw ${err?.name ?? "Error"}: ${err?.message ?? "unknown"}; isConstraint=${isConstraint}`,
         });
+        if (!isConstraint) throw e; // permission/notfound/etc → don't keep retrying
       }
     }
     throw lastErr ?? new Error("getUserMedia: all constraint levels failed");
