@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { emit } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
@@ -32,7 +33,19 @@ interface ConfigurationPanelProps {
 type MicState = "granted" | "denied" | "prompt" | "unknown";
 
 async function checkMicrophonePermission(): Promise<MicState> {
-  // Permissions API: query without prompting. Supported in WKWebView 16+.
+  // Source of truth: macOS AVCaptureDevice authorization status (via Rust).
+  // The WKWebView Permissions API returns "prompt" instead of "granted" on
+  // cold launches even when the system has actually granted access — its
+  // permission cache doesn't survive app relaunches.
+  try {
+    const native = await invoke<"notdetermined" | "restricted" | "denied" | "authorized">(
+      "microphone_auth_status",
+    );
+    if (native === "authorized") return "granted";
+    if (native === "denied" || native === "restricted") return "denied";
+    // notdetermined → fall through to the WebView probe (lets us detect a
+    // first-launch prompt state if it ever differs).
+  } catch { /* fall through */ }
   try {
     const perm = await navigator.permissions?.query({ name: "microphone" as PermissionName });
     if (perm) return perm.state as MicState;

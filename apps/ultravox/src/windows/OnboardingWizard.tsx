@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { BRANDING } from "../branding";
 import {
   checkAccessibilityPermission,
@@ -368,12 +369,22 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   // actual `getUserMedia` call happens later when the user clicks
   // "Allow Microphone Access" on step 4. Same for Accessibility.
   useEffect(() => {
-    if (typeof navigator !== "undefined" && navigator.permissions?.query) {
-      navigator.permissions
-        .query({ name: "microphone" as PermissionName })
-        .then((res) => { if (res.state === "granted") setMicStatus("granted"); })
-        .catch(() => {});
-    }
+    // Source of truth: Rust-side AVCaptureDevice authorization status. The
+    // WebView Permissions API loses the granted state across cold launches;
+    // the system-level TCC database survives, so use it directly.
+    invoke<"notdetermined" | "restricted" | "denied" | "authorized">("microphone_auth_status")
+      .then((native) => {
+        if (native === "authorized") {
+          setMicStatus("granted");
+        } else if (native === "notdetermined" && typeof navigator !== "undefined" && navigator.permissions?.query) {
+          // Fall back to the WebView probe to detect first-launch prompt state.
+          navigator.permissions
+            .query({ name: "microphone" as PermissionName })
+            .then((res) => { if (res.state === "granted") setMicStatus("granted"); })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
     checkAccessibilityPermission()
       .then((ok) => { if (ok) setAxStatus("granted"); })
       .catch(() => {});
