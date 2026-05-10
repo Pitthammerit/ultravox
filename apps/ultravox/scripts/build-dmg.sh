@@ -55,11 +55,12 @@ MOUNT_POINT="/Volumes/${VOLNAME}"
 RW_DMG="/tmp/ultravox-rw.dmg"
 
 # Window/icon coordinates inside the DMG. Match the legacy 0.9.4 layout.
-WINDOW_W=800
-WINDOW_H=600
-APP_X=130 ; APP_Y=180            # set by tauri.conf.json — repeated here for clarity
-APPS_X=380; APPS_Y=180
-UNINSTALL_X=400 ; UNINSTALL_Y=380
+WINDOW_W=660
+WINDOW_H=540
+ICON_SIZE=128
+APP_X=180 ; APP_Y=170            # extracted from legacy ~/Desktop/Ultravox-0.9.4.dmg .DS_Store
+APPS_X=480; APPS_Y=170
+UNINSTALL_X=330 ; UNINSTALL_Y=380
 
 # ─── 0. Load notarization secrets if present ──────────────────────────
 if [[ -f "$APP_DIR/.env.build" ]]; then
@@ -147,7 +148,7 @@ tell application "Finder"
     try
       set theViewOptions to the icon view options of container window
       set arrangement of theViewOptions to not arranged
-      set icon size of theViewOptions to 96
+      set icon size of theViewOptions to ${ICON_SIZE}
       -- Re-set background picture explicitly. Tauri's bundle_dmg.sh stages
       -- the TIFF at /Volumes/Ultravox/.background/background.tiff and writes
       -- it into the .DS_Store. When our AppleScript reopens the container

@@ -31,11 +31,12 @@ MOUNT_POINT="/Volumes/${VOLNAME}"
 RW_DMG="/tmp/ultravox-reposition.dmg"
 
 # ─── coordinates (single source of truth — keep in sync with build-dmg.sh) ──
-WINDOW_W=800
-WINDOW_H=600
-APP_X=130       ; APP_Y=180
-APPS_X=380      ; APPS_Y=180
-UNINSTALL_X=400 ; UNINSTALL_Y=380
+WINDOW_W=660
+WINDOW_H=540
+ICON_SIZE=128
+APP_X=180       ; APP_Y=170      # exact match to legacy 0.9.4 DMG
+APPS_X=480      ; APPS_Y=170
+UNINSTALL_X=330 ; UNINSTALL_Y=380
 
 export PATH="/usr/bin:$PATH"
 
@@ -79,7 +80,7 @@ tell application "Finder"
     try
       set theViewOptions to the icon view options of container window
       set arrangement of theViewOptions to not arranged
-      set icon size of theViewOptions to 96
+      set icon size of theViewOptions to ${ICON_SIZE}
       set background picture of theViewOptions to file ".background:background.tiff"
     end try
     try
