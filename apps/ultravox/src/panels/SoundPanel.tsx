@@ -7,6 +7,7 @@ import { transcribe } from "../lib/transcribe";
 import { TOKEN_ENDPOINT } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
 import { logDebug } from "../lib/debugLog";
+import { useT } from "../lib/i18n/I18nProvider";
 
 interface SoundPanelProps {
   settings: AppSettings;
@@ -16,6 +17,7 @@ interface SoundPanelProps {
 type TestStatus = "idle" | "recording" | "transcribing" | "ok" | "error";
 
 export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
+  const t = useT();
   const sound = settings.sound;
 
   const setSound = (patch: Partial<AppSettings["sound"]>) =>
@@ -24,44 +26,44 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
   return (
     <>
       <Section
-        label="Microphone"
-        help="Ultravox uses your system default microphone. Per-device selection comes in v1.1."
+        label={t.panels.sound.sectionMicrophone}
+        help={t.panels.sound.sectionMicrophoneHelp}
       >
         <TestRecordingRow settings={settings} />
       </Section>
 
       <Section
-        label="Compare cleanup quality"
-        help="Records 6s, then runs the same audio through Whisper raw + four LLM variants in parallel. Use this to pick the right model for your dictation style."
+        label={t.panels.sound.sectionCompare}
+        help={t.panels.sound.sectionCompareHelp}
       >
         <CompareCleanupRow settings={settings} />
       </Section>
 
-      <Section label="Input processing">
+      <Section label={t.panels.sound.sectionInputProcessing}>
         <ToggleRow
-          label="Auto-gain"
-          help="Browser auto-adjusts microphone level"
+          label={t.panels.sound.autoGain}
+          help={t.panels.sound.autoGainHelp}
           checked={sound.autoGain}
           onChange={(v) => setSound({ autoGain: v })}
         />
         <ToggleRow
-          label="Noise suppression"
-          help="Reduce background noise. Mild quality tradeoff."
+          label={t.panels.sound.noiseSuppression}
+          help={t.panels.sound.noiseSuppressionHelp}
           checked={sound.noiseSuppression}
           onChange={(v) => setSound({ noiseSuppression: v })}
         />
         <ToggleRow
-          label="Silence removal"
-          help="Trim silent passages before upload (v1.1)"
+          label={t.panels.sound.silenceRemoval}
+          help={t.panels.sound.silenceRemovalHelp}
           checked={sound.silenceRemoval}
           onChange={(v) => setSound({ silenceRemoval: v })}
         />
       </Section>
 
-      <Section label="Sound effects">
+      <Section label={t.panels.sound.sectionSoundEffects}>
         <ToggleRow
-          label="Pause music while recording"
-          help="Pause Music and Spotify when a recording starts; resume when it stops."
+          label={t.panels.sound.pauseMusic}
+          help={t.panels.sound.pauseMusicHelp}
           checked={sound.pauseMediaWhileRecording}
           onChange={(v) => setSound(
             // Mutually exclusive with ducking — flipping pause ON disables
@@ -71,8 +73,8 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
           )}
         />
         <ToggleRow
-          label="Duck other audio while recording"
-          help="Lower Music/Spotify volume during recording, then restore. Less jarring than pausing if you want to keep listening."
+          label={t.panels.sound.duckMusic}
+          help={t.panels.sound.duckMusicHelp}
           checked={sound.duckMediaWhileRecording}
           onChange={(v) => setSound(
             v ? { duckMediaWhileRecording: true, pauseMediaWhileRecording: false }
@@ -81,7 +83,7 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
         />
         {sound.duckMediaWhileRecording && (
           <Row
-            label="Ducking depth"
+            label={t.panels.sound.duckingDepth}
             control={
               <DuckVolumePicker
                 value={(sound.duckPercent ?? 50) as DuckPercent}
@@ -91,14 +93,14 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
           />
         )}
         <ToggleRow
-          label="Chime on start/stop"
-          help="Brief tone when recording starts and stops"
+          label={t.panels.sound.chime}
+          help={t.panels.sound.chimeHelp}
           checked={sound.chime}
           onChange={(v) => setSound({ chime: v })}
         />
         {sound.chime && (
           <Row
-            label="Chime volume"
+            label={t.panels.sound.chimeVolume}
             control={
               <input
                 type="range"
@@ -116,14 +118,14 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
         )}
         {sound.chime && (
           <Row
-            label="Test"
+            label={t.panels.sound.chimeTest}
             control={
               <div className="flex items-center gap-1.5">
                 <Button size="xs" onClick={() => playStartChime(sound.chimeVolume)}>
-                  ▶ Start
+                  {t.panels.sound.chimeTestStart}
                 </Button>
                 <Button size="xs" onClick={() => playStopChime(sound.chimeVolume)}>
-                  ▶ Stop
+                  {t.panels.sound.chimeTestStop}
                 </Button>
               </div>
             }
@@ -141,6 +143,8 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
    ───────────────────────────────────────────────────────────── */
 
 function TestRecordingRow({ settings }: { settings: AppSettings }) {
+  const t = useT();
+  void t; // sub-component renders English-only labels pending catalog extension
   const [status, setStatus] = useState<TestStatus>("idle");
   const [result, setResult] = useState<string>("");
 
@@ -262,6 +266,8 @@ interface VariantResult {
 }
 
 function CompareCleanupRow({ settings }: { settings: AppSettings }) {
+  const t = useT();
+  void t; // sub-component renders English-only labels pending catalog extension
   const [phase, setPhase] = useState<"idle" | "recording" | "comparing" | "done">("idle");
   const [results, setResults] = useState<Record<string, VariantResult>>({});
 

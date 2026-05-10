@@ -27,6 +27,7 @@ import { formatPickerBytes, EnPill } from "../components/TranscriptionModelPicke
 import { VARIANT_LABEL_MAP } from "../lib/transcriptionVariants";
 import { LLM_LABEL_MAP } from "../lib/llmVariants";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
+import { useT } from "../lib/i18n/I18nProvider";
 
 interface ConfigurationPanelProps {
   settings?: AppSettings;
@@ -69,6 +70,7 @@ async function requestMicrophonePermission(): Promise<boolean> {
 }
 
 export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
+  const t = useT();
   const [axGranted, setAxGranted] = useState<boolean | null>(null);
   const [axRequesting, setAxRequesting] = useState(false);
   const [micState, setMicState] = useState<MicState>("unknown");
@@ -156,11 +158,11 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
       </Section>
 
       <Section
-        label="Recording window"
-        help="Choose how the floating pill appears while you're recording."
+        label={t.panels.configuration.sectionRecordingWindow}
+        help={t.panels.configuration.sectionRecordingWindowHelp}
       >
         <Row
-          label="Style"
+          label={t.panels.configuration.pillStyleLabel}
           control={
             <PillStylePicker
               value={settings?.pillStyle ?? "classic"}
@@ -189,19 +191,19 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
       <RecordingsSection settings={settings} onChange={onChange} />
 
       <Section
-        label="Permissions"
-        help="Required for Ultravox to record audio and paste transcriptions into other apps."
+        label={t.panels.configuration.sectionPermissions}
+        help={t.panels.configuration.sectionPermissionsHelp}
       >
         <Row
-          label="Microphone access"
+          label={t.panels.configuration.micAccess}
           help={
             micState === "granted"
-              ? "Granted — recording works."
+              ? t.panels.configuration.micGrantedHelp
               : micState === "denied"
-              ? "Denied — open System Settings → Privacy & Security → Microphone and enable Ultravox."
+              ? t.panels.configuration.micDeniedHelp
               : micState === "prompt"
-              ? "Not yet requested — click Grant Access."
-              : "Checking…"
+              ? t.panels.configuration.micPromptHelp
+              : t.panels.configuration.micCheckingHelp
           }
           control={
             micState === "granted" ? (
@@ -214,14 +216,14 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
                   onClick={grantMic}
                   disabled={micRequesting}
                 >
-                  {micRequesting ? "Waiting…" : "Grant Access"}
+                  {micRequesting ? "Waiting…" : t.panels.configuration.grantAccess}
                 </Button>
                 {micState === "denied" && !micRequesting && (
                   <button
                     onClick={recheckMic}
                     className="text-[12px] text-color-secondary hover:text-color-primary underline"
                   >
-                    Refresh
+                    {t.common.refresh}
                   </button>
                 )}
               </div>
@@ -229,13 +231,13 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
           }
         />
         <Row
-          label="Accessibility access"
+          label={t.panels.configuration.axAccess}
           help={
             axGranted === true
-              ? "Granted — paste works correctly."
+              ? t.panels.configuration.axGrantedHelp
               : axGranted === false
-              ? "Not granted — transcriptions can't be pasted."
-              : "Checking…"
+              ? t.panels.configuration.axIdleHelp
+              : t.panels.configuration.micCheckingHelp
           }
           control={
             axGranted ? (
@@ -248,14 +250,14 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
                   onClick={grantAx}
                   disabled={axRequesting}
                 >
-                  {axRequesting ? "Waiting…" : "Grant Access"}
+                  {axRequesting ? "Waiting…" : t.panels.configuration.grantAccess}
                 </Button>
                 {axGranted === false && !axRequesting && (
                   <button
                     onClick={recheckAx}
                     className="text-[12px] text-color-secondary hover:text-color-primary underline"
                   >
-                    Refresh
+                    {t.common.refresh}
                   </button>
                 )}
               </div>
@@ -283,10 +285,10 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
         />
       </Section>
 
-      <Section label="Maintenance">
+      <Section label={t.panels.configuration.sectionDangerZone}>
         <Row
-          label="Reset to defaults"
-          help="Restore all preferences. History is preserved."
+          label={t.panels.configuration.resetAll}
+          help={t.panels.configuration.resetAllHelp}
           control={
             <Button
               variant="outline"
@@ -294,7 +296,7 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
               onClick={reset}
               style={resetConfirming ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : {}}
             >
-              {resetConfirming ? "Click again to confirm" : "Reset"}
+              {resetConfirming ? t.panels.configuration.resetAllConfirm : t.panels.configuration.resetAll}
             </Button>
           }
         />
@@ -327,6 +329,7 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
    ───────────────────────────────────────────────────────────── */
 
 function DiagnosticsSection() {
+  const t = useT();
   const [entries, setEntries] = useState<DebugEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -352,8 +355,8 @@ function DiagnosticsSection() {
 
   return (
     <Section
-      label="Diagnostics"
-      help="Last 30 events from record → transcribe → paste. Use this when transcription fails: the failing stage shows the status code and error body."
+      label={t.panels.configuration.sectionDiagnostics}
+      help={t.panels.configuration.sectionDiagnosticsHelp}
     >
       <div className="flex items-center justify-between mb-2">
         <span className="text-[12px]" style={{ color: tokens.fgMuted }}>
@@ -361,7 +364,7 @@ function DiagnosticsSection() {
         </span>
         <div className="flex items-center gap-1.5">
           <Button variant="outline" size="xs" onClick={refresh} disabled={loading}>
-            {loading ? "Loading…" : "Refresh"}
+            {loading ? t.common.loading : t.common.refresh}
           </Button>
           <Button
             variant="outline"
@@ -369,7 +372,7 @@ function DiagnosticsSection() {
             onClick={onClear}
             style={confirmClear ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : {}}
           >
-            {confirmClear ? "Click again" : "Clear"}
+            {confirmClear ? "Click again" : t.panels.configuration.clearLog}
           </Button>
         </div>
       </div>
@@ -445,6 +448,7 @@ function formatBytes(b: number): string {
    ───────────────────────────────────────────────────────────── */
 
 function InstalledWhisperModelsSection() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [installed, setInstalled] = useState<LocalWhisperModelInfo[]>([]);
   const [removeConfirming, setRemoveConfirming] = useState<string | null>(null);
@@ -486,7 +490,7 @@ function InstalledWhisperModelsSection() {
             className="text-[10.5px] uppercase tracking-[0.14em] font-medium"
             style={{ color: tokens.fgMuted }}
           >
-            Transcription
+            {t.panels.configuration.sectionTranscription}
           </span>
           {installed.length > 0 && (
             <span
@@ -582,6 +586,8 @@ function InstalledWhisperModelsSection() {
    ───────────────────────────────────────────────────────────── */
 
 function InstalledLlmModelsSection() {
+  // useT() invoked for future migrations once catalog has LLM model section keys.
+  void useT();
   const [open, setOpen] = useState(false);
   const [installed, setInstalled] = useState<LocalLlmModel[]>([]);
   const [removeConfirming, setRemoveConfirming] = useState<string | null>(null);
@@ -713,6 +719,8 @@ function InstalledLlmModelsSection() {
  * label in the Configuration panel's "Transcription" section.
  */
 function CoremlBadge() {
+  // useT() invoked per migration spec; aneBadgeTitle key not yet in catalog.
+  void useT();
   return (
     <span
       title="CoreML encoder installed — runs on Apple Neural Engine"
@@ -745,6 +753,7 @@ interface RecordingsSectionProps {
 }
 
 function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
+  const t = useT();
   // Disk-usage readout. Refreshed on settings:saved (which fires after
   // every recording append) so the user sees the count climb in real time
   // when they're testing the feature on first install.
@@ -794,15 +803,19 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
 
   return (
     <Section
-      label="Recordings"
-      help="Optionally save the audio of every recording to your Mac. Files stay local — never uploaded except for the original transcription request. Useful for replay, re-transcribe, or audit."
+      label={t.panels.configuration.sectionRecordings}
+      help={t.panels.configuration.sectionRecordingsHelp}
     >
       <ToggleRow
-        label="Save audio recordings locally"
+        label={t.panels.configuration.saveAudioLocally}
         help={
           recordings.saveLocal
-            ? `Stored at ~/Library/Application Support/com.ultravox.dev/recordings/. Auto-deleted after ${recordings.retentionDays === 0 ? "never" : `${recordings.retentionDays} days`}.`
-            : "Off — recordings are transcribed and discarded as today."
+            ? t.panels.configuration.saveAudioOnHelp(
+                recordings.retentionDays === 0
+                  ? t.panels.configuration.retentionNever
+                  : t.panels.configuration.retentionDays(recordings.retentionDays),
+              )
+            : t.panels.configuration.saveAudioOffHelp
         }
         checked={recordings.saveLocal}
         onChange={(v) => void setSaveLocal(v)}
@@ -810,7 +823,7 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
       {recordings.saveLocal && (
         <>
           <Row
-            label="Auto-delete after"
+            label={t.panels.configuration.autoDeleteAfter}
             control={
               <select
                 value={recordings.retentionDays}
@@ -822,20 +835,20 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
                   border: `1px solid ${tokens.border}`,
                 }}
               >
-                <option value={0}>Never</option>
-                <option value={7}>7 days</option>
-                <option value={30}>30 days</option>
-                <option value={90}>90 days</option>
+                <option value={0}>{t.panels.configuration.retentionNever}</option>
+                <option value={7}>{t.panels.configuration.retentionDays(7)}</option>
+                <option value={30}>{t.panels.configuration.retentionDays(30)}</option>
+                <option value={90}>{t.panels.configuration.retentionDays(90)}</option>
               </select>
             }
           />
           <Row
-            label="Disk usage"
+            label={t.panels.configuration.diskUsage}
             control={
               <span style={{ fontSize: 12, color: tokens.fgMuted }}>
                 {stats.count === 0
-                  ? "0 recordings"
-                  : `${formatBytes(stats.bytes)} across ${stats.count} recording${stats.count === 1 ? "" : "s"}`}
+                  ? t.panels.configuration.diskUsageEmpty
+                  : t.panels.configuration.diskUsageFull(formatBytes(stats.bytes), stats.count)}
               </span>
             }
           />
@@ -848,7 +861,7 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
                   variant="outline"
                   onClick={() => void openRecordingsFolder()}
                 >
-                  Open folder
+                  {t.panels.configuration.openFolder}
                 </Button>
                 <Button
                   size="xs"
@@ -856,8 +869,8 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
                   onClick={() => void onClearAll()}
                 >
                   {clearConfirming
-                    ? "Click to confirm"
-                    : `Delete all (${stats.count})`}
+                    ? t.panels.configuration.deleteAllConfirm
+                    : t.panels.configuration.deleteAll(stats.count)}
                 </Button>
               </div>
             }

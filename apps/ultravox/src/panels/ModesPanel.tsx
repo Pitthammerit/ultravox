@@ -6,6 +6,7 @@ import { TRANSCRIPTION_VARIANTS } from "../lib/transcriptionVariants";
 import { localWhisperListModels, localWhisperDownloadModel } from "../lib/tauri-bridge";
 import { Button, Section, ToggleRow, tokens } from "../components/ui";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useT } from "../lib/i18n/I18nProvider";
 import ModeForm from "./ModeEditor";
 
 // 1×1 fully transparent PNG. Used as the drag image so macOS / WKWebView
@@ -26,6 +27,7 @@ interface ModesPanelProps {
 type DropEdge = "before" | "after";
 
 export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
+  const t = useT();
   const activeId = settings.activeModeId;
   const activeMode =
     settings.modes.find((m) => m.id === activeId) ?? settings.modes[0]!;
@@ -170,7 +172,7 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
           label: "Discard",
           onClick: handleConfirmDiscard,
         }}
-        cancelLabel="Cancel"
+        cancelLabel={t.common.cancel}
       />
       <ConfirmDialog
         open={downloadPrompt !== null}
@@ -198,12 +200,12 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
             }
           },
         }}
-        cancelLabel="Cancel"
+        cancelLabel={t.common.cancel}
       />
-      <Section label="Run on-device">
+      <Section label={t.panels.modes.sectionRunOnDevice}>
         <ToggleRow
-          label="Enable local transcription"
-          help="When on, each mode shows a Transcription Model dropdown to route audio on-device. Off = all modes use cloud."
+          label={t.panels.modes.enableLocalTranscription}
+          help={t.panels.modes.enableLocalTranscriptionHelp}
           checked={settings.localWhisperEnabled ?? true}
           onChange={(next) => {
             // Coupled-defaults: when the user turns local transcription ON
@@ -224,8 +226,8 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
           }}
         />
         <ToggleRow
-          label="Enable local cleanup"
-          help="When on, modes with provider = Local (on-device LLM) run cleanup on-device. When off, those modes silently fall back to the cloud worker."
+          label={t.panels.modes.enableLocalCleanup}
+          help={t.panels.modes.enableLocalCleanupHelp}
           checked={settings.localCleanupEnabled ?? true}
           onChange={(next) => {
             void onChange({ localCleanupEnabled: next });
@@ -234,10 +236,10 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         />
       </Section>
       <Section
-        label="Active mode"
+        label={t.panels.modes.sectionActiveMode}
         right={
           <Button size="xs" variant="outline" onClick={startNew}>
-            + New
+            {t.panels.modes.addMode}
           </Button>
         }
       >

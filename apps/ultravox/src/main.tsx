@@ -6,6 +6,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import PillWindow from "./windows/PillWindow";
 import ModeOverlay from "./windows/ModeOverlay";
+import { I18nProvider } from "./lib/i18n/I18nProvider";
 
 function pickRoot(): React.ReactElement {
   const route = window.location.hash.replace(/^#/, "") || "/";
@@ -21,5 +22,7 @@ function pickRoot(): React.ReactElement {
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>{pickRoot()}</React.StrictMode>,
+  <React.StrictMode>
+    <I18nProvider>{pickRoot()}</I18nProvider>
+  </React.StrictMode>,
 );

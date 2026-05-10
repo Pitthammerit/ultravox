@@ -11,6 +11,7 @@ import {
 } from "../components/ui";
 import { HotkeyRecorder } from "../components/HotkeyRecorder";
 import { registerHotkeys, copyToClipboard } from "../lib/tauri-bridge";
+import { useT } from "../lib/i18n/I18nProvider";
 
 interface HomePanelProps {
   settings: AppSettings;
@@ -19,6 +20,7 @@ interface HomePanelProps {
 }
 
 export default function HomePanel({ settings, onNavigate, onChange }: HomePanelProps) {
+  const t = useT();
   /* ── Theme ────────────────────────────────────────────────── */
   const appearance: "light" | "dark" | "auto" =
     settings.theme === "auto"
@@ -99,8 +101,8 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
     <>
       {lastEntry && (
         <Section
-          label="Last transcription"
-          help="Re-copy the most recent transcript into the clipboard if your paste landed in the wrong place. Paste with ⌘V afterward."
+          label={t.panels.home.lastTranscriptionLabel}
+          help={t.panels.home.lastTranscriptionHelp}
         >
           <Row
             label={
@@ -110,24 +112,24 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
             }
             control={
               <Button size="xs" variant="outline" onClick={copyLast}>
-                {copied ? "✓ Copied" : "Copy"}
+                {copied ? t.common.copied : t.common.copy}
               </Button>
             }
           />
         </Section>
       )}
-      <Section title="Voice">
-        <NavCard title="Modes & AI Models" onClick={() => onNavigate("modes")} />
-        <NavCard title="Vocabulary" onClick={() => onNavigate("vocabulary")} />
-        <NavCard title="Sound & Microphone" onClick={() => onNavigate("sound")} />
+      <Section title={t.panels.home.sectionVoice}>
+        <NavCard title={t.panels.home.navModes} onClick={() => onNavigate("modes")} />
+        <NavCard title={t.panels.home.navVocabulary} onClick={() => onNavigate("vocabulary")} />
+        <NavCard title={t.panels.home.navSound} onClick={() => onNavigate("sound")} />
       </Section>
 
       <Section
-        label="Recording"
-        help="Click a chip to record a new combo. Esc cancels, Backspace clears."
+        label={t.panels.home.sectionRecording}
+        help={t.panels.home.hotkeyHelp}
       >
         <Row
-          label="Record toggle"
+          label={t.panels.home.recordToggle}
           control={
             <HotkeyRecorder
               value={settings.hotkeyRecord}
@@ -137,7 +139,7 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
           }
         />
         <Row
-          label="Mode switcher"
+          label={t.panels.home.modeSwitcher}
           control={
             <HotkeyRecorder
               value={settings.hotkeyModeOverlay}
@@ -147,19 +149,19 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
           }
         />
         <Row
-          label="Push-to-talk"
-          help="Hold the hotkey while speaking instead of toggling. Coming in v1.5."
+          label={t.panels.home.pushToTalk}
+          help={t.panels.home.pushToTalkHelp}
           control={
             <span style={{ fontSize: 11, fontWeight: 500, padding: "3px 8px", borderRadius: 4, background: "var(--color-ink-15)", color: "var(--color-secondary)", letterSpacing: "0.04em" }}>
-              v1.5
+              {t.panels.home.pushToTalkPlaceholder}
             </span>
           }
         />
       </Section>
 
-      <Section label="Appearance">
+      <Section label={t.panels.home.sectionAppearance}>
         <Row
-          label="Theme"
+          label={t.panels.home.themeLabel}
           control={
             <ThemePicker
               appearance={appearance}
@@ -171,9 +173,9 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
         />
       </Section>
 
-      <Section title="App">
-        <NavCard title="Configuration" onClick={() => onNavigate("configuration")} />
-        <NavCard title="History" onClick={() => onNavigate("history")} />
+      <Section title={t.panels.home.sectionApp}>
+        <NavCard title={t.panels.home.navConfiguration} onClick={() => onNavigate("configuration")} />
+        <NavCard title={t.panels.home.navHistory} onClick={() => onNavigate("history")} />
       </Section>
     </>
   );
@@ -198,6 +200,7 @@ function ThemePicker({
   onAppearanceChange: (a: Appearance) => void;
   onDarkVariantChange: (v: DarkVariant) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -259,11 +262,11 @@ function ThemePicker({
         className="inline-flex items-center gap-0.5 rounded-md p-0.5"
         style={{ background: tokens.control }}
       >
-        <SegBtn id="light" label="Light" />
-        <SegBtn id="dark" label="Dark">
+        <SegBtn id="light" label={t.panels.home.themeLight} />
+        <SegBtn id="dark" label={t.panels.home.themeDark}>
           <Caret open={open} />
         </SegBtn>
-        <SegBtn id="auto" label="Auto" />
+        <SegBtn id="auto" label={t.panels.home.themeAuto} />
       </div>
 
       {open && (
@@ -281,12 +284,12 @@ function ThemePicker({
           }}
         >
           <PopItem
-            label="Ocean"
+            label={t.panels.home.themeOcean}
             active={darkVariant === "ocean"}
             onClick={() => { onDarkVariantChange("ocean"); setOpen(false); }}
           />
           <PopItem
-            label="Night"
+            label={t.panels.home.themeNight}
             active={darkVariant === "night"}
             onClick={() => { onDarkVariantChange("night"); setOpen(false); }}
           />
