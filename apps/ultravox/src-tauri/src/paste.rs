@@ -93,11 +93,36 @@ fn dispatch_paste_combo(app: &AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn paste_to_frontmost(app: AppHandle, text: String) -> Result<(), String> {
+pub async fn paste_to_frontmost(
+    app: AppHandle,
+    text: String,
+    target_pid: Option<i32>,
+) -> Result<(), String> {
     let clipboard = app.clipboard();
     let saved = clipboard.read_text().ok();
 
     clipboard.write_text(text.clone()).map_err(|e| e.to_string())?;
+
+    // Re-activate the originally-targeted app BEFORE pasting. This handles
+    // the case where the user clicked into another window during recording
+    // (or the pill window briefly stole focus), which would otherwise cause
+    // the paste to land in the wrong place. Without this, long dictations
+    // can vanish entirely. The PID was captured at hotkey-fire time on the
+    // frontend and threaded through here.
+    #[cfg(target_os = "macos")]
+    if let Some(pid) = target_pid {
+        if let Err(e) = crate::frontmost::activate_app_by_pid(pid) {
+            // Best-effort: log and continue. A failed re-activation is
+            // recoverable — paste still goes to whatever is frontmost now,
+            // which is usually correct anyway.
+            eprintln!("[paste] activate_app_by_pid({pid}) failed: {e}");
+        }
+        // Brief settle so the activation propagates through the window
+        // server before we send the keystroke.
+        tokio::time::sleep(Duration::from_millis(40)).await;
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = target_pid;
 
     tokio::time::sleep(Duration::from_millis(50)).await;
 

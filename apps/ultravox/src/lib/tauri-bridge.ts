@@ -10,13 +10,21 @@ const DEFAULT_WORKER_URL = "https://ultravox-voice-worker.journey-within.workers
 const WORKER_BASE = import.meta.env["VITE_WORKER_URL"] ?? DEFAULT_WORKER_URL;
 export const TOKEN_ENDPOINT = `${WORKER_BASE}/api/voice/token`;
 
-export async function pasteToFrontmost(text: string): Promise<void> {
-  await invoke("paste_to_frontmost", { text });
+/**
+ * Paste `text` into the frontmost app via Cmd+V. When `pid` is provided
+ * (the PID of the app that was frontmost when the user fired the record
+ * hotkey), the Rust side re-activates that app before pasting — so even
+ * if focus moved during the recording session, the transcript still lands
+ * in the originally-targeted text field.
+ */
+export async function pasteToFrontmost(text: string, pid?: number): Promise<void> {
+  await invoke("paste_to_frontmost", { text, targetPid: pid ?? null });
 }
 
 export interface FrontmostApp {
   bundle_id: string | null;
   localized_name: string | null;
+  pid: number;
 }
 
 export async function getFrontmostApp(): Promise<FrontmostApp | null> {

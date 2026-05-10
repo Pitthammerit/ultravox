@@ -503,6 +503,11 @@ export default function PillWindow() {
   // auto-flow scheduled in turn N could fire mid-turn N+1 and hide the pill
   // while the user is recording again.
   const silenceTimersRef = useRef<number[]>([]);
+  // PID of the frontmost app at hotkey-fire time. Captured in startRecord
+  // and used in the paste step to re-activate the original target window
+  // — even if focus moved during recording. Without this the transcript
+  // can land in the wrong app for long dictations (data-loss risk).
+  const recordingTargetPidRef = useRef<number | null>(null);
   // AbortController for the in-flight transcribe call. Esc during "transcribing"
   // calls abort() to cancel cloud fetch requests immediately.
   const transcribeAbortRef = useRef<AbortController | null>(null);
@@ -637,6 +642,11 @@ export default function PillWindow() {
       if (fresh) setSettings(fresh);
       const cur = fresh ?? settings ?? null;
       const frontmost = await getFrontmostApp();
+      // Capture the target app's PID NOW, before we open the mic + pill
+      // window. Once recording starts, the user may click into a different
+      // window or our pill window may briefly take focus — both make the
+      // post-recording getFrontmostApp() return the wrong app.
+      recordingTargetPidRef.current = frontmost?.pid && frontmost.pid > 0 ? frontmost.pid : null;
       const modes = cur?.modes ?? DEFAULT_MODES;
       // Trust the user's manually-selected activeModeId. The previous
       // pickAutoMode(...) call silently overrode their selection whenever the
@@ -742,10 +752,14 @@ export default function PillWindow() {
         await new Promise<void>((r) => setTimeout(r, 120));
         try {
           const pasteStart = performance.now();
-          await pasteToFrontmost(result.text);
+          // Pass the captured target PID so paste re-activates the
+          // original app even if focus drifted during recording.
+          const targetPid = recordingTargetPidRef.current ?? undefined;
+          await pasteToFrontmost(result.text, targetPid);
           logDebug("paste", {
             textLength: result.text.length,
             durationMs: Math.round(performance.now() - pasteStart),
+            message: `targetPid=${targetPid ?? "none"}`,
           });
         } catch (pasteErr) {
           captureError(pasteErr, { stage: "paste" });
