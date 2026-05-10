@@ -97,6 +97,15 @@ export interface AppSettings {
    * setting. Falls back to cloud on any error.
    */
   localWhisperEnabled?: boolean;
+  /** Master toggle for the local-LLM cleanup pipeline.
+   * When true AND the per-mode `languageModelProvider` is "local", cleanup
+   * runs on-device via local_llm_cleanup. When false, the local branch in
+   * transcribe.ts is skipped — cleanup falls through to the worker path
+   * regardless of per-mode provider setting. Coupled with localWhisperEnabled:
+   * the Mode-panel handler turns this on the first time the user enables
+   * local transcription, but the user can decouple them after.
+   */
+  localCleanupEnabled?: boolean;
   /** Path to the downloaded GGML model file. Set when download completes. */
   localWhisperModelPath?: string;
   /** Whether the "Models" accordion in the Mode editor is expanded. Defaults
@@ -128,6 +137,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   history: [],
   localWhisperEnabled: true,
+  localCleanupEnabled: true,
   modelsBoxOpen: true,
 };
 

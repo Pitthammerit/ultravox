@@ -105,6 +105,7 @@ const COPY: Record<Lang, {
   whisperVariants: Array<{ id: string; label: string; size: string; description: string }>;
   whisperSkip: string;
   whisperDownloading: string;
+  whisperBackgroundHint: string;
   // step 10 - recording window (pill style)
   pillTitle: string;
   pillBody: string;
@@ -172,13 +173,15 @@ const COPY: Record<Lang, {
     whisperTitle: "Faster, on-device transcription",
     whisperBody: "Run Whisper locally so audio never leaves your Mac and transcription is sub-second. Pick a model — we'll download it in the background while you finish setup. You can also skip and download later from Settings.",
     whisperVariants: [
-      { id: "tiny",    label: "Tiny",    size: "~75 MB",  description: "Fastest, lower accuracy" },
-      { id: "base.en", label: "Base.en", size: "~142 MB", description: "More accurate, English" },
-      { id: "base",    label: "Base",    size: "~142 MB", description: "Multilingual, balanced" },
-      { id: "small",   label: "Small",   size: "~466 MB", description: "Best accuracy, slowest" },
+      { id: "tiny",            label: "Tiny",            size: "~78 MB",  description: "Fastest — quick drafts only" },
+      { id: "base",            label: "Base",            size: "~148 MB", description: "Multilingual quick draft" },
+      { id: "base.en",         label: "Base (English)",  size: "~148 MB", description: "English-tuned quick draft" },
+      { id: "small",           label: "Small",           size: "~488 MB", description: "Solid all-rounder" },
+      { id: "large-v3-turbo",  label: "Large v3 Turbo",  size: "~1.6 GB", description: "Fast Large-class accuracy" },
     ],
     whisperSkip: "Skip — use cloud transcription",
     whisperDownloading: "Downloading",
+    whisperBackgroundHint: "Downloads continue in the background — you can move on at any time.",
     pillTitle: "Recording window",
     pillBody: "Choose how the floating pill looks while you're recording. You can change this later in Sound settings.",
     pillOptions: [
@@ -244,13 +247,15 @@ const COPY: Record<Lang, {
     whisperTitle: "Schnellere Transkription auf deinem Gerät",
     whisperBody: "Whisper läuft lokal — dein Audio verlässt nie den Mac und die Transkription ist unter einer Sekunde. Wähle ein Modell, wir laden es im Hintergrund herunter, während du das Setup beendest. Du kannst auch überspringen und später aus den Einstellungen herunterladen.",
     whisperVariants: [
-      { id: "tiny",    label: "Tiny",    size: "~75 MB",  description: "Schnellste, geringere Genauigkeit" },
-      { id: "base.en", label: "Base.en", size: "~142 MB", description: "Genauer, Englisch" },
-      { id: "base",    label: "Base",    size: "~142 MB", description: "Mehrsprachig, ausgewogen" },
-      { id: "small",   label: "Small",   size: "~466 MB", description: "Beste Genauigkeit, langsam" },
+      { id: "tiny",            label: "Tiny",            size: "~78 MB",  description: "Schnellste — nur für kurze Notizen" },
+      { id: "base",            label: "Base",            size: "~148 MB", description: "Mehrsprachiger Schnellentwurf" },
+      { id: "base.en",         label: "Base (Englisch)", size: "~148 MB", description: "Englisch-optimierter Schnellentwurf" },
+      { id: "small",           label: "Small",           size: "~488 MB", description: "Solider Allrounder" },
+      { id: "large-v3-turbo",  label: "Large v3 Turbo",  size: "~1,6 GB", description: "Large-Genauigkeit in mittlerer Geschwindigkeit" },
     ],
     whisperSkip: "Überspringen — Cloud-Transkription verwenden",
     whisperDownloading: "Herunterladen",
+    whisperBackgroundHint: "Downloads laufen im Hintergrund weiter — du kannst jederzeit fortfahren.",
     pillTitle: "Aufnahme-Fenster",
     pillBody: "Wähle, wie die schwebende Pille während der Aufnahme aussieht. Du kannst das später in den Sound-Einstellungen ändern.",
     pillOptions: [
@@ -303,8 +308,14 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   const [activeModeId, setActiveModeId] = useState<string>(DEFAULT_MODES[0]?.id ?? "email");
   const [micStatus, setMicStatus] = useState<PermStatus>("idle");
   const [axStatus, setAxStatus] = useState<PermStatus>("idle");
-  const [whisperPicked, setWhisperPicked] = useState<string | null>(null);
   const [whisperDownloadingId, setWhisperDownloadingId] = useState<string | null>(null);
+  // Multi-select set of variants the user wants to download. Pre-seeded with
+  // the article's "common ones" (Tiny + Base + Large v3 Turbo). Downloads
+  // run in the background; the user can advance to the next step at any time
+  // and the chips on the dashboard track progress.
+  const [whisperSelected, setWhisperSelected] = useState<Set<string>>(
+    new Set(["tiny", "base", "large-v3-turbo"]),
+  );
   const nameInputRef = useRef<HTMLInputElement>(null);
   const t = COPY[lang];
 
@@ -756,36 +767,69 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
           </Step>
         )}
 
-        {/* ── Step 9: Local Whisper model picker ── */}
+        {/* ── Step 9: Local Whisper model picker (multi-select) ──
+         * Pre-seeded with Tiny + Base + Large-v3-Turbo (the article's
+         * "common ones"). Each toggle starts the download immediately;
+         * downloads run in the background so the user can move on.
+         */}
         {step === 9 && (
           <Step title={t.whisperTitle}>
             <Body>{t.whisperBody}</Body>
             <div className="flex flex-col gap-2">
               {t.whisperVariants.map((opt) => {
-                const isPicked = whisperPicked === opt.id;
+                const isSelected = whisperSelected.has(opt.id);
                 const isDownloading = whisperDownloadingId === opt.id;
                 return (
                   <button
                     key={opt.id}
                     type="button"
                     onClick={() => {
-                      setWhisperPicked(opt.id);
-                      setWhisperDownloadingId(opt.id);
-                      void patchSettings({ localWhisperEnabled: true });
-                      localWhisperDownloadModel(opt.id).catch(() => {});
+                      const nextSet = new Set(whisperSelected);
+                      if (nextSet.has(opt.id)) {
+                        nextSet.delete(opt.id);
+                      } else {
+                        nextSet.add(opt.id);
+                        // Fire-and-forget download. Already-installed models
+                        // resolve instantly. Track which one is the most
+                        // recent click for the spinner indicator.
+                        setWhisperDownloadingId(opt.id);
+                        void patchSettings({ localWhisperEnabled: true });
+                        localWhisperDownloadModel(opt.id).catch(() => {});
+                      }
+                      setWhisperSelected(nextSet);
                     }}
                     className="flex items-center justify-between rounded-lg px-4 py-3 text-left transition-all"
                     style={{
                       background: SURFACE,
-                      border: `2px solid ${isPicked ? FG_PRIMARY : SURFACE_BORDER}`,
+                      border: `2px solid ${isSelected ? FG_PRIMARY : SURFACE_BORDER}`,
                       cursor: "pointer",
                     }}
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <span style={{ fontSize: 14, fontWeight: isPicked ? 600 : 500, color: isPicked ? FG_PRIMARY : FG_BODY }}>
-                        {opt.label}
+                    <div className="flex items-center gap-3">
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 4,
+                          border: `1.5px solid ${isSelected ? FG_PRIMARY : SURFACE_BORDER}`,
+                          background: isSelected ? FG_PRIMARY : "transparent",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: SURFACE,
+                          fontSize: 12,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {isSelected ? "✓" : ""}
                       </span>
-                      <span style={{ fontSize: 12, color: FG_MUTED }}>{opt.description}</span>
+                      <span className="flex flex-col gap-0.5">
+                        <span style={{ fontSize: 14, fontWeight: isSelected ? 600 : 500, color: isSelected ? FG_PRIMARY : FG_BODY }}>
+                          {opt.label}
+                        </span>
+                        <span style={{ fontSize: 12, color: FG_MUTED }}>{opt.description}</span>
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span style={{ fontSize: 12, color: FG_MUTED }}>{opt.size}</span>
@@ -799,7 +843,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
               <button
                 type="button"
                 onClick={() => {
-                  setWhisperPicked(null);
+                  setWhisperSelected(new Set());
                   void patchSettings({ localWhisperEnabled: false });
                   next();
                 }}
@@ -815,9 +859,10 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                 {t.whisperSkip}
               </button>
             </div>
-            {whisperPicked && (
-              <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>
-            )}
+            <div style={{ fontSize: 12, color: FG_MUTED, textAlign: "center", marginTop: 4 }}>
+              {t.whisperBackgroundHint}
+            </div>
+            <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>
           </Step>
         )}
 

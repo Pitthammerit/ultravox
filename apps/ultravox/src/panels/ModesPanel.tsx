@@ -200,14 +200,36 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         }}
         cancelLabel="Cancel"
       />
-      <Section label="Local transcription">
+      <Section label="Run on-device">
         <ToggleRow
           label="Enable local transcription"
           help="When on, each mode shows a Transcription Model dropdown to route audio on-device. Off = all modes use cloud."
           checked={settings.localWhisperEnabled ?? true}
           onChange={(next) => {
-            void onChange({ localWhisperEnabled: next });
+            // Coupled-defaults: when the user turns local transcription ON
+            // for the first time (i.e. it was off and is becoming on AND the
+            // cleanup toggle has never been set explicitly), auto-flip cleanup
+            // ON too. Same heuristic as Superwhisper's "fully local" preset.
+            // Once the user has touched the cleanup toggle once, it sticks.
+            const patch: Partial<AppSettings> = { localWhisperEnabled: next };
+            if (
+              next &&
+              !(settings.localWhisperEnabled ?? true) &&
+              settings.localCleanupEnabled === undefined
+            ) {
+              patch.localCleanupEnabled = true;
+            }
+            void onChange(patch);
             emit("localWhisperEnabled:changed", next).catch(() => {});
+          }}
+        />
+        <ToggleRow
+          label="Enable local cleanup"
+          help="When on, modes with provider = Local (on-device LLM) run cleanup on-device. When off, those modes silently fall back to the cloud worker."
+          checked={settings.localCleanupEnabled ?? true}
+          onChange={(next) => {
+            void onChange({ localCleanupEnabled: next });
+            emit("localCleanupEnabled:changed", next).catch(() => {});
           }}
         />
       </Section>

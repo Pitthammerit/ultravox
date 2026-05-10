@@ -767,6 +767,7 @@ export default function PillWindow() {
         ...(settings?.lastName ? { lastName: settings.lastName } : {}),
         ...(frontmost ? { frontmostApp: frontmost } : {}),
         localWhisperEnabled: settings?.localWhisperEnabled ?? false,
+        localCleanupEnabled: settings?.localCleanupEnabled ?? true,
         audioQuality,
         signal: abortController.signal,
       });

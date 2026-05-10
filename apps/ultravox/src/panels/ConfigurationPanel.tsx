@@ -482,7 +482,7 @@ function InstalledWhisperModelsSection() {
             className="text-[10.5px] uppercase tracking-[0.14em] font-medium"
             style={{ color: tokens.fgMuted }}
           >
-            Installed Whisper models
+            Transcription
           </span>
           {installed.length > 0 && (
             <span

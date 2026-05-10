@@ -21,6 +21,10 @@ export interface TranscribeOptions {
   onProgress?: (phase: "transcribing") => void;
   /** Global toggle — when false, all modes use cloud regardless of per-mode transcriptionModel. */
   localWhisperEnabled?: boolean;
+  /** Master toggle for the local-LLM cleanup pipeline. When false, the local
+   *  branch in transcribeAudio is skipped and cleanup falls through to the
+   *  worker even if the per-mode provider is "local". */
+  localCleanupEnabled?: boolean;
   /** Audio quality hint computed from peak level. "low" triggers upgrade to more capable models in Auto routing. */
   audioQuality?: "low" | "normal";
   /** Abort signal — when fired, cancels in-flight worker / claude-code fetch calls.
@@ -346,7 +350,11 @@ export async function transcribe(
   }
 
   // ── Local LLM path ──
-  if (provider === "local" && cleanup !== "raw") {
+  // Master toggle: when localCleanupEnabled is explicitly false, skip the
+  // on-device LLM branch even if the per-mode provider is "local" — fall
+  // through to the worker. Default true matches DEFAULT_SETTINGS.
+  const localCleanupAllowed = opts.localCleanupEnabled ?? true;
+  if (provider === "local" && cleanup !== "raw" && localCleanupAllowed) {
     try {
       const llmVariant = opts.mode.languageModel ?? "auto";
       const status = await localLlmStatus(llmVariant === "auto" ? undefined : llmVariant);
