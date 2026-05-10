@@ -172,6 +172,11 @@ fi
 STAGE_DIR="$(mktemp -d -t ultravox-dmg-stage)"
 trap 'rm -rf "$STAGE_DIR"' EXIT
 ditto "$APP_PATH" "$STAGE_DIR/Ultravox.app"
+# Add the Applications drag-target. With --skip-jenkins we lose
+# bundle_dmg.sh's --app-drop-link handling (it was AppleScript-only),
+# so we put the symlink in the staging dir directly. hdiutil preserves
+# it as a top-level item alongside Ultravox.app on the DMG.
+ln -s /Applications "$STAGE_DIR/Applications"
 
 VERSION="$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$APP_DIR/package.json" | head -1)"
 DMG_NAME="Ultravox_${VERSION}_aarch64.dmg"
