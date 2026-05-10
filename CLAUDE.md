@@ -100,6 +100,17 @@ The pill is an NSPanel (ISA-swapped from NSWindow at runtime in `src-tauri/src/p
 - **Top-center Y offset ≥40pt on macOS.** Tauri's `monitor.position()` returns NSScreen `frame.origin` which **includes** the menu bar and notch. On notched MacBooks the notch reaches ~37pt; the previous 12pt offset placed the compact pill behind it. Use 44pt.
 - **Saved expanded position must be in *logical* points.** `webviewWindow.outerPosition()` returns `PhysicalPosition` (raw pixels); the Rust command `set_pill_size_at_position` interprets x/y as `LogicalPosition`. On retina (scale 2), saving raw physical position warps the window 2× off-screen on next expand. Divide by `webviewWindow.scaleFactor()` before persisting to `settings.pillExpandedPosition`.
 
+## Audio constraints — no echo cancellation
+
+We do **not** enable `echoCancellation` in any `getUserMedia` call. We are
+a dictation app, not a videoconference — there is no remote playback being
+returned to the mic that would need cancelling. Setting it `true` (the
+WebKit default) routes the mic through macOS' Voice-Processing IO Audio
+Unit, which raises the audio session priority and **ducks all other audio**
+(Spotify, Apple Music, browser videos) while recording. Always pass
+`echoCancellation: false` explicitly. If you find a `getUserMedia` call
+in a recording path without it, that's the bug.
+
 ## React hook patterns
 
 - **`useHotkeyEvent` (Tauri listen) MUST hold the handler in a ref.** `listen()` and the matching `unlisten()` are async. If the effect's deps include the handler — and the handler captures any state — every render re-registers, multiple in-flight registrations complete out of order, and several listeners end up attached. A single hotkey press fires the handler N times. Symptom: duplicate `recorder.stop()` calls, one of which sees an empty buffer and surfaces "No audio captured" while another transcribes successfully. See `src/hooks/useHotkeyEvents.ts` — handler-in-ref pattern with deps `[event]` only.

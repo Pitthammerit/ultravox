@@ -642,6 +642,7 @@ export default function PillWindow() {
       const constraints: MediaTrackConstraints = {
         autoGainControl: autoGain,
         noiseSuppression: true,
+        echoCancellation: false,
       };
       if (micId) constraints.deviceId = { exact: micId };
       await recorder.start(constraints);

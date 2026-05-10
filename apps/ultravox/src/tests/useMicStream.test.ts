@@ -37,4 +37,14 @@ describe("useMicStream", () => {
     });
     expect(result.current.stream).toBeNull();
   });
+
+  it("explicitly disables echoCancellation to prevent OS audio ducking", async () => {
+    const { result } = renderHook(() => useMicStream());
+    await act(async () => {
+      await result.current.start();
+    });
+    const calls = (navigator.mediaDevices.getUserMedia as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    const lastCall = calls[calls.length - 1]![0] as { audio: MediaTrackConstraints };
+    expect(lastCall.audio.echoCancellation).toBe(false);
+  });
 });
