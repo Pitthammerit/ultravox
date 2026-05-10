@@ -290,7 +290,7 @@ async function workerTranscribe(
  * downstream LLM cleanup often preserves them verbatim. Single regex catches
  * the common ones; we collapse leftover whitespace afterwards.
  */
-const SOUND_TAG_RE = /\s*\[(typing|music|applause|laughing|laughter|noise|silence|inaudible|breathing|coughing|sigh|sighs|sneeze|cough|background music|background noise|sound|sounds|clicking|keyboard|keys|pause|silent|chuckles|chuckle|yawn|yawns|whisper|whispering|murmuring|crowd|crowd noise|static)\]\s*/gi;
+const SOUND_TAG_RE = /\s*\[(typing|music|applause|laughing|laughter|noise|silence|inaudible|breathing|coughing|sigh|sighs|sneeze|cough|background music|background noise|sound|sounds|clicking|keyboard|keys|pause|silent|chuckles|chuckle|yawn|yawns|whisper|whispering|murmuring|crowd|crowd noise|static|blank_audio|blank audio)\]\s*/gi;
 function stripSoundAnnotations(text: string): string {
   return text.replace(SOUND_TAG_RE, " ").replace(/[ \t]{2,}/g, " ").replace(/\s+\n/g, "\n").trim();
 }
@@ -444,3 +444,4 @@ export async function transcribe(
 }
 
 export const __test__buildClaudePrompt = buildClaudePrompt;
+export const __test__stripSoundAnnotations = stripSoundAnnotations;
