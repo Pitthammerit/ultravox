@@ -631,6 +631,34 @@ export default function PillWindow() {
     return () => window.removeEventListener("keydown", onKey);
   }, [state, recorder, settings, dismissError]);
 
+  /* ── Global Escape during recording ─────────────────────────────
+   * The pill's own keydown handler only fires when the pill window
+   * has key focus. If the user clicks into Settings / Onboarding
+   * during a recording, Escape there silently does nothing — the
+   * user can't reach the discard prompt. Register Escape as a
+   * global shortcut while recording, forward it as a synthetic
+   * Escape keydown so the existing handler above does the work,
+   * then release the shortcut the moment we leave recording state.
+   * MUST unregister on every exit path or Escape stays globally
+   * captured for every other app on the system.
+   */
+  useEffect(() => {
+    const isRecording = state === "recording" || state === "discardConfirm";
+    if (!isRecording) {
+      invoke("unregister_recording_escape").catch(() => {});
+      return;
+    }
+    invoke("register_recording_escape").catch(() => {});
+    let unsub: (() => void) | undefined;
+    listen("recording:escape", () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    }).then((u) => { unsub = u; }).catch(() => {});
+    return () => {
+      unsub?.();
+      invoke("unregister_recording_escape").catch(() => {});
+    };
+  }, [state]);
+
   /* ── Recording ──────────────────────────────────────────────── */
   const startRecord = useCallback(async () => {
     cancelSilenceTimers();

@@ -194,6 +194,46 @@ pub fn unregister_all_hotkeys<R: Runtime>(app: AppHandle<R>) -> Result<(), Strin
     gs.unregister_all().map_err(|e| e.to_string())
 }
 
+/// Register a global Escape shortcut for the duration of an active recording.
+///
+/// The pill is an NSPanel and can become key, but if the user clicks into a
+/// different Ultravox window (Settings, Onboarding) during a recording the
+/// pill's local keydown handler never fires — Escape silently does nothing.
+/// Registering Escape globally while recording fixes this: regardless of
+/// which window is focused, Escape forwards to the pill's discard flow.
+///
+/// MUST be paired with `unregister_recording_escape` on every exit path
+/// from the recording state machine, otherwise Escape stays globally
+/// captured and breaks every other app on the system. The frontend handles
+/// pairing in PillWindow's recording-state effect.
+#[tauri::command]
+pub fn register_recording_escape<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    let gs = app.global_shortcut();
+    let escape = Shortcut::new(None, Code::Escape);
+    let app_clone = app.clone();
+    gs.on_shortcut(escape, move |_app, _shortcut, event| {
+        if event.state() == ShortcutState::Pressed {
+            let _ = app_clone.emit("recording:escape", ());
+        }
+    })
+    .map_err(|e| e.to_string())
+}
+
+/// Release the global Escape shortcut. Called the moment the recording
+/// state machine leaves the recording / discardConfirm states. The
+/// underlying plugin call is a no-op if Escape wasn't registered, so
+/// duplicate calls are safe.
+#[tauri::command]
+pub fn unregister_recording_escape<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    let gs = app.global_shortcut();
+    let escape = Shortcut::new(None, Code::Escape);
+    // unregister returns Err if the shortcut isn't currently registered;
+    // treat that as success since the caller's intent is just "make sure
+    // Escape is not globally hijacked".
+    let _ = gs.unregister(escape);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn show_pill<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("pill") {
