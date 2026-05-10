@@ -1,7 +1,7 @@
 {
   "name": "@ultravox/app",
   "private": true,
-  "version": "0.11.10",
+  "version": "0.11.11",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "dmg": "bash scripts/build-dmg.sh",
     "app": "PATH=/usr/bin:$PATH pnpm tauri build --bundles app",
-    "notarize": "bash scripts/notarize-dmg.sh"
+    "notarize": "bash scripts/notarize-dmg.sh",
+    "reposition": "bash scripts/reposition-dmg.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

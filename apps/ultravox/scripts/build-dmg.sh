@@ -178,7 +178,22 @@ APPLESCRIPT
 sync
 
 echo "→ unmounting"
-hdiutil detach "$MOUNT_POINT" -force >/dev/null
+# hdiutil detach can fail with "resource busy" (exit 16) when Finder/Spotlight
+# is still indexing or holding the just-mutated volume. Retry with backoff.
+detach_retry() {
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    if hdiutil detach "$MOUNT_POINT" -force >/dev/null 2>&1; then
+      return 0
+    fi
+    # Quit Finder windows showing the volume so Finder releases it.
+    osascript -e "tell application \"Finder\" to close (every window whose name is \"${VOLNAME}\")" >/dev/null 2>&1 || true
+    sleep $((attempt * 2))
+  done
+  echo "✗ detach failed after 5 attempts; volume still busy at $MOUNT_POINT"
+  return 1
+}
+detach_retry
 
 echo "→ recompressing DMG (UDZO, level 9)"
 rm -f "$DMG_PATH"
