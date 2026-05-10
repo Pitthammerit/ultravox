@@ -63,13 +63,16 @@ export default function App() {
       setShowOnboarding(true);
     }).then((u) => unsubs.push(u));
 
-    // Tray "Copy Last Transcription": load fresh settings, write the most-
-    // recent history entry to the system clipboard via the Rust path.
-    // Routing through Rust avoids the WKWebView clipboard policy: a tray-
-    // menu click is an AppKit gesture, not a DOM gesture, so
-    // navigator.clipboard.writeText would silently fail with no user
-    // activation. The Rust clipboard plugin has no such restriction.
-    listen("tray:copy-last", async () => {
+    // Tray "Copy Last Transcription" + macOS app-menu "Copy Last
+    // Transcription" (⌘⇧C): load fresh settings, write the most-recent
+    // history entry to the system clipboard via the Rust path. Routing
+    // through Rust avoids the WKWebView clipboard policy — a tray-menu
+    // click and an app-menu click are both AppKit gestures (not DOM
+    // gestures), so navigator.clipboard.writeText would silently fail
+    // with no user activation. The Rust clipboard plugin has no such
+    // restriction. Both surfaces emit different event names, but the
+    // handler is identical — DRY.
+    const copyLastFromHistory = async () => {
       try {
         const fresh = await loadSettings();
         const last = fresh.history?.[0];
@@ -77,9 +80,11 @@ export default function App() {
           await copyToClipboard(last.text);
         }
       } catch (e) {
-        console.warn("[App] tray:copy-last failed:", e);
+        console.warn("[App] copy-last-transcription failed:", e);
       }
-    }).then((u) => unsubs.push(u));
+    };
+    listen("tray:copy-last", copyLastFromHistory).then((u) => unsubs.push(u));
+    listen("menu:copy-last", copyLastFromHistory).then((u) => unsubs.push(u));
 
     return () => { for (const u of unsubs) u(); };
   }, []);

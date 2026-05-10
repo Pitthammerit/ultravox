@@ -1,5 +1,5 @@
-use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
-use tauri::Manager;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::{Emitter, Manager};
 
 mod claude_code;
 mod hotkey;
@@ -203,19 +203,36 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-/// Build a minimal app menu: just the Ultravox app submenu (about, hide,
+/// Build a minimal app menu: Ultravox app submenu (about, copy-last, hide,
 /// quit) and an Edit submenu (cut/copy/paste/select-all/undo/redo).
 ///
 /// We deliberately drop View/File/Window/Help. This is a tray-driven app —
 /// the menu bar is only visible when the Settings window is focused, and
 /// power users mostly need clipboard shortcuts to work in text fields.
+///
+/// Custom items:
+///  - "Copy Last Transcription" (⌘⇧C) — emits `menu:copy-last` which the
+///    Settings window listens for. Same handler as the tray "Copy Last
+///    Transcription" item; the menu is just an additional surface so power
+///    users can hit Cmd+Shift+C from the keyboard while the app menu has
+///    focus, instead of clicking through the tray.
 fn install_minimal_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
+    let copy_last = MenuItem::with_id(
+        app,
+        "app_menu_copy_last",
+        "Copy Last Transcription",
+        true,
+        Some("CmdOrCtrl+Shift+C"),
+    )?;
+
     let app_menu = Submenu::with_items(
         app,
         "Ultravox",
         true,
         &[
             &PredefinedMenuItem::about(app, Some("About Ultravox"), None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &copy_last,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::hide(app, None)?,
             &PredefinedMenuItem::hide_others(app, None)?,
@@ -242,5 +259,16 @@ fn install_minimal_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::
 
     let menu = Menu::with_items(app, &[&app_menu, &edit_menu])?;
     app.set_menu(menu)?;
+
+    // Route the custom items to frontend events. Predefined items (about,
+    // hide, quit, undo/redo/cut/copy/paste/select-all) are handled by the
+    // OS — only the Copy Last Transcription click reaches us.
+    let app_handle = app.clone();
+    app.on_menu_event(move |_, event| {
+        let id = event.id().as_ref();
+        if id == "app_menu_copy_last" {
+            let _ = app_handle.emit("menu:copy-last", ());
+        }
+    });
     Ok(())
 }

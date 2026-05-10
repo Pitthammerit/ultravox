@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import HomePanel from "../panels/HomePanel";
 import ModesPanel from "../panels/ModesPanel";
 import VocabularyPanel from "../panels/VocabularyPanel";
@@ -40,6 +41,26 @@ export default function SettingsWindow() {
       // whatever the user last saved.
       registerHotkeys(s.hotkeyRecord, s.hotkeyModeOverlay).catch(() => {});
     });
+
+    // Settings live in a Tauri-plugin-store file shared across windows.
+    // PillWindow appends a new history entry on every transcription via
+    // appendHistory → saveSettings, which broadcasts `settings:saved`.
+    // Without this listener, the Settings window's HomePanel "Last
+    // Transcription" preview stays stuck on whatever was there when the
+    // window opened — recordings made afterward don't show up until the
+    // user navigates away and back. Subscribing reloads settings on every
+    // broadcast so the preview is always live.
+    let unsubSaved: (() => void) | undefined;
+    listen("settings:saved", async () => {
+      try {
+        const fresh = await loadSettings();
+        setSettings(fresh);
+      } catch (e) {
+        console.warn("[SettingsWindow] reload-on-saved failed:", e);
+      }
+    }).then((u) => { unsubSaved = u; });
+
+    return () => { unsubSaved?.(); };
   }, []);
 
   const update = async (patch: Partial<AppSettings>) => {
