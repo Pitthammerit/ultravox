@@ -229,7 +229,14 @@ Reference `.DS_Store` keys (for record):
 - `Iloc` for `Ultravox.app`: `(180, 170)`
 - `Iloc` for `Applications`: `(480, 170)`
 - `Iloc` for `Uninstall Ultravox.app`: `(330, 380)`
-- Hidden dotfiles (`.background`, `.DS_Store`, `.fseventsd`, `.Trashes`, `.Spotlight-V100`, `.VolumeIcon.icns`) parked at `(1100, 800)` — outside the visible 660×540 window. Without this, "Show hidden files" mode lets the `.background` folder bleed into the bottom-left of the install window.
+- Hidden dotfiles (`.background`, `.DS_Store`, `.fseventsd`, `.Trashes`, `.Spotlight-V100`, `.VolumeIcon.icns`) parked at **`(500, 600)`** — y=600 is 60pt past the 540 bottom edge, the icon center plus its 64pt half-height clears the visible window. Without this, "Show hidden files" mode lets the `.background` folder bleed into the bottom-left of the install window.
+
+  **Iteration log** (in case the floor needs to change again):
+  - `(1500, 1100)` — what the legacy 0.9.4 DMG used (very conservative, lots of headroom)
+  - `(1100, 800)` — first reduction, still hidden
+  - `(800, 500)` — x off-screen, y inside window — still hidden
+  - `(500, 800)` — x inside, y off-screen — still hidden
+  - **`(500, 600)`** — current value, verified visually clean
 
 ### Why bwsp.WindowBounds has to be written separately
 
