@@ -5478,7 +5478,7 @@ dependencies = [
 
 [[package]]
 name = "ultravox"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "core-graphics 0.23.2",
  "dirs 5.0.1",
