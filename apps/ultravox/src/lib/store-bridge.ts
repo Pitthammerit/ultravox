@@ -20,6 +20,15 @@ export interface SoundSettings {
   noiseSuppression: boolean;
   /** Pause Music and Spotify when a recording starts; resume when it stops. */
   pauseMediaWhileRecording: boolean;
+  /** When true, lower Music/Spotify volume to (100 - duckPercent)% of its
+   *  current level for the duration of a recording, then restore. Mutually
+   *  exclusive with pauseMediaWhileRecording in the UI — turning one on
+   *  turns the other off. */
+  duckMediaWhileRecording: boolean;
+  /** Ducking depth in percent (30 / 50 / 70). 50 means the volume is cut
+   *  in half during the recording. Only consulted when
+   *  duckMediaWhileRecording is true. */
+  duckPercent: 30 | 50 | 70;
   /** Start every recording in compact (minimal) pill mode. */
   compactPill: boolean;
 }
@@ -133,6 +142,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     chimeVolume: 50,
     noiseSuppression: true,
     pauseMediaWhileRecording: false,
+    duckMediaWhileRecording: false,
+    duckPercent: 50,
     compactPill: false,
   },
   history: [],

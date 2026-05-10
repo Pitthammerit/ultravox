@@ -99,6 +99,18 @@ export async function mediaResume(): Promise<void> {
   await invoke("media_resume");
 }
 
+/** Lower Music/Spotify volume by `percent` (0–100). Saves the original
+ *  volume per-app so mediaUnduck restores exactly. Idempotent. */
+export async function mediaDuck(percent: number): Promise<void> {
+  await invoke("media_duck", { percent });
+}
+
+/** Restore Music/Spotify to their original volumes. No-op if nothing
+ *  was ducked. */
+export async function mediaUnduck(): Promise<void> {
+  await invoke("media_unduck");
+}
+
 /** Returns the macOS preferred language as a 2-letter code ("en", "de", ...). */
 export async function getSystemLanguage(): Promise<string> {
   return invoke<string>("get_system_language");

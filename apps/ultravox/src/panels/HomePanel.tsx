@@ -3,6 +3,7 @@ import { emit } from "@tauri-apps/api/event";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme, type ThemeChoice } from "@ultravox/design-system";
 import {
+  Button,
   NavCard,
   Row,
   Section,
@@ -67,8 +68,51 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
     }
   };
 
+  /* ── Last-transcription safety net ─────────────────────────
+   * If a paste landed in the wrong place (focus drifted, the
+   * captured PID was stale, etc.), the user can recover the most
+   * recent transcript without re-recording. Same data is also
+   * exposed via the tray menu. The history array already stores
+   * up to 50 entries (HISTORY_MAX). */
+  const lastEntry = settings.history?.[0] ?? null;
+  const [copied, setCopied] = useState(false);
+  const copyLast = async () => {
+    if (!lastEntry?.text) return;
+    try {
+      await navigator.clipboard.writeText(lastEntry.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch (e) {
+      console.warn("copyLast failed:", e);
+    }
+  };
+  const lastPreview = lastEntry?.text
+    ? lastEntry.text.length > 80
+      ? lastEntry.text.slice(0, 78) + "…"
+      : lastEntry.text
+    : null;
+
   return (
     <>
+      {lastEntry && (
+        <Section
+          label="Last transcription"
+          help="Re-copy the most recent transcript into the clipboard if your paste landed in the wrong place. Paste with ⌘V afterward."
+        >
+          <Row
+            label={
+              <span style={{ fontSize: 12, color: tokens.fgMuted, fontStyle: "italic" }}>
+                {lastPreview}
+              </span>
+            }
+            control={
+              <Button size="xs" variant="outline" onClick={copyLast}>
+                {copied ? "✓ Copied" : "Copy"}
+              </Button>
+            }
+          />
+        </Section>
+      )}
       <Section title="Voice">
         <NavCard title="Modes & AI Models" onClick={() => onNavigate("modes")} />
         <NavCard title="Vocabulary" onClick={() => onNavigate("vocabulary")} />

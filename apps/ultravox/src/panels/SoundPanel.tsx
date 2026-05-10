@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AppSettings } from "../lib/store-bridge";
 import { Button, Row, Section, ToggleRow, tokens } from "../components/ui";
+import { DuckVolumePicker, type DuckPercent } from "../components/DuckVolumePicker";
 import { playStartChime, playStopChime } from "../lib/chime";
 import { transcribe } from "../lib/transcribe";
 import { TOKEN_ENDPOINT } from "../lib/tauri-bridge";
@@ -62,8 +63,33 @@ export default function SoundPanel({ settings, onChange }: SoundPanelProps) {
           label="Pause music while recording"
           help="Pause Music and Spotify when a recording starts; resume when it stops."
           checked={sound.pauseMediaWhileRecording}
-          onChange={(v) => setSound({ pauseMediaWhileRecording: v })}
+          onChange={(v) => setSound(
+            // Mutually exclusive with ducking — flipping pause ON disables
+            // duck so we don't both lower the volume AND pause.
+            v ? { pauseMediaWhileRecording: true, duckMediaWhileRecording: false }
+              : { pauseMediaWhileRecording: false }
+          )}
         />
+        <ToggleRow
+          label="Duck other audio while recording"
+          help="Lower Music/Spotify volume during recording, then restore. Less jarring than pausing if you want to keep listening."
+          checked={sound.duckMediaWhileRecording}
+          onChange={(v) => setSound(
+            v ? { duckMediaWhileRecording: true, pauseMediaWhileRecording: false }
+              : { duckMediaWhileRecording: false }
+          )}
+        />
+        {sound.duckMediaWhileRecording && (
+          <Row
+            label="Ducking depth"
+            control={
+              <DuckVolumePicker
+                value={(sound.duckPercent ?? 50) as DuckPercent}
+                onChange={(v) => setSound({ duckPercent: v })}
+              />
+            }
+          />
+        )}
         <ToggleRow
           label="Chime on start/stop"
           help="Brief tone when recording starts and stops"

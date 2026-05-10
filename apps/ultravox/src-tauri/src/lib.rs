@@ -115,6 +115,8 @@ pub fn run() {
         permissions::microphone_auth_status,
         media::media_pause,
         media::media_resume,
+        media::media_duck,
+        media::media_unduck,
         system::get_system_language,
         system::open_privacy_settings,
         system::set_traffic_lights_visible,

@@ -157,6 +157,16 @@ pub fn update_mode_submenu<R: Runtime>(
 pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let toggle_record =
         MenuItem::with_id(app, "toggle_record", "Toggle Recording", true, None::<&str>)?;
+    // Safety net for the focus-loss / wrong-paste-target case: the user's
+    // most-recent transcription stays available from the tray. Frontend
+    // copies settings.history[0].text into the clipboard on this click.
+    let copy_last = MenuItem::with_id(
+        app,
+        "copy_last_transcription",
+        "Copy Last Transcription",
+        true,
+        None::<&str>,
+    )?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
 
     let sep1 = PredefinedMenuItem::separator(app)?;
@@ -216,6 +226,7 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         app,
         &[
             &toggle_record,
+            &copy_last,
             &settings_item,
             &sep1,
             &mic_submenu,
@@ -253,6 +264,9 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
                         crate::pill_window::reapply_overlay_flags(app, "pill");
                     }
                     let _ = app.emit("hotkey:toggle-record", ());
+                }
+                "copy_last_transcription" => {
+                    let _ = app.emit("tray:copy-last", ());
                 }
                 "settings" => show_settings(app),
                 "mic_settings" => {

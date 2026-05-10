@@ -18,6 +18,8 @@ import {
   updateModeSubmenu,
   mediaPause,
   mediaResume,
+  mediaDuck,
+  mediaUnduck,
 } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
 import { appendHistory, loadSettings, patchSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
@@ -605,6 +607,8 @@ export default function PillWindow() {
           recorder.cancel();
           if (settings?.sound.pauseMediaWhileRecording) {
             mediaResume().catch(() => {});
+          } else if (settings?.sound.duckMediaWhileRecording) {
+            mediaUnduck().catch(() => {});
           }
           setState("idle");
           invoke("hide_pill").catch(() => {});
@@ -705,6 +709,10 @@ export default function PillWindow() {
         mediaPause().catch((err) =>
           logDebug("error", { message: `mediaPause: ${(err as Error).message?.slice(0, 200)}` }),
         );
+      } else if (cur?.sound.duckMediaWhileRecording) {
+        mediaDuck(cur.sound.duckPercent ?? 50).catch((err) =>
+          logDebug("error", { message: `mediaDuck: ${(err as Error).message?.slice(0, 200)}` }),
+        );
       }
       setState("recording");
     } catch (e) {
@@ -724,6 +732,10 @@ export default function PillWindow() {
     if (settings?.sound.pauseMediaWhileRecording) {
       mediaResume().catch((err) =>
         logDebug("error", { message: `mediaResume: ${(err as Error).message?.slice(0, 200)}` }),
+      );
+    } else if (settings?.sound.duckMediaWhileRecording) {
+      mediaUnduck().catch((err) =>
+        logDebug("error", { message: `mediaUnduck: ${(err as Error).message?.slice(0, 200)}` }),
       );
     }
     // Hold the Transcribing label visible for at least 600ms so it's
@@ -839,6 +851,8 @@ export default function PillWindow() {
     recorder.cancel();
     if (settings?.sound.pauseMediaWhileRecording) {
       mediaResume().catch(() => {});
+    } else if (settings?.sound.duckMediaWhileRecording) {
+      mediaUnduck().catch(() => {});
     }
     setState("idle");
     invoke("hide_pill").catch(() => {});

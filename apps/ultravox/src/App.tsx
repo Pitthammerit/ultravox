@@ -63,6 +63,21 @@ export default function App() {
       setShowOnboarding(true);
     }).then((u) => unsubs.push(u));
 
+    // Tray "Copy Last Transcription": load fresh settings, write the most-
+    // recent history entry to the system clipboard. Best-effort — silent
+    // if there's no history yet.
+    listen("tray:copy-last", async () => {
+      try {
+        const fresh = await loadSettings();
+        const last = fresh.history?.[0];
+        if (last?.text) {
+          await navigator.clipboard.writeText(last.text);
+        }
+      } catch (e) {
+        console.warn("[App] tray:copy-last failed:", e);
+      }
+    }).then((u) => unsubs.push(u));
+
     return () => { for (const u of unsubs) u(); };
   }, []);
 

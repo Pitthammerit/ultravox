@@ -1,14 +1,25 @@
 use std::sync::Mutex;
 use tauri::State;
 
+/// One row per (app, original_volume) that we ducked. We restore each
+/// app individually because Music and Spotify have independent volume
+/// controls and the user may have started them at different levels.
+#[derive(Debug, Default, Clone)]
+pub struct DuckSnapshot {
+    pub app: String,
+    pub original_volume: i32,
+}
+
 pub struct MediaState {
     pub was_playing: Mutex<Vec<String>>,
+    pub ducked: Mutex<Vec<DuckSnapshot>>,
 }
 
 impl Default for MediaState {
     fn default() -> Self {
         Self {
             was_playing: Mutex::new(Vec::new()),
+            ducked: Mutex::new(Vec::new()),
         }
     }
 }
@@ -89,5 +100,88 @@ pub fn media_resume(state: State<MediaState>) {
         .unwrap_or_default();
     for app in was {
         resume(&app);
+    }
+}
+
+/// Read the current sound volume of an app via AppleScript. Returns None
+/// if the app isn't running OR doesn't expose a `sound volume` property
+/// (only Music and Spotify do, currently). Same single-target pattern as
+/// pause_if_playing — no System Events involvement, no permission prompt
+/// chaining.
+fn get_volume(app_name: &str) -> Option<i32> {
+    let script = format!(
+        "if application \"{name}\" is running then
+            tell application \"{name}\" to return sound volume as integer
+        end if
+        return \"\"",
+        name = app_name,
+    );
+    let out = std::process::Command::new("osascript")
+        .args(["-e", &script])
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout).trim().parse::<i32>().ok()
+}
+
+fn set_volume(app_name: &str, volume: i32) {
+    let clamped = volume.clamp(0, 100);
+    let script = format!(
+        "if application \"{name}\" is running then
+            tell application \"{name}\" to set sound volume to {vol}
+        end if",
+        name = app_name,
+        vol = clamped,
+    );
+    let _ = std::process::Command::new("osascript")
+        .args(["-e", &script])
+        .output();
+}
+
+/// Lower the volume of Music + Spotify by `percent` percent (0–100). For
+/// example, percent=50 cuts the current volume in half. Saves the original
+/// volume per-app so `media_unduck` can restore exactly. Idempotent: if
+/// already ducked, the second call is a no-op (we don't compound).
+#[tauri::command]
+pub fn media_duck(state: State<MediaState>, percent: u8) {
+    // Skip if we've already ducked — prevents compounding when the recorder
+    // hot-restarts within a single session.
+    if let Ok(g) = state.ducked.lock() {
+        if !g.is_empty() {
+            return;
+        }
+    }
+    let pct = percent.min(100) as f32;
+    let factor = 1.0 - pct / 100.0;
+    let mut snapshots = Vec::new();
+    for app in ["Music", "Spotify"] {
+        if let Some(orig) = get_volume(app) {
+            let new_vol = ((orig as f32) * factor).round() as i32;
+            set_volume(app, new_vol);
+            snapshots.push(DuckSnapshot {
+                app: app.to_string(),
+                original_volume: orig,
+            });
+        }
+    }
+    if let Ok(mut guard) = state.ducked.lock() {
+        *guard = snapshots;
+    }
+}
+
+/// Restore Music + Spotify to whatever volume they had before media_duck
+/// was called. Safe to call when nothing was ducked (no-op).
+#[tauri::command]
+pub fn media_unduck(state: State<MediaState>) {
+    let snapshots: Vec<DuckSnapshot> = state
+        .ducked
+        .lock()
+        .map(|mut g| {
+            let v = g.clone();
+            g.clear();
+            v
+        })
+        .unwrap_or_default();
+    for snap in snapshots {
+        set_volume(&snap.app, snap.original_volume);
     }
 }
