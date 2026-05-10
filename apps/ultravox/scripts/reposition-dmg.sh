@@ -31,14 +31,14 @@ MOUNT_POINT="/Volumes/${VOLNAME}"
 RW_DMG="/tmp/ultravox-reposition.dmg"
 
 # ─── coordinates (single source of truth — keep in sync with build-dmg.sh) ──
-WINDOW_W=600
-WINDOW_H=490
+WINDOW_W=660
+WINDOW_H=540
 ICON_SIZE=128
-# Scaled from legacy 0.9.4 DMG (660×540 with positions 180/480/330,170-380).
-# Scale 600/660 ≈ 0.909 keeps the same proportional layout in a tighter window.
-APP_X=164       ; APP_Y=154
-APPS_X=436      ; APPS_Y=154
-UNINSTALL_X=300 ; UNINSTALL_Y=345
+# Exact match for legacy ~/Desktop/Ultravox-0.9.4.dmg .DS_Store. Do NOT
+# rescale these autonomously — the TIFF was painted for this exact layout.
+APP_X=180       ; APP_Y=170
+APPS_X=480      ; APPS_Y=170
+UNINSTALL_X=330 ; UNINSTALL_Y=380
 
 export PATH="/usr/bin:$PATH"
 

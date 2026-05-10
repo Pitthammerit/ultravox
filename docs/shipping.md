@@ -200,19 +200,40 @@ Three things you might change, all in `apps/ultravox/`:
   script reads its own values, *not* tauri.conf.json — that's why the
   duplication exists.
 
-### Current values (matching the legacy Ultravox-0.9.4 layout, scaled smaller)
+### Canonical layout — exact match to legacy `Ultravox-0.9.4.dmg`
+
+These are the values pulled directly from the `.DS_Store` of
+`~/Desktop/Ultravox-0.9.4.dmg`. They are the *single source of truth* —
+the TIFF in `dmg-assets/background.tiff` was painted for this exact
+window size, icon size, and icon positions. **Do not re-scale or
+"improve" these autonomously.** If you genuinely need a different layout,
+the right move is to commission a new TIFF and extract a new layout from
+its reference DMG, not to scale these values.
 
 | | Value |
 |---|---|
-| `WINDOW_W` × `WINDOW_H` | 600 × 490 |
-| `ICON_SIZE` | 128 |
-| `APP_X`, `APP_Y` | 164, 154 |
-| `APPS_X`, `APPS_Y` | 436, 154 |
-| `UNINSTALL_X`, `UNINSTALL_Y` | 300, 345 |
+| `WINDOW_W` × `WINDOW_H` | **660 × 540** |
+| `ICON_SIZE` | **128** |
+| `APP_X`, `APP_Y` | **180, 170** |
+| `APPS_X`, `APPS_Y` | **480, 170** |
+| `UNINSTALL_X`, `UNINSTALL_Y` | **330, 380** |
+
+Reference `.DS_Store` keys (for record):
+- `bwsp.WindowBounds`: `{{200, 120}, {660, 540}}`
+- `icvp.iconSize`: `128.0`
+- `icvp.backgroundType`: `2` *(picture, referencing `.background.tiff`)*
+- `icvp.arrangeBy`: `none`
+- `icvp.labelOnBottom`: `true`
+- `icvp.gridSpacing`: `100.0`
+- `icvp.textSize`: `12.0`
+- `Iloc` for `Ultravox.app`: `(180, 170)`
+- `Iloc` for `Applications`: `(480, 170)`
+- `Iloc` for `Uninstall Ultravox.app`: `(330, 380)`
 
 Window centering is computed at mount-time via AppleScript (`bounds of
 window of desktop`) so the DMG opens centered on whatever display is
-attached — no hard-coded origin.
+attached — no hard-coded origin. This was added on top of the legacy
+spec; the legacy DMG had a fixed origin of `(200, 120)`.
 
 ### How to extract layout from any reference DMG
 

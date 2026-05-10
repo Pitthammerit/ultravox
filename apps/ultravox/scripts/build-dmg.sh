@@ -55,15 +55,16 @@ MOUNT_POINT="/Volumes/${VOLNAME}"
 RW_DMG="/tmp/ultravox-rw.dmg"
 
 # Window/icon coordinates inside the DMG. Match the legacy 0.9.4 layout.
-WINDOW_W=600
-WINDOW_H=490
+WINDOW_W=660
+WINDOW_H=540
 ICON_SIZE=128
-# Icon positions scaled from legacy ~/Desktop/Ultravox-0.9.4.dmg .DS_Store
-# (scale = 600/660 ≈ 0.909; legacy was 660 × 540 / Ultravox(180,170) /
-# Applications(480,170) / Uninstall(330,380)).
-APP_X=164 ; APP_Y=154
-APPS_X=436; APPS_Y=154
-UNINSTALL_X=300 ; UNINSTALL_Y=345
+# Exact match for legacy ~/Desktop/Ultravox-0.9.4.dmg .DS_Store. Do NOT
+# rescale these autonomously — the TIFF was painted to fit this exact
+# layout. If a future change requires different values, extract from a
+# new reference DMG (see docs/shipping.md → "How to extract layout").
+APP_X=180 ; APP_Y=170
+APPS_X=480; APPS_Y=170
+UNINSTALL_X=330 ; UNINSTALL_Y=380
 
 # ─── 0. Load notarization secrets if present ──────────────────────────
 if [[ -f "$APP_DIR/.env.build" ]]; then
