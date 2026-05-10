@@ -115,7 +115,14 @@ export default function PillWindow() {
   const transcribeLabel = "Transcribing…";
 
   useEffect(() => {
-    loadSettings().then((s) => {
+    void (async () => {
+      let s: AppSettings;
+      try {
+        s = await loadSettings();
+      } catch {
+        setSettings(null);
+        return;
+      }
       setSettings(s);
       const found = (s.modes ?? DEFAULT_MODES).find((m) => m.id === s.activeModeId);
       if (found) setMode(found);
@@ -124,26 +131,32 @@ export default function PillWindow() {
       const style = s.pillStyle ?? (s.sound.compactPill ? "mini" : "classic");
       const isCompact = style === "mini";
       setCompact(isCompact);
-      // If we're booting in compact mode, restore the last dragged position
-      // (pillCompactPosition) so the pill reopens where the user left it.
-      // Fall back to top-center when there is no saved compact position yet.
-      if (isCompact) {
-        const cp = s.pillCompactPosition;
-        if (cp) {
-          setPillSizeAtPosition(COMPACT_W, COMPACT_H, cp.x, cp.y).catch(() => {
-            setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
-          });
+      // Resize the window to match the resolved style BEFORE flipping
+      // settingsLoaded — otherwise the JSX renders Mini content inside the
+      // initial PILL_W × PILL_H window from tauri.conf.json for one frame,
+      // producing a too-tall pill with rounded corners only on the top edge.
+      // Awaiting the size op + flipping the flag last guarantees the first
+      // visible render sees the correct window dimensions.
+      try {
+        if (isCompact) {
+          const cp = s.pillCompactPosition;
+          if (cp) {
+            await setPillSizeAtPosition(COMPACT_W, COMPACT_H, cp.x, cp.y);
+          } else {
+            await setPillPositionTopCenter(COMPACT_W, COMPACT_H);
+          }
         } else {
-          setPillPositionTopCenter(COMPACT_W, COMPACT_H).catch(() => {});
+          await setPillHeight(PILL_H);
         }
-      } else {
-        setPillHeight(PILL_H).catch(() => {});
-      }
+      } catch { /* fall through — window stays at its current size */ }
+      // One more rAF settle so the WebView has time to relayout against the
+      // new outer dimensions before the first paint of the pill content.
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
       setSettingsLoaded(true);
       // Apply the user's theme — the pill is a separate WebView, so it must
       // call applyTheme itself; main.tsx only theme-applies the Settings App.
       applyTheme(s.theme);
-    }).catch(() => setSettings(null));
+    })();
 
     // Repaint when Settings broadcasts a theme change.
     let unsubTheme: (() => void) | undefined;
@@ -818,6 +831,16 @@ export default function PillWindow() {
     border: "1px solid var(--pill-border)",
     boxShadow: "var(--pill-shadow)",
   };
+
+  /* ── First-paint gate ─────────────────────────────────────────
+   * Render nothing until the initial settings load + window resize
+   * has completed. Without this, the first render uses the pill's
+   * tauri.conf.json default dimensions (388×136) — if the user's
+   * stored style is Mini, this paints the Mini JSX inside the
+   * larger window for one frame, producing the "rounded only on
+   * top, square on bottom, oversized" glitch the user reported.
+   */
+  if (!settingsLoaded) return null;
 
   /* ── Compact mini-pill ────────────────────────────────────────
    * Renders for idle / recording / transcribing / discardConfirm.
