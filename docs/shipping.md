@@ -229,6 +229,38 @@ Reference `.DS_Store` keys (for record):
 - `Iloc` for `Ultravox.app`: `(180, 170)`
 - `Iloc` for `Applications`: `(480, 170)`
 - `Iloc` for `Uninstall Ultravox.app`: `(330, 380)`
+- Hidden dotfiles (`.background`, `.DS_Store`, `.fseventsd`, `.Trashes`, `.Spotlight-V100`, `.VolumeIcon.icns`) parked at `(1100, 800)` — outside the visible 660×540 window. Without this, "Show hidden files" mode lets the `.background` folder bleed into the bottom-left of the install window.
+
+### Why bwsp.WindowBounds has to be written separately
+
+Finder's AppleScript `set bounds of container window` only updates the
+in-memory window state — it does NOT write `bwsp.WindowBounds` into
+`.DS_Store` on close. The DMG opens at Finder's cached/default size on
+every subsequent mount.
+
+The fix lives in both `build-dmg.sh` and `reposition-dmg.sh`: after
+AppleScript closes the window, run a Python step that opens the
+`.DS_Store` with `ds_store` and writes the bounds via the **correct**
+API:
+
+```python
+from ds_store import DSStore
+with DSStore.open(ds_path, "r+") as d:
+    bwsp = d["."]              # returns a Partial proxy
+    existing = bwsp["bwsp"]    # read existing dict (or {} if missing)
+    existing["WindowBounds"] = "{{200, 120}, {660, 540}}"
+    bwsp["bwsp"] = existing    # write through the Partial
+```
+
+**Common bug:** the shortcut `d[".", "bwsp"] = value` *looks* equivalent
+but silently goes through `DSStore`'s missing top-level `__setitem__`,
+corrupting the BTree with tuple-keyed entries. Always go through the
+Partial proxy.
+
+`ds_store` lives at `/opt/homebrew/bin/python3` (Homebrew Python 3.13).
+The system `/usr/bin/python3` (CommandLineTools 3.9) lacks
+`--break-system-packages` and can't `pip install`. The scripts auto-pick
+the homebrew binary and bail with an install hint if it's not there.
 
 Window centering is computed at mount-time via AppleScript (`bounds of
 window of desktop`) so the DMG opens centered on whatever display is

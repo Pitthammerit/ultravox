@@ -184,24 +184,24 @@ tell application "Finder"
     end try
     -- Park hidden items off-screen so they don't bleed into the
     -- visible window when the user has "show hidden files" enabled.
-    -- (1500, 1100) matches the legacy 0.9.4 DMG.
+    -- (1100, 800) is enough — outside the 660×540 visible window. Legacy used (1500, 1100); we tightened the parking spot since 1100,800 is sufficient.
     try
-      set position of item ".background" to {1500, 1100}
+      set position of item ".background" to {1100, 800}
     end try
     try
-      set position of item ".DS_Store" to {1500, 1100}
+      set position of item ".DS_Store" to {1100, 800}
     end try
     try
-      set position of item ".fseventsd" to {1500, 1100}
+      set position of item ".fseventsd" to {1100, 800}
     end try
     try
-      set position of item ".Trashes" to {1500, 1100}
+      set position of item ".Trashes" to {1100, 800}
     end try
     try
-      set position of item ".Spotlight-V100" to {1500, 1100}
+      set position of item ".Spotlight-V100" to {1100, 800}
     end try
     try
-      set position of item ".VolumeIcon.icns" to {1500, 1100}
+      set position of item ".VolumeIcon.icns" to {1100, 800}
     end try
     try
       update without registering applications
