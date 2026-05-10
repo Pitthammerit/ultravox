@@ -214,18 +214,27 @@ function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): App
   if (!pillStyle) {
     pillStyle = stored.sound?.compactPill ? "mini" : "classic";
   }
+  // v0.12.4: heal divergence between pillStyle and the legacy compactPill
+  // boolean. Earlier writers only updated pillStyle, leaving compactPill
+  // stale; on subsequent reads any code that fell back to compactPill saw
+  // the wrong value. Force them in lockstep so future reads agree.
+  const sound = { ...DEFAULT_SETTINGS.sound, ...(stored.sound ?? {}) };
+  sound.compactPill = pillStyle === "mini";
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
     ...(firstName !== undefined ? { firstName } : {}),
     ...(lastName !== undefined ? { lastName } : {}),
     pillStyle,
-    sound: { ...DEFAULT_SETTINGS.sound, ...(stored.sound ?? {}) },
+    sound,
     modes: stored.modes ?? DEFAULT_SETTINGS.modes,
     vocabulary: stored.vocabulary ?? [],
     history: stored.history ?? [],
   };
 }
+
+// Test export.
+export const __test__mergeWithDefaults = mergeWithDefaults;
 
 export async function loadSettings(): Promise<AppSettings> {
   const store = getStore();

@@ -162,7 +162,17 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
             <PillStylePicker
               value={settings?.pillStyle ?? "classic"}
               onChange={(v) => {
-                if (onChange) void onChange({ pillStyle: v });
+                // Write pillStyle AND legacy compactPill in lockstep — this matches
+                // what the in-pill expand/collapse handlers do. If we only wrote
+                // pillStyle, downgrades to a pre-0.9.17 build would read the wrong
+                // state, and any read path that prefers compactPill (none should,
+                // but defensive) would diverge.
+                if (onChange && settings) {
+                  void onChange({
+                    pillStyle: v,
+                    sound: { ...settings.sound, compactPill: v === "mini" },
+                  });
+                }
                 emit("pillStyle:changed", v).catch(() => {});
               }}
               size="small"
