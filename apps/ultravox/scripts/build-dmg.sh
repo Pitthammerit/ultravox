@@ -55,12 +55,15 @@ MOUNT_POINT="/Volumes/${VOLNAME}"
 RW_DMG="/tmp/ultravox-rw.dmg"
 
 # Window/icon coordinates inside the DMG. Match the legacy 0.9.4 layout.
-WINDOW_W=660
-WINDOW_H=540
+WINDOW_W=600
+WINDOW_H=490
 ICON_SIZE=128
-APP_X=180 ; APP_Y=170            # extracted from legacy ~/Desktop/Ultravox-0.9.4.dmg .DS_Store
-APPS_X=480; APPS_Y=170
-UNINSTALL_X=330 ; UNINSTALL_Y=380
+# Icon positions scaled from legacy ~/Desktop/Ultravox-0.9.4.dmg .DS_Store
+# (scale = 600/660 ≈ 0.909; legacy was 660 × 540 / Ultravox(180,170) /
+# Applications(480,170) / Uninstall(330,380)).
+APP_X=164 ; APP_Y=154
+APPS_X=436; APPS_Y=154
+UNINSTALL_X=300 ; UNINSTALL_Y=345
 
 # ─── 0. Load notarization secrets if present ──────────────────────────
 if [[ -f "$APP_DIR/.env.build" ]]; then
@@ -143,7 +146,13 @@ tell application "Finder"
       set current view of container window to icon view
     end try
     try
-      set the bounds of container window to {200, 100, $((200 + WINDOW_W)), $((100 + WINDOW_H))}
+      -- Center the window on the user's display.
+      set deskBounds to bounds of window of desktop
+      set screenW to (item 3 of deskBounds) - (item 1 of deskBounds)
+      set screenH to (item 4 of deskBounds) - (item 2 of deskBounds)
+      set leftPos to ((screenW - ${WINDOW_W}) / 2) as integer
+      set topPos to ((screenH - ${WINDOW_H}) / 2) as integer
+      set the bounds of container window to {leftPos, topPos, leftPos + ${WINDOW_W}, topPos + ${WINDOW_H}}
     end try
     try
       set theViewOptions to the icon view options of container window

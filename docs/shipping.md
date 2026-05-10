@@ -7,12 +7,18 @@ release. Read this end-to-end **once**; after that the commands are short.
 
 ## TL;DR
 
-| Goal                                  | Command                                      | Output                                                |
-|---------------------------------------|----------------------------------------------|-------------------------------------------------------|
-| Test the app on your Mac              | `pnpm --filter @ultravox/app app`            | `apps/ultravox/src-tauri/target/release/bundle/macos/Ultravox.app` |
-| Release-ready DMG (signed, notarized) | `pnpm --filter @ultravox/app dmg`            | `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg` |
+| Goal                                  | Command                                       | Output                                                |
+|---------------------------------------|------------------------------------------------|-------------------------------------------------------|
+| Test the app on your Mac              | `pnpm --filter @ultravox/app app`              | `apps/ultravox/src-tauri/target/release/bundle/macos/Ultravox.app` |
+| Release-ready DMG (signed, notarized) | `pnpm --filter @ultravox/app dmg`              | `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg` |
+| Notarize the existing DMG only        | `pnpm --filter @ultravox/app notarize`         | re-notarizes + staples — skips Cargo + Tauri build |
+| Tweak DMG layout only (~10 sec)       | `pnpm --filter @ultravox/app reposition`       | mounts existing DMG, re-applies icon coordinates, re-signs |
 
 Run from the repo root or anywhere — the script resolves paths itself.
+
+The **layout iteration loop** is `reposition` (10 s) → mount + screenshot →
+nudge a coord → repeat. Don't run `dmg` (30 s + notarize) until the layout
+is final.
 
 ---
 
@@ -182,19 +188,58 @@ startup.
 Three things you might change, all in `apps/ultravox/`:
 
 - **Background image**: replace `src-tauri/dmg-assets/background.tiff`.
-  Use a 2× retina TIFF (so 800×600 logical → 1600×1200 pixels).
-- **Window dimensions or app/Applications icon position**: edit
-  `src-tauri/tauri.conf.json` → `bundle.macOS.dmg.windowSize` /
-  `appPosition` / `applicationFolderPosition`.
-- **Uninstaller icon position**: edit `UNINSTALL_X` / `UNINSTALL_Y` near
-  the top of `scripts/build-dmg.sh`.
+  Use a 2× retina TIFF (so 600×490 logical → 1200×980 pixels). The
+  current asset is 1600×1200 (designed for the original 660×540 layout)
+  — Finder scales it down proportionally to whatever window we set.
+- **Window dimensions** *or* **icon positions**: there are TWO sources of
+  truth that must stay in sync:
+  - `src-tauri/tauri.conf.json` → `bundle.macOS.dmg.{windowSize, appPosition, applicationFolderPosition}` — used by Tauri's initial `bundle_dmg.sh` step.
+  - `scripts/build-dmg.sh` and `scripts/reposition-dmg.sh` — both have an `WINDOW_W / WINDOW_H / ICON_SIZE / APP_X,APP_Y / APPS_X,APPS_Y / UNINSTALL_X,UNINSTALL_Y` block at the top, used by the post-mount AppleScript that re-positions icons after the uninstaller is injected.
 
-If you change `windowSize`, also bump the matching coords in the script.
+  When you tweak any of these, edit ALL THREE sites. The reposition
+  script reads its own values, *not* tauri.conf.json — that's why the
+  duplication exists.
 
-The reference DMG that the layout mirrors lives at
-`~/Desktop/Ultravox-0.9.4.dmg`. Keep it around — that's where the TIFF
-and the uninstaller `.app` were originally extracted from. Mount it
-(`open ~/Desktop/Ultravox-0.9.4.dmg`) any time you want to compare.
+### Current values (matching the legacy Ultravox-0.9.4 layout, scaled smaller)
+
+| | Value |
+|---|---|
+| `WINDOW_W` × `WINDOW_H` | 600 × 490 |
+| `ICON_SIZE` | 128 |
+| `APP_X`, `APP_Y` | 164, 154 |
+| `APPS_X`, `APPS_Y` | 436, 154 |
+| `UNINSTALL_X`, `UNINSTALL_Y` | 300, 345 |
+
+Window centering is computed at mount-time via AppleScript (`bounds of
+window of desktop`) so the DMG opens centered on whatever display is
+attached — no hard-coded origin.
+
+### How to extract layout from any reference DMG
+
+If you ever want to recover icon positions from a DMG you already trust:
+
+```bash
+hdiutil attach -nobrowse -readonly /path/to/reference.dmg
+pip3 install --user --break-system-packages ds_store
+python3 - <<'PY'
+from ds_store import DSStore
+with DSStore.open("/Volumes/<vol-name>/.DS_Store", "r") as d:
+    for entry in d:
+        code = entry.code if isinstance(entry.code, str) else entry.code.decode()
+        if code in ("Iloc", "icvp", "bwsp"):
+            print(f"  {entry.filename!r:50s}  {code}  {entry.value!r}")
+PY
+hdiutil detach "/Volumes/<vol-name>" -force
+```
+
+`Iloc` records give icon positions; `bwsp` gives the window bounds;
+`icvp` includes icon size and the background image alias. That's how
+the v0.11.12 values were recovered from `~/Desktop/Ultravox-0.9.4.dmg`.
+
+The reference DMG itself lives at `~/Desktop/Ultravox-0.9.4.dmg`. Keep
+it around — that's where the TIFF and the uninstaller `.app` were
+originally extracted from. Mount it (`open ~/Desktop/Ultravox-0.9.4.dmg`)
+any time you want to compare.
 
 ---
 
@@ -227,3 +272,6 @@ ask before doing them.
 | `Finder got an error: Can't set toolbar visible …` | Newer macOS Finder dropped that property | Already wrapped in `try` blocks in the script. If it surfaces, the layout still works — just less polished. |
 | `notarytool: invalid credentials` | Stale app-specific password | Regenerate at <https://appleid.apple.com> and update `.env.build`. |
 | `notarytool: status: Invalid` | Hardened runtime, entitlements, or signature issue | Read the JSON log it prints; usually missing entitlement or wrong identity. |
+| `hdiutil: detach failed - Resource busy` (exit 16) | Finder/Spotlight still indexing the volume after AppleScript closes | The detach step has a 5-attempt retry loop with backoff. If you still see it, double-check the volume isn't open in another Finder window. |
+| Notarized DMG fails first-run on a colleague's Mac | They downloaded over Safari and macOS attached the `com.apple.quarantine` xattr | The DMG itself is fine — first-run experience for unstapled DMGs always shows a warning. Make sure you ran `pnpm notarize` (which stapler-staples the ticket so Gatekeeper checks offline). |
+| Custom DMG layout doesn't match what's in tauri.conf.json | The post-mount AppleScript overrides the initial layout from `bundle_dmg.sh`. | Edit `WINDOW_W` / icon coords in `scripts/build-dmg.sh` AND `scripts/reposition-dmg.sh` AND `tauri.conf.json` — all three. |

@@ -31,12 +31,14 @@ MOUNT_POINT="/Volumes/${VOLNAME}"
 RW_DMG="/tmp/ultravox-reposition.dmg"
 
 # ─── coordinates (single source of truth — keep in sync with build-dmg.sh) ──
-WINDOW_W=660
-WINDOW_H=540
+WINDOW_W=600
+WINDOW_H=490
 ICON_SIZE=128
-APP_X=180       ; APP_Y=170      # exact match to legacy 0.9.4 DMG
-APPS_X=480      ; APPS_Y=170
-UNINSTALL_X=330 ; UNINSTALL_Y=380
+# Scaled from legacy 0.9.4 DMG (660×540 with positions 180/480/330,170-380).
+# Scale 600/660 ≈ 0.909 keeps the same proportional layout in a tighter window.
+APP_X=164       ; APP_Y=154
+APPS_X=436      ; APPS_Y=154
+UNINSTALL_X=300 ; UNINSTALL_Y=345
 
 export PATH="/usr/bin:$PATH"
 
@@ -75,7 +77,13 @@ tell application "Finder"
       set current view of container window to icon view
     end try
     try
-      set the bounds of container window to {200, 100, $((200 + WINDOW_W)), $((100 + WINDOW_H))}
+      -- Center the window on the user's display.
+      set deskBounds to bounds of window of desktop
+      set screenW to (item 3 of deskBounds) - (item 1 of deskBounds)
+      set screenH to (item 4 of deskBounds) - (item 2 of deskBounds)
+      set leftPos to ((screenW - ${WINDOW_W}) / 2) as integer
+      set topPos to ((screenH - ${WINDOW_H}) / 2) as integer
+      set the bounds of container window to {leftPos, topPos, leftPos + ${WINDOW_W}, topPos + ${WINDOW_H}}
     end try
     try
       set theViewOptions to the icon view options of container window
