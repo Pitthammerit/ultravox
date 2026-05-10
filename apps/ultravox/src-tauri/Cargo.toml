@@ -1,6 +1,6 @@
 [package]
 name = "ultravox"
-version = "0.12.5"
+version = "0.12.6"
 description = "Voice dictation companion for macOS"
 authors = ["Benjamin Kurtz"]
 edition = "2021"
@@ -56,3 +56,4 @@ version = "0.15"
 objc2 = "0.5"
 objc2-app-kit = { version = "0.2", features = ["NSWorkspace", "NSRunningApplication"] }
 objc2-foundation = { version = "0.2", features = ["NSString", "NSURL", "NSBundle"] }
+core-graphics = "0.23"

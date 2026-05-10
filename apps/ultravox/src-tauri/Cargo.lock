@@ -5478,8 +5478,9 @@ dependencies = [
 
 [[package]]
 name = "ultravox"
-version = "0.12.5"
+version = "0.12.6"
 dependencies = [
+ "core-graphics 0.23.2",
  "dirs 5.0.1",
  "enigo",
  "futures-util",
