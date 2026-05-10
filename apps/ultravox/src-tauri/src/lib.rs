@@ -5,6 +5,7 @@ mod claude_code;
 mod hotkey;
 mod paste;
 mod permissions;
+mod recordings;
 mod system;
 mod tray;
 
@@ -114,6 +115,11 @@ pub fn run() {
         permissions::check_accessibility_permission,
         permissions::request_accessibility_permission,
         permissions::microphone_auth_status,
+        recordings::save_recording_audio,
+        recordings::delete_recording_audio,
+        recordings::read_recording_audio,
+        recordings::list_recording_files,
+        recordings::open_recordings_folder,
         media::media_pause,
         media::media_resume,
         media::media_duck,
@@ -156,6 +162,11 @@ pub fn run() {
         permissions::check_accessibility_permission,
         permissions::request_accessibility_permission,
         permissions::microphone_auth_status,
+        recordings::save_recording_audio,
+        recordings::delete_recording_audio,
+        recordings::read_recording_audio,
+        recordings::list_recording_files,
+        recordings::open_recordings_folder,
         system::get_system_language,
         system::open_privacy_settings,
         system::set_traffic_lights_visible,
@@ -184,6 +195,11 @@ pub fn run() {
         permissions::check_accessibility_permission,
         permissions::request_accessibility_permission,
         permissions::microphone_auth_status,
+        recordings::save_recording_audio,
+        recordings::delete_recording_audio,
+        recordings::read_recording_audio,
+        recordings::list_recording_files,
+        recordings::open_recordings_folder,
         system::get_system_language,
         system::open_privacy_settings,
         system::set_traffic_lights_visible,

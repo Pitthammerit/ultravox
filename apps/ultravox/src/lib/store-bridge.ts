@@ -41,6 +41,32 @@ export interface HistoryEntry {
   /** Bundle id of the focused app at the moment of recording. */
   bundleId: string | null;
   text: string;
+  /** Absolute path to the saved audio file on disk. Set only when
+   *  settings.recordings.saveLocal was true at recording time AND the
+   *  blob was successfully persisted. Absent on text-only entries.
+   *  File lives at ~/Library/Application Support/com.ultravox.dev/
+   *  recordings/<id>.<audioFormat-ext>. */
+  audioPath?: string;
+  /** Mime type ("audio/mp4", "audio/webm") used to construct an
+   *  <audio> element src attribute and to round-trip through
+   *  read_recording_audio for re-transcribe. */
+  audioFormat?: string;
+  /** File size in bytes — surfaced in History panel size readout
+   *  without re-stat'ing on every render. */
+  audioBytes?: number;
+}
+
+/** Recording-storage preferences. Default OFF — opt-in only because saved
+ *  audio is sensitive. When enabled, every recording's audio blob is
+ *  persisted to ~/.../recordings/<historyEntryId>.<ext>. */
+export interface RecordingsSettings {
+  /** Master switch. When false, no audio is ever written; existing files
+   *  on disk stay untouched (user can clear via Configuration → "Delete
+   *  all saved audio"). */
+  saveLocal: boolean;
+  /** Auto-delete files older than this many days on app launch.
+   *  0 disables auto-delete. */
+  retentionDays: 0 | 7 | 30 | 90;
 }
 
 export interface AppSettings {
@@ -76,6 +102,8 @@ export interface AppSettings {
   onboardingStep?: number;
   /** Sound + microphone preferences. */
   sound: SoundSettings;
+  /** Local audio recording storage preferences (Configuration → Recordings). */
+  recordings: RecordingsSettings;
   /** Saved expanded-pill position (LogicalPosition, screen coords). Used to
    *  restore where the pill was before the user collapsed it to the top-center
    *  compact state. */
@@ -150,6 +178,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   localWhisperEnabled: true,
   localCleanupEnabled: true,
   modelsBoxOpen: true,
+  recordings: {
+    saveLocal: false,    // Privacy-first default — opt-in only.
+    retentionDays: 30,   // Auto-clean monthly when enabled.
+  },
 };
 
 const STORE_FILE = "settings.json";
@@ -294,11 +326,48 @@ export async function patchSettings(patch: Partial<AppSettings>): Promise<AppSet
 /**
  * Append a transcription to history, capping at HISTORY_MAX (newest first).
  * Race-safe: re-reads settings before writing.
+ *
+ * If `audioBlob` is provided AND settings.recordings.saveLocal is true,
+ * the blob is persisted to disk via the save_recording_audio Tauri
+ * command and the resulting path + format + size land on the entry.
+ * Either condition false → audio side is skipped, entry stored text-only.
+ *
+ * Audio save errors are logged but never block the history write — losing
+ * the audio backup is preferable to losing the transcript record.
  */
-export async function appendHistory(entry: HistoryEntry): Promise<void> {
+export async function appendHistory(entry: HistoryEntry, audioBlob?: Blob): Promise<void> {
   const current = await loadSettings();
-  const next = [entry, ...current.history].slice(0, HISTORY_MAX);
+  let enriched = entry;
+  if (audioBlob && current.recordings?.saveLocal) {
+    try {
+      const ext = blobMimeToExt(audioBlob.type);
+      const buf = new Uint8Array(await audioBlob.arrayBuffer());
+      const { saveRecordingAudio } = await import("./tauri-bridge");
+      const path = await saveRecordingAudio(entry.id, ext, buf);
+      enriched = {
+        ...entry,
+        audioPath: path,
+        audioFormat: audioBlob.type || `audio/${ext}`,
+        audioBytes: audioBlob.size,
+      };
+    } catch (e) {
+      console.warn("[history] saveRecordingAudio failed:", e);
+    }
+  }
+  const next = [enriched, ...current.history].slice(0, HISTORY_MAX);
   await saveSettings({ ...current, history: next });
+}
+
+/** Extract a sane filename extension from a Blob mime type.
+ *  Recorder produces "audio/mp4", "audio/webm;codecs=opus" etc. We
+ *  strip codec params and pick a short ext suitable as a filename. */
+function blobMimeToExt(mime: string): string {
+  const base = (mime || "").split(";")[0]!.trim().toLowerCase();
+  if (base === "audio/mp4" || base === "audio/aac") return "mp4";
+  if (base.startsWith("audio/webm")) return "webm";
+  if (base === "audio/ogg") return "ogg";
+  if (base === "audio/wav" || base === "audio/wave") return "wav";
+  return "bin";
 }
 
 export async function clearHistory(): Promise<void> {
@@ -308,4 +377,46 @@ export async function clearHistory(): Promise<void> {
 
 export async function resetSettings(): Promise<void> {
   await saveSettings(DEFAULT_SETTINGS);
+}
+
+/**
+ * One-shot sweep at app launch:
+ *   1. Delete recordings older than `settings.recordings.retentionDays`
+ *      (skipped when retentionDays = 0).
+ *   2. Delete orphaned files — those whose entry id no longer matches
+ *      any HistoryEntry. Happens naturally as the 50-entry cap evicts
+ *      the oldest entries; without this, the recordings dir grows
+ *      unboundedly even with retention enabled.
+ *
+ * Skipped entirely when settings.recordings.saveLocal is false — we
+ * don't touch existing files in case the user toggles back on later.
+ *
+ * Best-effort: errors are logged and swallowed so a bad sweep never
+ * blocks app startup. Returns the number of files deleted (for tests +
+ * future telemetry).
+ */
+export async function purgeStaleRecordings(): Promise<number> {
+  try {
+    const settings = await loadSettings();
+    if (!settings.recordings?.saveLocal) return 0;
+    const { listRecordingFiles, deleteRecordingAudio } = await import("./tauri-bridge");
+    const files = await listRecordingFiles();
+    if (files.length === 0) return 0;
+    const liveIds = new Set(settings.history.map((e) => e.id));
+    const retentionDays = settings.recordings.retentionDays;
+    const cutoffMs = retentionDays > 0 ? Date.now() - retentionDays * 86_400_000 : 0;
+    let deleted = 0;
+    for (const f of files) {
+      const isOrphan = !liveIds.has(f.id);
+      const isStale = retentionDays > 0 && f.mtimeMs > 0 && f.mtimeMs < cutoffMs;
+      if (isOrphan || isStale) {
+        await deleteRecordingAudio(f.id).catch(() => {});
+        deleted += 1;
+      }
+    }
+    return deleted;
+  } catch (e) {
+    console.warn("[recordings] purgeStaleRecordings failed:", e);
+    return 0;
+  }
 }

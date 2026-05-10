@@ -1,0 +1,258 @@
+/*!
+ * Local audio recording storage.
+ *
+ * When the user opts into `settings.recordings.saveLocal`, every Whisper
+ * recording's audio blob gets persisted to disk so they can replay it,
+ * re-transcribe it with a different mode, or audit later. Files live next
+ * to whisper-models/ and llm-models/ so all user data sits under one
+ * bundle id; one file per HistoryEntry, named by its existing UUID.
+ *
+ * Path: `~/Library/Application Support/com.ultravox.dev/recordings/<id>.<ext>`
+ *
+ * Privacy posture: default OFF, opt-in only. Files never leave the machine
+ * via this module — the existing transcribe.ts pipeline still uploads the
+ * raw audio to whatever transcription backend the active mode picks, but
+ * persistence here is local-only. Retention is swept on launch by the
+ * frontend (using `list_recording_files` + `delete_recording_audio`).
+ */
+
+use serde::Serialize;
+use std::path::PathBuf;
+
+const MODEL_BUNDLE_ID: &str = "com.ultravox.dev";
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingFile {
+    /// HistoryEntry UUID (the filename stem, before the dot).
+    pub id: String,
+    /// File extension without the leading dot (e.g. "mp4" or "webm").
+    pub ext: String,
+    pub size_bytes: u64,
+    /// Last-modified time in unix milliseconds (used by retention sweep).
+    pub mtime_ms: u64,
+}
+
+fn recordings_dir() -> Result<PathBuf, String> {
+    let base = dirs::data_dir().ok_or_else(|| "no data_dir".to_string())?;
+    let dir = base.join(MODEL_BUNDLE_ID).join("recordings");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir recordings: {e}"))?;
+    Ok(dir)
+}
+
+/// Defense-in-depth: validate the entry id looks like a UUID-shaped string
+/// (hex / hyphen) so a caller can't traverse out of the recordings dir
+/// via "../foo" or similar. Same allowlist style as local_whisper_*.
+fn validate_id(id: &str) -> Result<(), String> {
+    if id.is_empty() {
+        return Err("empty entry id".into());
+    }
+    if id.len() > 64 {
+        return Err("entry id too long".into());
+    }
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err(format!("invalid entry id: {id}"));
+    }
+    Ok(())
+}
+
+fn validate_ext(ext: &str) -> Result<(), String> {
+    if ext.is_empty() {
+        return Err("empty ext".into());
+    }
+    if ext.len() > 8 {
+        return Err("ext too long".into());
+    }
+    if !ext.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(format!("invalid ext: {ext}"));
+    }
+    Ok(())
+}
+
+/// Write `bytes` to <recordings>/<entry_id>.<ext>. Returns the absolute path.
+/// Overwrites any existing file at that path.
+#[tauri::command]
+pub fn save_recording_audio(entry_id: String, ext: String, bytes: Vec<u8>) -> Result<String, String> {
+    validate_id(&entry_id)?;
+    validate_ext(&ext)?;
+    let dir = recordings_dir()?;
+    let path = dir.join(format!("{entry_id}.{ext}"));
+    let tmp = dir.join(format!("{entry_id}.{ext}.part"));
+    std::fs::write(&tmp, &bytes).map_err(|e| format!("write tmp: {e}"))?;
+    std::fs::rename(&tmp, &path).map_err(|e| format!("rename: {e}"))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// Idempotent — no error if the file doesn't exist. We delete by scanning
+/// for any extension matching `<entry_id>.*` because the caller may not
+/// remember which container format was used (mp4/webm/ogg/wav).
+#[tauri::command]
+pub fn delete_recording_audio(entry_id: String) -> Result<(), String> {
+    validate_id(&entry_id)?;
+    let dir = match recordings_dir() {
+        Ok(d) => d,
+        Err(_) => return Ok(()), // dir doesn't exist → nothing to delete
+    };
+    let prefix = format!("{entry_id}.");
+    let entries = match std::fs::read_dir(&dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(()),
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let s = name.to_string_lossy();
+        if s.starts_with(&prefix) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+    Ok(())
+}
+
+/// Read the audio bytes for replay or re-transcribe.
+#[tauri::command]
+pub fn read_recording_audio(entry_id: String, ext: String) -> Result<Vec<u8>, String> {
+    validate_id(&entry_id)?;
+    validate_ext(&ext)?;
+    let dir = recordings_dir()?;
+    let path = dir.join(format!("{entry_id}.{ext}"));
+    std::fs::read(&path).map_err(|e| format!("read: {e}"))
+}
+
+/// Enumerate all files in the recordings dir. Used by the retention sweep
+/// to find orphans + entries past the retention threshold, and by the
+/// Configuration panel's disk-usage readout.
+#[tauri::command]
+pub fn list_recording_files() -> Result<Vec<RecordingFile>, String> {
+    let dir = match dirs::data_dir() {
+        Some(b) => b.join(MODEL_BUNDLE_ID).join("recordings"),
+        None => return Ok(Vec::new()),
+    };
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut out: Vec<RecordingFile> = Vec::new();
+    let entries = match std::fs::read_dir(&dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(Vec::new()),
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        // Skip .part tmp files left behind by an interrupted save.
+        if path.extension().and_then(|s| s.to_str()) == Some("part") {
+            continue;
+        }
+        let stem = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+        let ext = match path.extension().and_then(|s| s.to_str()) {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+        let metadata = match entry.metadata() {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        let size_bytes = metadata.len();
+        let mtime_ms = metadata
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        out.push(RecordingFile { id: stem, ext, size_bytes, mtime_ms });
+    }
+    out.sort_by_key(|f| std::cmp::Reverse(f.mtime_ms));
+    Ok(out)
+}
+
+/// Reveal the recordings directory in Finder. Used by the "Open recordings
+/// folder" button in the Configuration panel.
+#[tauri::command]
+pub fn open_recordings_folder() -> Result<(), String> {
+    let dir = recordings_dir()?;
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("/usr/bin/open")
+            .arg(&dir)
+            .status()
+            .map_err(|e| format!("open spawn: {e}"))?;
+        if !status.success() {
+            return Err(format!("open exited with {status}"));
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = dir;
+        return Err("only supported on macOS".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn validate_id_rejects_path_traversal() {
+        assert!(validate_id("../foo").is_err());
+        assert!(validate_id("foo/bar").is_err());
+        assert!(validate_id("foo.bar").is_err());
+        assert!(validate_id("").is_err());
+    }
+
+    #[test]
+    fn validate_id_accepts_uuid_shape() {
+        assert!(validate_id("550e8400-e29b-41d4-a716-446655440000").is_ok());
+        assert!(validate_id("abc123").is_ok());
+    }
+
+    #[test]
+    fn validate_ext_rejects_dotted_or_long() {
+        assert!(validate_ext(".mp4").is_err());
+        assert!(validate_ext("verylongextension").is_err());
+        assert!(validate_ext("").is_err());
+    }
+
+    #[test]
+    fn validate_ext_accepts_common() {
+        for ext in ["mp4", "webm", "ogg", "wav", "m4a"] {
+            assert!(validate_ext(ext).is_ok(), "{ext}");
+        }
+    }
+
+    /// Round-trip: write, read, delete. Uses a UUID we won't collide with.
+    #[test]
+    fn save_read_delete_round_trip() {
+        let id = "test-roundtrip-deadbeef";
+        let _ = delete_recording_audio(id.to_string()); // clean previous
+        let bytes = b"audio bytes here".to_vec();
+        let path = save_recording_audio(id.to_string(), "wav".to_string(), bytes.clone()).unwrap();
+        assert!(Path::new(&path).is_file());
+        let read = read_recording_audio(id.to_string(), "wav".to_string()).unwrap();
+        assert_eq!(read, bytes);
+        delete_recording_audio(id.to_string()).unwrap();
+        assert!(!Path::new(&path).exists());
+        // Idempotent — second delete is fine.
+        assert!(delete_recording_audio(id.to_string()).is_ok());
+    }
+
+    #[test]
+    fn list_recording_files_returns_metadata_for_existing() {
+        let id = "test-list-deadbeef";
+        let _ = delete_recording_audio(id.to_string());
+        save_recording_audio(id.to_string(), "wav".to_string(), b"x".repeat(100)).unwrap();
+        let files = list_recording_files().unwrap();
+        let found = files.iter().find(|f| f.id == id);
+        assert!(found.is_some(), "saved file should appear in list");
+        let f = found.unwrap();
+        assert_eq!(f.ext, "wav");
+        assert_eq!(f.size_bytes, 100);
+        assert!(f.mtime_ms > 0);
+        delete_recording_audio(id.to_string()).unwrap();
+    }
+}

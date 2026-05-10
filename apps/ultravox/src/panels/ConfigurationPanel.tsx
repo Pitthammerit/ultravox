@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { emit } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { AppSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
-import { Button, Input, Row, Section, tokens } from "../components/ui";
+import { Button, Input, Row, Section, ToggleRow, tokens } from "../components/ui";
 import { Trash2 } from "lucide-react";
 import { PillStylePicker } from "../components/PillStylePicker";
 import {
@@ -19,6 +19,9 @@ import {
   localLlmListModels,
   localLlmDeleteModel,
   type LocalLlmModelInfo as LocalLlmModel,
+  listRecordingFiles,
+  deleteRecordingAudio,
+  openRecordingsFolder,
 } from "../lib/tauri-bridge";
 import { formatPickerBytes, EnPill } from "../components/TranscriptionModelPicker";
 import { VARIANT_LABEL_MAP } from "../lib/transcriptionVariants";
@@ -183,6 +186,7 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
 
       <InstalledWhisperModelsSection />
       <InstalledLlmModelsSection />
+      <RecordingsSection settings={settings} onChange={onChange} />
 
       <Section
         label="Permissions"
@@ -724,5 +728,142 @@ function CoremlBadge() {
     >
       ANE
     </span>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RECORDINGS — local audio storage opt-in. Default OFF (privacy-first).
+   When enabled, every recording's audio blob is persisted to disk so
+   the user can replay / re-transcribe / audit later from the History
+   panel. Auto-deletes after configurable retention (off / 7 / 30 / 90
+   days), sweep runs on app launch.
+   ────────────────────────────────────────────────────────────────── */
+
+interface RecordingsSectionProps {
+  settings: AppSettings | undefined;
+  onChange: ((patch: Partial<AppSettings>) => Promise<void>) | undefined;
+}
+
+function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
+  // Disk-usage readout. Refreshed on settings:saved (which fires after
+  // every recording append) so the user sees the count climb in real time
+  // when they're testing the feature on first install.
+  const [stats, setStats] = useState<{ count: number; bytes: number }>({ count: 0, bytes: 0 });
+  const [clearConfirming, setClearConfirming] = useState(false);
+
+  const refreshStats = useCallback(async () => {
+    try {
+      const files = await listRecordingFiles();
+      const bytes = files.reduce((s, f) => s + f.sizeBytes, 0);
+      setStats({ count: files.length, bytes });
+    } catch (e) {
+      console.warn("[Recordings] listRecordingFiles failed:", e);
+    }
+  }, []);
+
+  useEffect(() => { void refreshStats(); }, [refreshStats]);
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    listen("settings:saved", () => { void refreshStats(); }).then((u) => { unsub = u; });
+    return () => { unsub?.(); };
+  }, [refreshStats]);
+
+  const recordings = settings?.recordings ?? { saveLocal: false, retentionDays: 30 };
+  const setSaveLocal = (next: boolean) =>
+    onChange?.({ recordings: { ...recordings, saveLocal: next } });
+  const setRetention = (days: 0 | 7 | 30 | 90) =>
+    onChange?.({ recordings: { ...recordings, retentionDays: days } });
+
+  const onClearAll = async () => {
+    if (!clearConfirming) {
+      setClearConfirming(true);
+      setTimeout(() => setClearConfirming(false), 4000);
+      return;
+    }
+    setClearConfirming(false);
+    try {
+      const files = await listRecordingFiles();
+      for (const f of files) {
+        await deleteRecordingAudio(f.id);
+      }
+      void refreshStats();
+    } catch (e) {
+      console.warn("[Recordings] delete-all failed:", e);
+    }
+  };
+
+  return (
+    <Section
+      label="Recordings"
+      help="Optionally save the audio of every recording to your Mac. Files stay local — never uploaded except for the original transcription request. Useful for replay, re-transcribe, or audit."
+    >
+      <ToggleRow
+        label="Save audio recordings locally"
+        help={
+          recordings.saveLocal
+            ? `Stored at ~/Library/Application Support/com.ultravox.dev/recordings/. Auto-deleted after ${recordings.retentionDays === 0 ? "never" : `${recordings.retentionDays} days`}.`
+            : "Off — recordings are transcribed and discarded as today."
+        }
+        checked={recordings.saveLocal}
+        onChange={(v) => void setSaveLocal(v)}
+      />
+      {recordings.saveLocal && (
+        <>
+          <Row
+            label="Auto-delete after"
+            control={
+              <select
+                value={recordings.retentionDays}
+                onChange={(e) => setRetention(Number(e.currentTarget.value) as 0 | 7 | 30 | 90)}
+                className="rounded-md text-[12px] px-2 py-1"
+                style={{
+                  background: tokens.control,
+                  color: tokens.fg,
+                  border: `1px solid ${tokens.border}`,
+                }}
+              >
+                <option value={0}>Never</option>
+                <option value={7}>7 days</option>
+                <option value={30}>30 days</option>
+                <option value={90}>90 days</option>
+              </select>
+            }
+          />
+          <Row
+            label="Disk usage"
+            control={
+              <span style={{ fontSize: 12, color: tokens.fgMuted }}>
+                {stats.count === 0
+                  ? "0 recordings"
+                  : `${formatBytes(stats.bytes)} across ${stats.count} recording${stats.count === 1 ? "" : "s"}`}
+              </span>
+            }
+          />
+          <Row
+            label=""
+            control={
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => void openRecordingsFolder()}
+                >
+                  Open folder
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => void onClearAll()}
+                >
+                  {clearConfirming
+                    ? "Click to confirm"
+                    : `Delete all (${stats.count})`}
+                </Button>
+              </div>
+            }
+          />
+        </>
+      )}
+    </Section>
   );
 }

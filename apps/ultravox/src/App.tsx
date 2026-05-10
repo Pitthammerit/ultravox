@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import SettingsWindow from "./windows/SettingsWindow";
 import OnboardingWizard from "./windows/OnboardingWizard";
-import { loadSettings, patchSettings, saveSettings } from "./lib/store-bridge";
+import { loadSettings, patchSettings, saveSettings, purgeStaleRecordings } from "./lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { tokens } from "./components/ui";
 import { registerHotkeys, unregisterAllHotkeys, copyToClipboard } from "./lib/tauri-bridge";
@@ -39,6 +39,13 @@ export default function App() {
         const info = await checkForUpdate();
         if (info) setUpdate(info);
       }, 30_000);
+
+      // Retention sweep for the recordings dir: delete files past their
+      // retention window AND any orphans (entry evicted by the 50-cap but
+      // file still on disk). Best-effort, errors swallowed inside the fn.
+      // Deferred 5s after launch so it doesn't compete with the initial
+      // settings/UI render. Skipped automatically when saveLocal is off.
+      setTimeout(() => { void purgeStaleRecordings(); }, 5_000);
     })();
   }, []);
 

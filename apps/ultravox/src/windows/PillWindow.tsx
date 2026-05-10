@@ -815,7 +815,13 @@ export default function PillWindow() {
           showError(`Paste failed: ${(pasteErr as Error).message ?? pasteErr} — Accessibility access likely denied.`);
           return;
         }
-        appendHistory({ id: crypto.randomUUID(), ts: Date.now(), modeId: mode.id, bundleId: frontmost?.bundle_id ?? null, text: result.text })
+        // Pass `blob` through so appendHistory can persist the audio when
+        // settings.recordings.saveLocal is on. When off, the blob is
+        // ignored and the entry is stored text-only (existing behavior).
+        appendHistory(
+          { id: crypto.randomUUID(), ts: Date.now(), modeId: mode.id, bundleId: frontmost?.bundle_id ?? null, text: result.text },
+          blob,
+        )
           .catch((e) => captureError(e, { stage: "history-append" }));
       } else {
         // Empty transcript with non-zero audio peak — usually a brief

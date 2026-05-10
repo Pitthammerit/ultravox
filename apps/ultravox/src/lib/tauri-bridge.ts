@@ -325,3 +325,60 @@ export function subscribeToLlmDownloadComplete(handler: (p: LocalLlmDownloadComp
 export function subscribeToLlmDownloadError(handler: (p: LocalLlmDownloadError) => void): Promise<UnlistenFn> {
   return listen<LocalLlmDownloadError>("local_llm:download-error", (e) => handler(e.payload));
 }
+
+/* ─── Local audio recording storage ──────────────────────────────────
+ *
+ * Wrappers for src-tauri/src/recordings.rs. These persist Whisper audio
+ * blobs to ~/Library/Application Support/com.ultravox.dev/recordings/
+ * when the user opts into settings.recordings.saveLocal.
+ */
+
+export interface RecordingFile {
+  /** HistoryEntry UUID (filename stem). */
+  id: string;
+  /** Extension without the leading dot ("mp4", "webm", "wav"). */
+  ext: string;
+  sizeBytes: number;
+  /** Last-modified time, unix milliseconds. */
+  mtimeMs: number;
+}
+
+/**
+ * Persist a recording's audio bytes to disk, named by the HistoryEntry UUID.
+ * Returns the absolute path (used to derive replay URLs and as a stable
+ * reference for delete + re-transcribe). Overwrites any prior file at that
+ * path. The Rust side writes via a `.part` tmp file + atomic rename.
+ */
+export async function saveRecordingAudio(
+  entryId: string,
+  ext: string,
+  bytes: Uint8Array,
+): Promise<string> {
+  return invoke<string>("save_recording_audio", { entryId, ext, bytes: Array.from(bytes) });
+}
+
+/** Idempotent — no error if no file matches. Removes ANY extension matching
+ *  the entry id, so callers don't have to remember whether the recording
+ *  was saved as .mp4 vs .webm vs .wav. */
+export async function deleteRecordingAudio(entryId: string): Promise<void> {
+  await invoke("delete_recording_audio", { entryId });
+}
+
+/** Read the bytes back for replay or re-transcribe. Caller wraps in a Blob
+ *  with the entry's stored mime type to pass through MediaRecorder /
+ *  transcribe.ts. */
+export async function readRecordingAudio(entryId: string, ext: string): Promise<Uint8Array> {
+  const arr = await invoke<number[]>("read_recording_audio", { entryId, ext });
+  return new Uint8Array(arr);
+}
+
+/** Enumerate every file in the recordings/ dir. Used by the Configuration
+ *  panel disk-usage readout AND the retention sweep that runs on app launch. */
+export async function listRecordingFiles(): Promise<RecordingFile[]> {
+  return invoke<RecordingFile[]>("list_recording_files");
+}
+
+/** Reveal the recordings/ directory in Finder. */
+export async function openRecordingsFolder(): Promise<void> {
+  await invoke("open_recordings_folder");
+}
