@@ -122,6 +122,58 @@ re-introduction must be an explicit opt-in toggle, not the default.
 - **Diagnostics log path:** `~/Library/Application Support/com.ultravox.dev/debug-log.json` — readable from terminal: `cat .../debug-log.json | python3 -c "import json,sys;[print(e['stage'],e.get('message','')) for e in json.load(sys.stdin)['entries'][:20]]"`. The Configuration → Diagnostics panel renders the same entries.
 - **Settings store path:** `~/Library/Application Support/com.ultravox.dev/settings.json` (dev) / `com.ultravox.app` (release).
 
+### "Mic doesn't work" — first-aid sequence
+
+The debug log records every recording's audio peak. A normal voice should
+peak around **0.1–0.3**. Anything below ~0.02 means the mic stream is
+delivering near-silence even though `getUserMedia` succeeded.
+
+**1. Check the most recent recording's peak level:**
+
+```bash
+tail -1 ~/Library/Application\ Support/com.ultravox.dev/debug-log.json | python3 -m json.tool | grep peak
+```
+
+Or all recent peaks:
+```bash
+cat ~/Library/Application\ Support/com.ultravox.dev/debug-log.json | python3 -c "import json,sys;[print(e.get('message','')) for e in json.load(sys.stdin)['entries'][:30] if 'peak' in (e.get('message') or '')]"
+```
+
+**2. If peak is low (< 0.05), confirm the OS sees signal:** open System
+Settings → Sound → Input and watch the level meter while talking. If that
+meter is also flat, the failure is at the macOS audio layer, not Ultravox.
+
+**3. If macOS itself is silent, restart `coreaudiod`** — the standard
+recovery for a wedged audio daemon. It respawns instantly via launchd, no
+logout/reboot needed:
+
+```bash
+osascript -e 'do shell script "/usr/bin/killall coreaudiod" with administrator privileges'
+```
+
+After restart, fully relaunch Ultravox so it gets a fresh `getUserMedia`
+against the new daemon. Verified in 2026-05-11 session: 35 h `coreaudiod`
+uptime + active `Serato Virtual Audio` HAL plugin had wedged the daemon
+into a "all consumers see silence" state. Daemon restart fixed both
+System Settings input meter and Ultravox waveform.
+
+**4. If `coreaudiod` restart didn't help, suspect a HAL plugin:**
+
+```bash
+ls /Library/Audio/Plug-Ins/HAL/
+```
+
+`Serato Virtual Audio.driver`, `BlackHole`, `Loopback` etc. on macOS 26
+sometimes fight `coreaudiod`. Temporarily move the suspect plugin out and
+restart `coreaudiod` again to test.
+
+**5. Echo-cancellation note (CLAUDE.md "Audio constraints"):** we set
+`echoCancellation: false` to prevent music ducking. macOS 26 may have
+coupled AGC to the same Voice-Processing IO Audio Unit, so disabling EC
+also loses the gain boost. If the user reports very quiet input, this is
+the next place to look — the right fix is exposing EC as a per-mode or
+global setting, not flipping the global default.
+
 ## Pill window — load-bearing constraints
 
 The pill is an NSPanel (ISA-swapped from NSWindow at runtime in `src-tauri/src/pill_window.rs`) so it can float above other apps' fullscreen Spaces while the app's activation policy stays `Regular` (Dock + Cmd-Tab visible).
