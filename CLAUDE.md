@@ -74,6 +74,12 @@ Quick reference:
   notarized (if `.env.build` populated), with the legacy beige TIFF
   background and the `Uninstall Ultravox.app` injected. Output at
   `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg`.
+- **`pnpm --filter @ultravox/app reposition`** → modify icons / window
+  inside an existing DMG only (~10 s, no Cargo + Tauri rebuild). Use
+  for layout-tuning iteration; strips notarization so re-run `pnpm notarize`
+  when done.
+- **`pnpm --filter @ultravox/app notarize`** → re-notarize + staple the
+  most recently built DMG. Skips Cargo + Tauri.
 
 Both wrap fragile fixes (PATH=/usr/bin first for system xattr,
 auto-loading `apps/ultravox/.env.build` for notarization secrets,
@@ -81,9 +87,34 @@ post-mount AppleScript icon positioning, re-sign + staple after
 modifying the DMG). **Never use `pnpm tauri build` directly** — it
 will skip the uninstaller injection and re-sign step.
 
+**Apple ID for notarization is `kurtzfilm@me.com`** (in `apps/ultravox/.env.build`).
+The session prompt's `# userEmail` (`hallo@benjaminkurtz.de`) is Benjamin's
+Claude account email, *not* the Apple ID — don't substitute. Apple's
+notary service rejects the wrong combo with a generic 401.
+
+**DMG icon coords live in 3 files**: `tauri.conf.json`,
+`scripts/build-dmg.sh`, `scripts/reposition-dmg.sh`. All three must
+stay in sync. The canonical values + the full bwsp.WindowBounds /
+hidden-dotfile parking spec live in `docs/shipping.md`.
+
+**`.DS_Store` editing in the DMG scripts** uses `/opt/homebrew/bin/python3`
++ the `ds_store` lib. Correct API: `d[filename][code] = value` (via
+the `Partial` proxy). Shorthand `d[fn, code] = v` silently corrupts
+the BTree because `DSStore` has no top-level `__setitem__`. System
+`/usr/bin/python3` (CommandLineTools) lacks the package.
+
 Apple credentials live in `apps/ultravox/.env.build` (gitignored; see
 `.env.build.example` for the template). Reference legacy DMG that the
 layout mirrors is at `~/Desktop/Ultravox-0.9.4.dmg`.
+
+### Mode selection — auto-mode is intentionally disabled
+
+`pickAutoMode` (apps.json bundle-id → preferred mode mapping) was
+removed from `PillWindow.startRecord` in v0.11.7. The user's
+`activeModeId` is now the sole source of truth for every recording.
+Auto-mode silently overrode manual selection (every browser-focused
+recording reverted to "note"; custom List modes produced prose), so
+re-introduction must be an explicit opt-in toggle, not the default.
 
 ## Dev iteration
 
