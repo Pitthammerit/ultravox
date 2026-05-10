@@ -57,9 +57,9 @@ RW_DMG="/tmp/ultravox-rw.dmg"
 # Window/icon coordinates inside the DMG. Match the legacy 0.9.4 layout.
 WINDOW_W=800
 WINDOW_H=600
-APP_X=220 ; APP_Y=180            # set by tauri.conf.json — repeated here for clarity
-APPS_X=580; APPS_Y=180
-UNINSTALL_X=400 ; UNINSTALL_Y=440
+APP_X=130 ; APP_Y=180            # set by tauri.conf.json — repeated here for clarity
+APPS_X=380; APPS_Y=180
+UNINSTALL_X=400 ; UNINSTALL_Y=280
 
 # ─── 0. Load notarization secrets if present ──────────────────────────
 if [[ -f "$APP_DIR/.env.build" ]]; then
