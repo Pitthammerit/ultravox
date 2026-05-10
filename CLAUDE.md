@@ -131,6 +131,29 @@ The pill is an NSPanel (ISA-swapped from NSWindow at runtime in `src-tauri/src/p
 - **Top-center Y offset ≥40pt on macOS.** Tauri's `monitor.position()` returns NSScreen `frame.origin` which **includes** the menu bar and notch. On notched MacBooks the notch reaches ~37pt; the previous 12pt offset placed the compact pill behind it. Use 44pt.
 - **Saved expanded position must be in *logical* points.** `webviewWindow.outerPosition()` returns `PhysicalPosition` (raw pixels); the Rust command `set_pill_size_at_position` interprets x/y as `LogicalPosition`. On retina (scale 2), saving raw physical position warps the window 2× off-screen on next expand. Divide by `webviewWindow.scaleFactor()` before persisting to `settings.pillExpandedPosition`.
 
+## Local Whisper — CoreML acceleration (v0.15.0+)
+
+We compile `whisper-rs` with the `coreml` feature alongside `metal`. At
+runtime, whisper.cpp's CoreML backend is auto-engaged when it finds a
+`ggml-<variant>-encoder.mlmodelc/` directory next to the `.bin`. With
+that bundle present, the encoder runs on Apple's Neural Engine (ANE) —
+2–3× faster than Metal-only on Apple Silicon. Without the bundle, we
+silently fall back to Metal, which is what previous versions did.
+
+`download_coreml_for` in `local_whisper.rs` fetches and unzips the
+`.mlmodelc.zip` companion from HuggingFace alongside every `.bin`
+download. Re-clicking download on an already-installed model retrofits
+CoreML without re-fetching the multi-GB weights — useful for upgrading
+existing v0.11.x users. `local_whisper_list_models` returns
+`coreml_installed: bool` per model so the Configuration panel can
+render an `ANE` badge.
+
+We do NOT use the WhisperKit Swift framework directly — going through
+whisper-rs/whisper.cpp keeps the Rust-only binding surface and re-uses
+all our existing model management, audio routing, and language
+detection. Performance is competitive with WhisperKit for transcription
+workloads (per the whisper.cpp + CoreML benchmarks).
+
 ## Audio constraints — no echo cancellation
 
 We do **not** enable `echoCancellation` in any `getUserMedia` call. We are

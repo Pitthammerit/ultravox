@@ -537,6 +537,7 @@ function InstalledWhisperModelsSection() {
                     <span className="flex items-center gap-1.5">
                       <span>{brandedLabel}</span>
                       {isEnglish && <EnPill />}
+                      {m.coremlInstalled && <CoremlBadge />}
                     </span>
                   }
                   help={errors[m.variant]}
@@ -698,5 +699,30 @@ function InstalledLlmModelsSection() {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Visual indicator that a Whisper model has its CoreML encoder bundle
+ * installed alongside the .bin — meaning the encoder runs on Apple's
+ * Neural Engine for ~2-3× faster transcription. Shown next to the model
+ * label in the Configuration panel's "Transcription" section.
+ */
+function CoremlBadge() {
+  return (
+    <span
+      title="CoreML encoder installed — runs on Apple Neural Engine"
+      className="inline-flex items-center justify-center text-[9.5px] uppercase tracking-[0.08em] font-semibold"
+      style={{
+        height: 14,
+        padding: "0 5px",
+        borderRadius: 3,
+        background: "color-mix(in srgb, var(--color-accent) 18%, transparent)",
+        color: "var(--color-accent)",
+        letterSpacing: "0.06em",
+      }}
+    >
+      ANE
+    </span>
   );
 }

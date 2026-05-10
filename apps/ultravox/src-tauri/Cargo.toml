@@ -1,6 +1,6 @@
 [package]
 name = "ultravox"
-version = "0.14.0"
+version = "0.15.0"
 description = "Voice dictation companion for macOS"
 authors = ["Benjamin Kurtz"]
 edition = "2021"
@@ -38,7 +38,13 @@ futures-util = "0.3"
 [target.'cfg(target_os = "macos")'.dependencies.whisper-rs]
 version = "0.11"
 default-features = false
-features = ["metal"]
+# CoreML routes the encoder through Apple's Neural Engine (ANE), giving 2-3×
+# faster transcription on Apple Silicon (matching what Superwhisper / WhisperKit
+# achieve). Each Whisper model needs a paired .mlmodelc bundle alongside its
+# .bin file — auto-downloaded by local_whisper.rs (see download_coreml_for).
+# Metal stays enabled as the fallback for the decoder and for any model that
+# doesn't have a CoreML companion installed.
+features = ["metal", "coreml"]
 
 [target.'cfg(target_os = "macos")'.dependencies.llama-cpp-2]
 version = "0.1.146"

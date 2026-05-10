@@ -80,6 +80,11 @@ struct DownloadError<'a> {
 pub struct LocalWhisperModelInfo {
     pub variant: String,
     pub size_bytes: u64,
+    /// True when a paired `ggml-<variant>-encoder.mlmodelc/` directory
+    /// exists alongside the .bin. Surfaced in the UI as "ANE accelerated".
+    /// Whisper.cpp picks this up at runtime; no separate flag needs to be
+    /// passed at inference time.
+    pub coreml_installed: bool,
 }
 
 fn models_dir() -> Result<PathBuf, String> {
@@ -325,6 +330,25 @@ async fn download_model_inner(app: &tauri::AppHandle, v: &str) -> Result<String,
     let final_path = dir.join(format!("ggml-{v}.bin"));
     let tmp_path = dir.join(format!("ggml-{v}.bin.part"));
 
+    // Re-trigger of an already-installed model: skip the .bin re-download,
+    // but still try the CoreML companion. Users on prior versions have .bin
+    // files without paired .mlmodelc directories; clicking the download
+    // button now retrofits CoreML acceleration without re-fetching the
+    // multi-GB weights.
+    if final_path.exists() {
+        let _ = app.emit(
+            "local_whisper:download-progress",
+            DownloadProgress { variant: v, downloaded: 0, total: 0, percent: 100.0 },
+        );
+        if let Err(e) = download_coreml_for(app, v, &dir).await {
+            let _ = app.emit(
+                "local_whisper:coreml-skipped",
+                CoremlSkipped { variant: v.to_string(), reason: e },
+            );
+        }
+        return Ok(final_path.to_string_lossy().to_string());
+    }
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60 * 30))
         .build()
@@ -375,6 +399,20 @@ async fn download_model_inner(app: &tauri::AppHandle, v: &str) -> Result<String,
 
     std::fs::rename(&tmp_path, &final_path).map_err(|e| format!("rename: {e}"))?;
 
+    // Try to download the CoreML encoder .mlmodelc bundle that pairs with
+    // this .bin. whisper.cpp's CoreML backend looks for a directory named
+    // `ggml-<variant>-encoder.mlmodelc/` next to the .bin file. With the
+    // bundle present, the encoder runs on Apple's Neural Engine — 2-3×
+    // faster on Apple Silicon. Without it, we silently fall back to Metal,
+    // which is what previous versions did. The download is best-effort:
+    // failures are logged and ignored so the .bin-only mode still works.
+    if let Err(e) = download_coreml_for(app, v, &dir).await {
+        let _ = app.emit(
+            "local_whisper:coreml-skipped",
+            CoremlSkipped { variant: v.to_string(), reason: e },
+        );
+    }
+
     if let Ok(mut guard) = CACHE.lock() {
         *guard = None;
     }
@@ -391,6 +429,96 @@ async fn download_model_inner(app: &tauri::AppHandle, v: &str) -> Result<String,
     );
 
     Ok(final_path.to_string_lossy().to_string())
+}
+
+#[derive(Clone, serde::Serialize)]
+struct CoremlSkipped {
+    variant: String,
+    reason: String,
+}
+
+/// Download and extract the CoreML encoder bundle for `variant` into
+/// `dir/ggml-<variant>-encoder.mlmodelc/`. The bundle ships as a zip on
+/// HuggingFace; we use the system `unzip` (always present on macOS).
+///
+/// Returns Err only on real failures (network / 404 / extraction). The
+/// caller treats the error as informational, NOT fatal — runtime falls
+/// back to the Metal-only path automatically when the directory is absent.
+async fn download_coreml_for(
+    app: &tauri::AppHandle,
+    variant: &str,
+    dir: &std::path::Path,
+) -> Result<(), String> {
+    let dest_dir = dir.join(format!("ggml-{variant}-encoder.mlmodelc"));
+    if dest_dir.is_dir() {
+        return Ok(()); // already installed
+    }
+
+    let url = format!(
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{variant}-encoder.mlmodelc.zip",
+    );
+    let zip_path = dir.join(format!("ggml-{variant}-encoder.mlmodelc.zip"));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60 * 30))
+        .build()
+        .map_err(|e| format!("coreml client: {e}"))?;
+    let res = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("coreml get: {e}"))?;
+    if !res.status().is_success() {
+        // 404 is expected for variants that don't ship a CoreML companion
+        // (very small or experimental ones). Treat it as a non-error skip.
+        return Err(format!("http {} (no CoreML companion published)", res.status()));
+    }
+
+    let bytes = res
+        .bytes()
+        .await
+        .map_err(|e| format!("coreml read: {e}"))?;
+    std::fs::write(&zip_path, &bytes).map_err(|e| format!("coreml write zip: {e}"))?;
+
+    // Inform the UI that CoreML extraction is happening — useful when the
+    // user sees the .bin progress hit 100% but the spinner persists.
+    let _ = app.emit(
+        "local_whisper:coreml-extracting",
+        CoremlExtracting { variant: variant.to_string() },
+    );
+
+    let status = std::process::Command::new("unzip")
+        .arg("-q")
+        .arg("-o")
+        .arg(&zip_path)
+        .arg("-d")
+        .arg(dir)
+        .status()
+        .map_err(|e| format!("unzip spawn: {e}"))?;
+    let _ = std::fs::remove_file(&zip_path);
+
+    if !status.success() {
+        return Err(format!("unzip exited with {status}"));
+    }
+    if !dest_dir.is_dir() {
+        return Err("unzip succeeded but dest dir missing".to_string());
+    }
+
+    let _ = app.emit(
+        "local_whisper:coreml-ready",
+        CoremlReady { variant: variant.to_string() },
+    );
+    Ok(())
+}
+
+#[derive(Clone, serde::Serialize)]
+struct CoremlExtracting {
+    variant: String,
+}
+
+#[derive(Clone, serde::Serialize)]
+struct CoremlReady {
+    variant: String,
 }
 
 #[tauri::command]
@@ -411,6 +539,14 @@ pub fn local_whisper_delete_model(variant: String) -> Result<(), String> {
         return Err(format!("model not found: {v}"));
     }
     std::fs::remove_file(&path).map_err(|e| format!("remove: {e}"))?;
+    // Also remove the paired CoreML encoder bundle (if present). The user
+    // expects "delete model" to free all related disk usage. Errors here
+    // are non-fatal — orphaned mlmodelc dirs are harmless and we'd rather
+    // surface the .bin removal success.
+    let coreml_dir = dir.join(format!("ggml-{v}-encoder.mlmodelc"));
+    if coreml_dir.is_dir() {
+        let _ = std::fs::remove_dir_all(&coreml_dir);
+    }
     if let Ok(mut guard) = CACHE.lock() {
         if let Some(c) = guard.as_ref() {
             if c.path == path {
@@ -441,9 +577,12 @@ pub fn local_whisper_list_models() -> Result<Vec<LocalWhisperModelInfo>, String>
             continue;
         }
         let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
+        let variant = variant_from_path(&p);
+        let coreml_dir = dir.join(format!("ggml-{variant}-encoder.mlmodelc"));
         out.push(LocalWhisperModelInfo {
-            variant: variant_from_path(&p),
+            variant,
             size_bytes,
+            coreml_installed: coreml_dir.is_dir(),
         });
     }
     out.sort_by(|a, b| a.variant.cmp(&b.variant));

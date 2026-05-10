@@ -199,6 +199,11 @@ export async function localWhisperDownloadModel(variant: string): Promise<void> 
 export interface LocalWhisperModelInfo {
   variant: string;
   sizeBytes: number;
+  /** True when the paired CoreML encoder bundle is installed alongside the
+   *  .bin file. Surfaced in the Configuration panel as an "ANE" badge so
+   *  users can see at a glance which models route through Apple's Neural
+   *  Engine (faster) vs Metal-only (still fast, but CPU/GPU). */
+  coremlInstalled: boolean;
 }
 
 export async function localWhisperListModels(): Promise<LocalWhisperModelInfo[]> {
