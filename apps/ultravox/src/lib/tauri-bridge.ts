@@ -17,8 +17,27 @@ export const TOKEN_ENDPOINT = `${WORKER_BASE}/api/voice/token`;
  * if focus moved during the recording session, the transcript still lands
  * in the originally-targeted text field.
  */
-export async function pasteToFrontmost(text: string, pid?: number): Promise<void> {
-  await invoke("paste_to_frontmost", { text, targetPid: pid ?? null });
+export interface PasteDiagnostics {
+  /** True if the captured target_pid matched Ultravox's own process id and
+   * was discarded (we don't re-activate ourselves — that would cause the
+   * paste to land in our own Settings window). */
+  targetWasSelf: boolean;
+  /** Bundle id of the app that was actually frontmost immediately before
+   * Cmd+V was dispatched. Compare against the captured frontmost-at-record
+   * bundle id to verify the deactivate + activate sequence reached the
+   * intended target. */
+  frontmostAtPaste: string | null;
+}
+
+export async function pasteToFrontmost(text: string, pid?: number): Promise<PasteDiagnostics> {
+  const raw = await invoke<{ target_was_self: boolean; frontmost_at_paste: string | null }>(
+    "paste_to_frontmost",
+    { text, targetPid: pid ?? null },
+  );
+  return {
+    targetWasSelf: raw.target_was_self,
+    frontmostAtPaste: raw.frontmost_at_paste,
+  };
 }
 
 /**

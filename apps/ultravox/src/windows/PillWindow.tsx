@@ -520,6 +520,11 @@ export default function PillWindow() {
   // — even if focus moved during recording. Without this the transcript
   // can land in the wrong app for long dictations (data-loss risk).
   const recordingTargetPidRef = useRef<number | null>(null);
+  // Bundle id captured alongside the PID. Logged only — not used in the paste
+  // decision (Rust uses its own getpid comparison) but lets the user-shared
+  // debug log show whether the capture itself was wrong vs. the activation
+  // racing against us.
+  const recordingTargetBundleIdRef = useRef<string | null>(null);
   // AbortController for the in-flight transcribe call. Esc during "transcribing"
   // calls abort() to cancel cloud fetch requests immediately.
   const transcribeAbortRef = useRef<AbortController | null>(null);
@@ -692,6 +697,15 @@ export default function PillWindow() {
       // window or our pill window may briefly take focus — both make the
       // post-recording getFrontmostApp() return the wrong app.
       recordingTargetPidRef.current = frontmost?.pid && frontmost.pid > 0 ? frontmost.pid : null;
+      recordingTargetBundleIdRef.current = frontmost?.bundle_id ?? null;
+      // Log the captured target so debug-log can later be cross-referenced
+      // with the paste-time frontmost. Catches the "user triggered hotkey
+      // while Settings was frontmost" case explicitly.
+      const capturedSelf =
+        frontmost?.bundle_id === "com.ultravox.dev" || frontmost?.bundle_id === "com.ultravox.app";
+      logDebug("record-start", {
+        message: `target capture: pid=${frontmost?.pid ?? "none"} bundle=${frontmost?.bundle_id ?? "none"}${capturedSelf ? " WARNING=self" : ""}`,
+      });
       const modes = cur?.modes ?? DEFAULT_MODES;
       // Trust the user's manually-selected activeModeId. The previous
       // pickAutoMode(...) call silently overrode their selection whenever the
@@ -820,11 +834,21 @@ export default function PillWindow() {
           // Pass the captured target PID so paste re-activates the
           // original app even if focus drifted during recording.
           const targetPid = recordingTargetPidRef.current ?? undefined;
-          await pasteToFrontmost(result.text, targetPid);
+          const targetBundle = recordingTargetBundleIdRef.current ?? "none";
+          const diagnostics = await pasteToFrontmost(result.text, targetPid);
+          // Log enough to triage focus-stealing reports:
+          //   - targetPid / targetBundle: what we CAPTURED at hotkey time
+          //   - targetWasSelf: did Rust skip self-activation because the
+          //     capture pointed at us?
+          //   - frontmostAtPaste: bundle id macOS reports as frontmost
+          //     IMMEDIATELY BEFORE Cmd+V dispatched. If this ever shows
+          //     "com.ultravox.*" we lost the activation race AGAIN and
+          //     the deactivate-before-activate sequence in paste.rs needs
+          //     another defense layer.
           logDebug("paste", {
             textLength: result.text.length,
             durationMs: Math.round(performance.now() - pasteStart),
-            message: `targetPid=${targetPid ?? "none"}`,
+            message: `targetPid=${targetPid ?? "none"} targetBundle=${targetBundle} targetWasSelf=${diagnostics.targetWasSelf} frontmostAtPaste=${diagnostics.frontmostAtPaste ?? "none"}`,
           });
         } catch (pasteErr) {
           captureError(pasteErr, { stage: "paste" });

@@ -184,7 +184,11 @@ function CenteredHeaderTitle({
 
 interface SectionProps {
   title?: string;
-  label?: string;
+  /** Small uppercase eyebrow label. Accepts ReactNode so callers can
+   * append inline badges (e.g. an install-count chip) inside the same
+   * span the Chevron renders against — keeps every accordion's chevron
+   * anchored on the LEFT of the row (the unified pattern as of v0.18.3). */
+  label?: ReactNode;
   description?: string;
   help?: string | undefined;
   right?: ReactNode;

@@ -78,3 +78,51 @@ pub fn activate_app_by_pid(pid: i32) -> Result<(), String> {
         Ok(())
     })
 }
+
+/// Explicitly deactivate Ultravox at the OS level, so macOS promotes the
+/// previously-frontmost non-Ultravox app to the foreground.
+///
+/// Why this exists: the paste pipeline used to call only
+/// `activate_app_by_pid(target_pid)` and trust macOS to bring the target
+/// app forward. Two scenarios broke that assumption and caused Cmd+V to
+/// land inside our own Settings window:
+///
+///   1. The user triggered the hotkey while the Settings window WAS
+///      already frontmost. Captured `target_pid` is then our own PID, so
+///      `activate_app_by_pid` cheerfully reactivates Ultravox — exactly
+///      what we don't want.
+///
+///   2. Hiding the pill panel (NSPanel with `canBecomeKeyWindow = YES`)
+///      causes AppKit to promote the next ordered window of the same app
+///      to key status. With Settings visible, Ultravox briefly becomes
+///      frontmost; the subsequent `activate_app_by_pid(notes_pid)` may
+///      lose the race against the in-flight key-window swap. The Cmd+V
+///      gets posted while Settings is still frontmost.
+///
+/// Calling `[NSApp deactivate]` before `activate_app_by_pid` solves both:
+/// macOS picks the previously-frontmost non-self app, which is the user's
+/// real target in (1) and a no-op-ish step in (2) because the subsequent
+/// `activate_app_by_pid(notes)` lands on an already-restored target.
+pub fn deactivate_self() {
+    autoreleasepool(|_| unsafe {
+        let cls = class!(NSApplication);
+        let app: *mut AnyObject = msg_send![cls, sharedApplication];
+        if app.is_null() {
+            return;
+        }
+        let _: () = msg_send![&*app, deactivate];
+    })
+}
+
+/// Bundle id of whatever is currently frontmost. Pure read — used for
+/// diagnostic logging in the paste pipeline so the user-shared debug log
+/// can show which app actually had focus at Cmd+V time, separate from
+/// the captured `target_pid`. Helps tell apart "wrong PID captured" from
+/// "right PID but activation lost the race".
+pub fn current_frontmost_bundle_id() -> Option<String> {
+    autoreleasepool(|_| unsafe {
+        let workspace = NSWorkspace::sharedWorkspace();
+        let app = workspace.frontmostApplication()?;
+        app.bundleIdentifier().map(|s| s.to_string())
+    })
+}

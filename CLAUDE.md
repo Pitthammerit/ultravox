@@ -253,6 +253,25 @@ bka2brain uses Tailwind v4 with the new `@theme` syntax inside `tokens.css`. Pat
 
 The same approach carries over here: copy `source-material/styles/tokens.css` into `src/styles/tokens.css`, import it from `src/main.tsx`, and you have the entire bka2brain visual language available.
 
+## Unified accordion chevron — chevron sits LEFT of the title
+
+**Every collapsible Section in the Settings UI uses the same chevron
+pattern, anchored on the LEFT of the label.** The canonical implementation
+is `<Section collapsible label="...">` in `src/components/ui.tsx`, which
+prepends a 10×10 SVG caret that rotates 0° (expanded) / -90° (collapsed).
+
+Locked 2026-05-11 in v0.18.3. Before then, `InstalledTranscriptionSection`
+and `InstalledLlmModelsSection` shipped their own custom accordions with
+the chevron on the RIGHT — visually inconsistent next to the standard
+left-chevron Sections. Refactor any new accordion that creeps in with
+a right-side caret back into `<Section collapsible>`.
+
+Inline count badges (e.g. "INSTALLIERTE TRANSKRIPTION 8") go inside the
+`label` ReactNode, immediately after the title text, **between the
+chevron and the help icon**. Use the `CountBadge` helper in
+`ConfigurationPanel.tsx` so the chip styling stays consistent across
+every section.
+
 ## Key conventions (carried over from bka2brain)
 
 **Commits:** Never add `Co-Authored-By` trailers. Commits attributed to Benjamin only.

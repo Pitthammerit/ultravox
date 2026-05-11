@@ -222,7 +222,13 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
       <InstalledLlmModelsSection />
       <RecordingsSection settings={settings} onChange={onChange} />
 
+      {/* Permissions: collapsible. Default expanded so a first-launch user
+          immediately sees the mic / accessibility prompts. After grant,
+          they can collapse the section — the chevron position matches
+          every other accordion (LEFT of the label) per v0.18.3 unified
+          chevron rule.  */}
       <Section
+        collapsible
         label={t.panels.configuration.sectionPermissions}
         help={t.panels.configuration.sectionPermissionsHelp}
       >
@@ -317,6 +323,31 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
         />
       </Section>
 
+      {/* Onboarding wizard — lives in its own section. Used to be inside
+          Danger Zone, which was misleading: re-launching the wizard is
+          non-destructive (settings preserved). Moving it out makes Danger
+          Zone exclusively destructive operations. */}
+      <Section
+        label={t.panels.configuration.sectionOnboarding}
+        help={t.panels.configuration.sectionOnboardingHelp}
+      >
+        <Row
+          label={t.panels.configuration.launchOnboarding}
+          control={
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={async () => {
+                await onChange?.({ onboardingComplete: false, onboardingStep: 0 });
+                await emit("settings:launch-onboarding");
+              }}
+            >
+              {t.panels.configuration.launchOnboarding}
+            </Button>
+          }
+        />
+      </Section>
+
       <Section label={t.panels.configuration.sectionDangerZone}>
         <Row
           label={t.panels.configuration.resetAll}
@@ -329,22 +360,6 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
               style={resetConfirming ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : {}}
             >
               {resetConfirming ? t.panels.configuration.resetAllConfirm : t.panels.configuration.resetAll}
-            </Button>
-          }
-        />
-        <Row
-          label="Onboarding wizard"
-          help="Re-open the setup wizard. Your settings are preserved."
-          control={
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={async () => {
-                await onChange?.({ onboardingComplete: false, onboardingStep: 0 });
-                await emit("settings:launch-onboarding");
-              }}
-            >
-              Launch
             </Button>
           }
         />
@@ -481,7 +496,6 @@ function formatBytes(b: number): string {
 
 function InstalledWhisperModelsSection() {
   const t = useT();
-  const [open, setOpen] = useState(false);
   const [installed, setInstalled] = useState<LocalWhisperModelInfo[]>([]);
   const [removeConfirming, setRemoveConfirming] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -509,63 +523,29 @@ function InstalledWhisperModelsSection() {
     }
   }, [removeConfirming, refresh]);
 
+  // Unified accordion chevron: use the standard <Section collapsible> from
+  // ui.tsx so the chevron sits LEFT of the label, matching every other
+  // accordion (Recordings, Permissions, Diagnostics, etc.). The badge with
+  // the install-count is inlined into the label ReactNode so it lives in
+  // the same horizontal row, just after the eyebrow text.
   return (
-    <section className="flex flex-col gap-1.5">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center justify-between w-full text-left"
-        style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className="text-[10.5px] uppercase tracking-[0.14em] font-medium"
-            style={{ color: tokens.fgMuted }}
-          >
-            {t.panels.configuration.sectionTranscription}
-          </span>
-          {installed.length > 0 && (
-            <span
-              className="inline-flex items-center justify-center rounded-full text-[10px] font-semibold"
-              style={{
-                minWidth: 16,
-                height: 16,
-                padding: "0 4px",
-                background: `color-mix(in srgb, var(--color-primary) 12%, transparent)`,
-                color: tokens.fgMuted,
-              }}
-            >
-              {installed.length}
-            </span>
-          )}
-        </div>
-        <svg
-          width="10" height="6" viewBox="0 0 10 6" fill="none"
-          style={{
-            color: tokens.fgMuted,
-            flexShrink: 0,
-            transform: open ? "rotate(180deg)" : "none",
-            transition: "transform 150ms ease",
-          }}
-        >
-          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
-      <div
-        style={{
-          overflow: "hidden",
-          maxHeight: open ? 600 : 0,
-          transition: "max-height 150ms ease",
-        }}
-      >
-        <div className="flex flex-col gap-1">
-          {installed.length === 0 ? (
-            <p className="text-[12px] py-1" style={{ color: tokens.fgMuted }}>
-              No Whisper models installed. Pick a variant in a Mode's Transcription Model setting to download one.
-            </p>
-          ) : (
-            installed.map((m) => {
+    <Section
+      collapsible
+      defaultCollapsed
+      label={
+        <span className="inline-flex items-center gap-2">
+          <span>{t.panels.configuration.sectionTranscription}</span>
+          {installed.length > 0 && <CountBadge value={installed.length} />}
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-1">
+        {installed.length === 0 ? (
+          <p className="text-[12px] py-1" style={{ color: tokens.fgMuted }}>
+            No Whisper models installed. Pick a variant in a Mode&apos;s Transcription Model setting to download one.
+          </p>
+        ) : (
+          installed.map((m) => {
               const isConfirming = removeConfirming === m.variant;
               const meta = VARIANT_LABEL_MAP[m.variant];
               const brandedLabel = meta?.label ?? m.variant;
@@ -605,10 +585,9 @@ function InstalledWhisperModelsSection() {
                 />
               );
             })
-          )}
-        </div>
+        )}
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -620,7 +599,6 @@ function InstalledWhisperModelsSection() {
 function InstalledLlmModelsSection() {
   // useT() invoked for future migrations once catalog has LLM model section keys.
   void useT();
-  const [open, setOpen] = useState(false);
   const [installed, setInstalled] = useState<LocalLlmModel[]>([]);
   const [removeConfirming, setRemoveConfirming] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -648,99 +626,81 @@ function InstalledLlmModelsSection() {
     }
   }, [removeConfirming, refresh]);
 
+  // Same unified-chevron pattern as the Whisper section above.
   return (
-    <section className="flex flex-col gap-1.5">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center justify-between w-full text-left"
-        style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className="text-[10.5px] uppercase tracking-[0.14em] font-medium"
-            style={{ color: tokens.fgMuted }}
-          >
-            Installed LLM models
-          </span>
-          {installed.length > 0 && (
-            <span
-              className="inline-flex items-center justify-center rounded-full text-[10px] font-semibold"
-              style={{
-                minWidth: 16,
-                height: 16,
-                padding: "0 4px",
-                background: `color-mix(in srgb, var(--color-primary) 12%, transparent)`,
-                color: tokens.fgMuted,
-              }}
-            >
-              {installed.length}
-            </span>
-          )}
-        </div>
-        <svg
-          width="10" height="6" viewBox="0 0 10 6" fill="none"
-          style={{
-            color: tokens.fgMuted,
-            flexShrink: 0,
-            transform: open ? "rotate(180deg)" : "none",
-            transition: "transform 150ms ease",
-          }}
-        >
-          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
-      <div
-        style={{
-          overflow: "hidden",
-          maxHeight: open ? 600 : 0,
-          transition: "max-height 150ms ease",
-        }}
-      >
-        <div className="flex flex-col gap-1">
-          {installed.length === 0 ? (
-            <p className="text-[12px] py-1" style={{ color: tokens.fgMuted }}>
-              No LLM models installed. Pick a variant in a Mode's Processing Model setting to download one.
-            </p>
-          ) : (
-            installed.map((m) => {
-              const isConfirming = removeConfirming === m.variant;
-              const meta = LLM_LABEL_MAP[m.variant];
-              const brandedLabel = meta?.label ?? m.variant;
-              return (
-                <Row
-                  key={m.variant}
-                  label={brandedLabel}
-                  help={errors[m.variant]}
-                  control={
-                    <div className="flex items-center gap-2">
-                      <span style={{ fontSize: 11, color: tokens.fgSubtle }}>{formatPickerBytes(m.sizeBytes)}</span>
-                      <button
-                        type="button"
-                        onClick={(e) => void onRemove(e, m.variant)}
-                        title={isConfirming ? "Click again to confirm" : "Delete model file"}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: 2,
-                          color: isConfirming ? "var(--color-warning)" : tokens.fgMuted,
-                          display: "flex",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  }
-                />
-              );
-            })
-          )}
-        </div>
+    <Section
+      collapsible
+      defaultCollapsed
+      label={
+        <span className="inline-flex items-center gap-2">
+          <span>Installed LLM models</span>
+          {installed.length > 0 && <CountBadge value={installed.length} />}
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-1">
+        {installed.length === 0 ? (
+          <p className="text-[12px] py-1" style={{ color: tokens.fgMuted }}>
+            No LLM models installed. Pick a variant in a Mode&apos;s Processing Model setting to download one.
+          </p>
+        ) : (
+          installed.map((m) => {
+            const isConfirming = removeConfirming === m.variant;
+            const meta = LLM_LABEL_MAP[m.variant];
+            const brandedLabel = meta?.label ?? m.variant;
+            return (
+              <Row
+                key={m.variant}
+                label={brandedLabel}
+                help={errors[m.variant]}
+                control={
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize: 11, color: tokens.fgSubtle }}>{formatPickerBytes(m.sizeBytes)}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => void onRemove(e, m.variant)}
+                      title={isConfirming ? "Click again to confirm" : "Delete model file"}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 2,
+                        color: isConfirming ? "var(--color-warning)" : tokens.fgMuted,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                }
+              />
+            );
+          })
+        )}
       </div>
-    </section>
+    </Section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Small numeric count badge used inside unified accordion labels.
+   Centralized so every section's "N installed" chip looks the same.
+   ───────────────────────────────────────────────────────────── */
+function CountBadge({ value }: { value: number }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full text-[10px] font-semibold"
+      style={{
+        minWidth: 16,
+        height: 16,
+        padding: "0 4px",
+        background: `color-mix(in srgb, var(--color-primary) 12%, transparent)`,
+        color: tokens.fgMuted,
+      }}
+    >
+      {value}
+    </span>
   );
 }
 
