@@ -65,6 +65,30 @@ export async function getFrontmostApp(): Promise<FrontmostApp | null> {
   }
 }
 
+export interface PickedApp {
+  bundleId: string;
+  displayName: string;
+}
+
+/**
+ * Open a native macOS app picker (osascript `choose application with
+ * multiple selections allowed`). Returns the picked apps' bundle
+ * identifiers + display names. Empty array if the user cancelled
+ * (-128 from AppleScript → Ok([]), not an Err — cancellation is a
+ * normal-flow result, not an error).
+ *
+ * Used by the per-mode AutoModeAppsSection (v0.19.0). Adds are
+ * de-duped by case-insensitive bundle ID at the call site.
+ */
+export async function pickAppBundle(prompt: string): Promise<PickedApp[]> {
+  // Rust returns snake_case; TS prefers camelCase. Map at the boundary.
+  const raw = await invoke<Array<{ bundle_id: string; display_name: string }>>(
+    "pick_app_bundle",
+    { prompt },
+  );
+  return raw.map((r) => ({ bundleId: r.bundle_id, displayName: r.display_name }));
+}
+
 /**
  * Re-register every global hotkey atomically. The Rust side wipes any
  * previously-registered shortcuts and binds whichever recording shortcut

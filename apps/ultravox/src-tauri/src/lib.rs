@@ -14,6 +14,9 @@ mod tray;
 mod frontmost;
 
 #[cfg(target_os = "macos")]
+mod app_picker;
+
+#[cfg(target_os = "macos")]
 mod media;
 
 #[cfg(target_os = "macos")]
@@ -101,6 +104,7 @@ pub fn run() {
         paste::paste_to_frontmost,
         paste::copy_to_clipboard,
         frontmost::get_frontmost_app,
+        app_picker::pick_app_bundle,
         hotkey::show_pill,
         hotkey::hide_pill,
         hotkey::show_mode_overlay,
