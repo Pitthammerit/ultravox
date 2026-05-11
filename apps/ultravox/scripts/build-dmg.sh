@@ -222,6 +222,16 @@ hdiutil attach "$RW_DMG" -mountpoint "$MOUNT_POINT" -noverify -nobrowse >/dev/nu
 echo "→ copying Uninstall Ultravox.app onto the mounted volume"
 cp -R "$UNINSTALLER_SRC" "$MOUNT_POINT/"
 
+# Re-sign the uninstaller in-place on the volume. If main.scpt was
+# recompiled since the source bundle was last signed, the sealed-resource
+# hash is stale and notarization rejects the DMG with "The signature of
+# the binary is invalid" on Uninstall Ultravox.app/Contents/MacOS/applet.
+# Re-signing here is cheap and makes the build robust to script edits.
+echo "→ re-signing Uninstall Ultravox.app (hardened runtime + timestamp)"
+codesign --force --options runtime --timestamp \
+  --sign "$SIGN_IDENTITY" \
+  "$MOUNT_POINT/Uninstall Ultravox.app" >/dev/null
+
 echo "→ deleting existing .DS_Store so AppleScript creates a fresh one"
 # Without this step, Finder's cached WindowBounds wins on next open and
 # our AppleScript `set bounds` is silently ignored. Deleting forces
