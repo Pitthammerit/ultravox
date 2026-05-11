@@ -144,8 +144,13 @@ const en: MessageCatalog = {
       sectionRecordingsHelp: "Optionally save the audio of every recording to your Mac. Files stay local — never uploaded except for the original transcription request. Useful for replay, re-transcribe, or audit.",
       saveAudioLocally: "Save audio recordings locally",
       saveAudioOnHelp: (retentionLabel) =>
-        `Stored at ~/Library/Application Support/com.ultravox.dev/recordings/. Auto-deleted after ${retentionLabel}.`,
+        `Auto-deleted after ${retentionLabel}. Folder is configurable below.`,
       saveAudioOffHelp: "Off — recordings are transcribed and discarded as today.",
+      folderLabel: "Folder",
+      folderDefaultHelp: "Using the default location. Pick a different folder if you'd prefer recordings elsewhere.",
+      folderCustomHelp: "Using a custom folder. Reset to put recordings back into Documents.",
+      folderChoose: "Choose folder…",
+      folderReset: "Reset to default",
       autoDeleteAfter: "Auto-delete after",
       retentionNever: "Never",
       retentionDays: (days) => `${days} days`,
@@ -433,9 +438,16 @@ const de: MessageCatalog = {
         "Speichere optional das Audio jeder Aufnahme auf deinem Mac. Dateien bleiben lokal — werden nie hochgeladen außer für die ursprüngliche Transkriptions-Anfrage. Nützlich für Wiedergabe, erneute Transkription oder Audit.",
       saveAudioLocally: "Audio-Aufnahmen lokal speichern",
       saveAudioOnHelp: (retentionLabel) =>
-        `Gespeichert unter ~/Library/Application Support/com.ultravox.dev/recordings/. Automatisch gelöscht nach ${retentionLabel}.`,
+        `Automatisch gelöscht nach ${retentionLabel}. Ordner kann unten geändert werden.`,
       saveAudioOffHelp:
         "Aus — Aufnahmen werden transkribiert und wie bisher verworfen.",
+      folderLabel: "Ordner",
+      folderDefaultHelp:
+        "Standard-Speicherort. Wähle einen anderen Ordner, falls du Aufnahmen woanders ablegen möchtest.",
+      folderCustomHelp:
+        "Eigener Ordner aktiv. Mit Zurücksetzen landen Aufnahmen wieder in Dokumente.",
+      folderChoose: "Ordner wählen…",
+      folderReset: "Auf Standard zurücksetzen",
       autoDeleteAfter: "Automatisch löschen nach",
       retentionNever: "Nie",
       retentionDays: (days) => `${days} Tagen`,

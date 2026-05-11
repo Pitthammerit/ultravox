@@ -98,11 +98,11 @@ fn models_dir() -> Result<PathBuf, String> {
 ///
 /// Priority:
 /// 1. If `preferred_variant` is Some and the file exists, use it.
-/// 2. Auto-route based on `language` and `audio_quality`:
-///    - en + low quality:  large-v3 → large-v3-turbo → medium.en → medium → small → base.en → base → tiny
-///    - en + normal:       medium.en → base.en → base → large-v3-turbo → large-v3 → medium → small → tiny
-///    - multilingual + low quality:  large-v3 → large-v3-turbo → medium → small → base → tiny
-///    - multilingual + normal:       large-v3-turbo → large-v3 → medium → small → base → tiny
+/// 2. Auto-route based on `language` and `audio_quality`. Each list now
+///    includes the q5_0/q8_0 quantized variants AFTER their full-precision
+///    sibling — they're cheaper to load + run, so we'd rather use Medium-q8
+///    than fall through to Small. Order keeps "highest quality first" within
+///    each model family.
 /// 3. Fall back to the first alphabetically if nothing from the priority lists is found.
 fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>, audio_quality: Option<&str>) -> Result<Option<(PathBuf, String)>, String> {
     let dir = models_dir()?;
@@ -134,14 +134,36 @@ fn find_existing_model(preferred_variant: Option<&str>, language: Option<&str>, 
             let is_low = audio_quality.map(|q| q.eq_ignore_ascii_case("low")).unwrap_or(false);
 
             let priority: &[&str] = match (is_en, is_low) {
-                // English + low quality: biggest model first (ultra beats turbo for hard audio)
-                (true, true)  => &["large-v3", "large-v3-turbo", "medium.en", "medium", "small", "base.en", "base", "tiny"],
-                // English + normal quality: prefer english-tuned, then turbo (faster), then ultra
-                (true, false) => &["medium.en", "base.en", "base", "large-v3-turbo", "large-v3", "medium", "small", "tiny"],
-                // Multilingual + low quality: ultra first (max accuracy for hard audio)
-                (false, true)  => &["large-v3", "large-v3-turbo", "medium", "small", "base", "tiny"],
-                // Multilingual + normal quality: turbo first (good balance of speed + accuracy)
-                (false, false) => &["large-v3-turbo", "large-v3", "medium", "small", "base", "tiny"],
+                // English + low quality: biggest model first (large beats turbo for hard audio).
+                // q5_0 of each is preferred over a smaller full-precision step down.
+                (true, true)  => &[
+                    "large-v3", "large-v3-q5_0",
+                    "large-v3-turbo", "large-v3-turbo-q8_0", "large-v3-turbo-q5_0",
+                    "medium.en", "medium", "medium-q8_0", "medium-q5_0",
+                    "small", "base.en", "base", "tiny",
+                ],
+                // English + normal quality: prefer english-tuned, then turbo (faster), then large.
+                (true, false) => &[
+                    "medium.en", "base.en", "base",
+                    "large-v3-turbo", "large-v3-turbo-q8_0", "large-v3-turbo-q5_0",
+                    "large-v3", "large-v3-q5_0",
+                    "medium", "medium-q8_0", "medium-q5_0",
+                    "small", "tiny",
+                ],
+                // Multilingual + low quality: large first (max accuracy for hard audio).
+                (false, true)  => &[
+                    "large-v3", "large-v3-q5_0",
+                    "large-v3-turbo", "large-v3-turbo-q8_0", "large-v3-turbo-q5_0",
+                    "medium", "medium-q8_0", "medium-q5_0",
+                    "small", "base", "tiny",
+                ],
+                // Multilingual + normal quality: turbo first (good balance of speed + accuracy).
+                (false, false) => &[
+                    "large-v3-turbo", "large-v3-turbo-q8_0", "large-v3-turbo-q5_0",
+                    "large-v3", "large-v3-q5_0",
+                    "medium", "medium-q8_0", "medium-q5_0",
+                    "small", "base", "tiny",
+                ],
             };
             for variant in priority {
                 let p = dir.join(format!("ggml-{variant}.bin"));
@@ -911,10 +933,31 @@ mod tests {
         let is_low = audio_quality.map(|q| q.eq_ignore_ascii_case("low")).unwrap_or(false);
 
         let priority: &[&str] = match (is_en, is_low) {
-            (true, true)  => &["large-v3", "large-v3-turbo", "medium.en", "medium", "small", "base.en", "base", "tiny"],
-            (true, false) => &["medium.en", "base.en", "base", "large-v3-turbo", "large-v3", "medium", "small", "tiny"],
-            (false, true)  => &["large-v3", "large-v3-turbo", "medium", "small", "base", "tiny"],
-            (false, false) => &["large-v3-turbo", "large-v3", "medium", "small", "base", "tiny"],
+            (true, true)  => &[
+                "large-v3", "large-v3-q5_0",
+                "large-v3-turbo", "large-v3-turbo-q8_0", "large-v3-turbo-q5_0",
+                "medium.en", "medium", "medium-q8_0", "medium-q5_0",
+                "small", "base.en", "base", "tiny",
+            ],
+            (true, false) => &[
+                "medium.en", "base.en", "base",
+                "large-v3-turbo", "large-v3-turbo-q8_0", "large-v3-turbo-q5_0",
+                "large-v3", "large-v3-q5_0",
+                "medium", "medium-q8_0", "medium-q5_0",
+                "small", "tiny",
+            ],
+            (false, true)  => &[
+                "large-v3", "large-v3-q5_0",
+                "large-v3-turbo", "large-v3-turbo-q8_0", "large-v3-turbo-q5_0",
+                "medium", "medium-q8_0", "medium-q5_0",
+                "small", "base", "tiny",
+            ],
+            (false, false) => &[
+                "large-v3-turbo", "large-v3-turbo-q8_0", "large-v3-turbo-q5_0",
+                "large-v3", "large-v3-q5_0",
+                "medium", "medium-q8_0", "medium-q5_0",
+                "small", "base", "tiny",
+            ],
         };
         for variant in priority {
             if installed.contains(variant) {

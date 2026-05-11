@@ -163,6 +163,11 @@ export interface MessageCatalog {
       saveAudioLocally: string;
       saveAudioOnHelp: (retentionLabel: string) => string;
       saveAudioOffHelp: string;
+      folderLabel: string;
+      folderDefaultHelp: string;
+      folderCustomHelp: string;
+      folderChoose: string;
+      folderReset: string;
       autoDeleteAfter: string;
       retentionNever: string;
       retentionDays: (days: number) => string;

@@ -22,6 +22,8 @@ import {
   listRecordingFiles,
   deleteRecordingAudio,
   openRecordingsFolder,
+  recordingsDefaultFolder,
+  chooseRecordingsFolder,
 } from "../lib/tauri-bridge";
 import { formatPickerBytes, EnPill } from "../components/TranscriptionModelPicker";
 import { VARIANT_LABEL_MAP } from "../lib/transcriptionVariants";
@@ -759,16 +761,26 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
   // when they're testing the feature on first install.
   const [stats, setStats] = useState<{ count: number; bytes: number }>({ count: 0, bytes: 0 });
   const [clearConfirming, setClearConfirming] = useState(false);
+  // Default folder resolved from Rust on mount. Used as the placeholder
+  // value in the "Folder" row when the user hasn't picked a custom one,
+  // AND as the comparison reference for the "Reset to default" affordance.
+  const [defaultFolder, setDefaultFolder] = useState<string>("");
+
+  const recordings = settings?.recordings ?? { saveLocal: false, retentionDays: 30 as const };
+  // Pass user-chosen folder to ALL recordings commands. When undefined,
+  // Rust resolves to the default; we still pass it here so the
+  // refreshStats list-call counts files in the right place.
+  const folder = recordings.folder;
 
   const refreshStats = useCallback(async () => {
     try {
-      const files = await listRecordingFiles();
+      const files = await listRecordingFiles(folder);
       const bytes = files.reduce((s, f) => s + f.sizeBytes, 0);
       setStats({ count: files.length, bytes });
     } catch (e) {
       console.warn("[Recordings] listRecordingFiles failed:", e);
     }
-  }, []);
+  }, [folder]);
 
   useEffect(() => { void refreshStats(); }, [refreshStats]);
   useEffect(() => {
@@ -777,11 +789,31 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
     return () => { unsub?.(); };
   }, [refreshStats]);
 
-  const recordings = settings?.recordings ?? { saveLocal: false, retentionDays: 30 };
+  useEffect(() => {
+    void recordingsDefaultFolder().then(setDefaultFolder).catch(() => {});
+  }, []);
+
   const setSaveLocal = (next: boolean) =>
     onChange?.({ recordings: { ...recordings, saveLocal: next } });
   const setRetention = (days: 0 | 7 | 30 | 90) =>
     onChange?.({ recordings: { ...recordings, retentionDays: days } });
+
+  const onChooseFolder = async () => {
+    try {
+      const picked = await chooseRecordingsFolder();
+      // null = user cancelled the dialog. Don't blank the existing value.
+      if (picked) {
+        await onChange?.({ recordings: { ...recordings, folder: picked } });
+      }
+    } catch (e) {
+      console.warn("[Recordings] chooseRecordingsFolder failed:", e);
+    }
+  };
+
+  const onResetFolder = async () => {
+    const { folder: _drop, ...rest } = recordings;
+    await onChange?.({ recordings: rest });
+  };
 
   const onClearAll = async () => {
     if (!clearConfirming) {
@@ -791,15 +823,18 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
     }
     setClearConfirming(false);
     try {
-      const files = await listRecordingFiles();
+      const files = await listRecordingFiles(folder);
       for (const f of files) {
-        await deleteRecordingAudio(f.id);
+        await deleteRecordingAudio(f.id, folder);
       }
       void refreshStats();
     } catch (e) {
       console.warn("[Recordings] delete-all failed:", e);
     }
   };
+
+  const effectiveFolder = folder ?? defaultFolder;
+  const usingDefault = !folder;
 
   return (
     <Section
@@ -822,6 +857,44 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
       />
       {recordings.saveLocal && (
         <>
+          <Row
+            label={t.panels.configuration.folderLabel}
+            help={
+              usingDefault
+                ? t.panels.configuration.folderDefaultHelp
+                : t.panels.configuration.folderCustomHelp
+            }
+            control={
+              <div className="flex flex-col items-end gap-1.5" style={{ minWidth: 0 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: tokens.fgMuted,
+                    fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                    maxWidth: 280,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    direction: "rtl",
+                    textAlign: "right",
+                  }}
+                  title={effectiveFolder}
+                >
+                  {effectiveFolder.replace(/^\/Users\/[^/]+/, "~")}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button size="xs" variant="outline" onClick={() => void onChooseFolder()}>
+                    {t.panels.configuration.folderChoose}
+                  </Button>
+                  {!usingDefault && (
+                    <Button size="xs" variant="outline" onClick={() => void onResetFolder()}>
+                      {t.panels.configuration.folderReset}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            }
+          />
           <Row
             label={t.panels.configuration.autoDeleteAfter}
             control={
@@ -859,7 +932,7 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
                 <Button
                   size="xs"
                   variant="outline"
-                  onClick={() => void openRecordingsFolder()}
+                  onClick={() => void openRecordingsFolder(folder)}
                 >
                   {t.panels.configuration.openFolder}
                 </Button>

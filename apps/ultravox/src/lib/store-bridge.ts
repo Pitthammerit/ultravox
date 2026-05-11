@@ -67,6 +67,13 @@ export interface RecordingsSettings {
   /** Auto-delete files older than this many days on app launch.
    *  0 disables auto-delete. */
   retentionDays: 0 | 7 | 30 | 90;
+  /** Absolute path to the user-chosen recordings folder. When undefined
+   *  or empty, the Rust side falls back to ~/Documents/Ultravox Recordings/.
+   *  Set via Configuration → Recordings → "Choose folder…" which opens the
+   *  native macOS folder picker (osascript). Cleared by clicking "Reset
+   *  to default" — the field reverts to undefined and the Rust default
+   *  resolver takes over. */
+  folder?: string;
 }
 
 export interface AppSettings {
@@ -343,7 +350,7 @@ export async function appendHistory(entry: HistoryEntry, audioBlob?: Blob): Prom
       const ext = blobMimeToExt(audioBlob.type);
       const buf = new Uint8Array(await audioBlob.arrayBuffer());
       const { saveRecordingAudio } = await import("./tauri-bridge");
-      const path = await saveRecordingAudio(entry.id, ext, buf);
+      const path = await saveRecordingAudio(entry.id, ext, buf, current.recordings?.folder);
       enriched = {
         ...entry,
         audioPath: path,
@@ -399,8 +406,9 @@ export async function purgeStaleRecordings(): Promise<number> {
   try {
     const settings = await loadSettings();
     if (!settings.recordings?.saveLocal) return 0;
+    const folder = settings.recordings.folder;
     const { listRecordingFiles, deleteRecordingAudio } = await import("./tauri-bridge");
-    const files = await listRecordingFiles();
+    const files = await listRecordingFiles(folder);
     if (files.length === 0) return 0;
     const liveIds = new Set(settings.history.map((e) => e.id));
     const retentionDays = settings.recordings.retentionDays;
@@ -410,7 +418,7 @@ export async function purgeStaleRecordings(): Promise<number> {
       const isOrphan = !liveIds.has(f.id);
       const isStale = retentionDays > 0 && f.mtimeMs > 0 && f.mtimeMs < cutoffMs;
       if (isOrphan || isStale) {
-        await deleteRecordingAudio(f.id).catch(() => {});
+        await deleteRecordingAudio(f.id, folder).catch(() => {});
         deleted += 1;
       }
     }

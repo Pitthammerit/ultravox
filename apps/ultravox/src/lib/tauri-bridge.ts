@@ -345,40 +345,70 @@ export interface RecordingFile {
 
 /**
  * Persist a recording's audio bytes to disk, named by the HistoryEntry UUID.
- * Returns the absolute path (used to derive replay URLs and as a stable
- * reference for delete + re-transcribe). Overwrites any prior file at that
- * path. The Rust side writes via a `.part` tmp file + atomic rename.
+ * Returns the absolute path. Overwrites any prior file at that path. The
+ * Rust side writes via a `.part` tmp file + atomic rename so a crashed
+ * write doesn't leave a half-file.
+ *
+ * `folder`: optional user-chosen recordings directory. When undefined,
+ * Rust falls back to ~/Documents/Ultravox Recordings/.
  */
 export async function saveRecordingAudio(
   entryId: string,
   ext: string,
   bytes: Uint8Array,
+  folder?: string,
 ): Promise<string> {
-  return invoke<string>("save_recording_audio", { entryId, ext, bytes: Array.from(bytes) });
+  return invoke<string>("save_recording_audio", {
+    entryId,
+    ext,
+    bytes: Array.from(bytes),
+    folder: folder ?? null,
+  });
 }
 
 /** Idempotent — no error if no file matches. Removes ANY extension matching
- *  the entry id, so callers don't have to remember whether the recording
- *  was saved as .mp4 vs .webm vs .wav. */
-export async function deleteRecordingAudio(entryId: string): Promise<void> {
-  await invoke("delete_recording_audio", { entryId });
+ *  the entry id, so callers don't have to remember the container format.
+ *  `folder` defaults to the same per-user setting as save. */
+export async function deleteRecordingAudio(entryId: string, folder?: string): Promise<void> {
+  await invoke("delete_recording_audio", { entryId, folder: folder ?? null });
 }
 
 /** Read the bytes back for replay or re-transcribe. Caller wraps in a Blob
  *  with the entry's stored mime type to pass through MediaRecorder /
  *  transcribe.ts. */
-export async function readRecordingAudio(entryId: string, ext: string): Promise<Uint8Array> {
-  const arr = await invoke<number[]>("read_recording_audio", { entryId, ext });
+export async function readRecordingAudio(
+  entryId: string,
+  ext: string,
+  folder?: string,
+): Promise<Uint8Array> {
+  const arr = await invoke<number[]>("read_recording_audio", {
+    entryId,
+    ext,
+    folder: folder ?? null,
+  });
   return new Uint8Array(arr);
 }
 
 /** Enumerate every file in the recordings/ dir. Used by the Configuration
  *  panel disk-usage readout AND the retention sweep that runs on app launch. */
-export async function listRecordingFiles(): Promise<RecordingFile[]> {
-  return invoke<RecordingFile[]>("list_recording_files");
+export async function listRecordingFiles(folder?: string): Promise<RecordingFile[]> {
+  return invoke<RecordingFile[]>("list_recording_files", { folder: folder ?? null });
 }
 
 /** Reveal the recordings/ directory in Finder. */
-export async function openRecordingsFolder(): Promise<void> {
-  await invoke("open_recordings_folder");
+export async function openRecordingsFolder(folder?: string): Promise<void> {
+  await invoke("open_recordings_folder", { folder: folder ?? null });
+}
+
+/** Return the default recordings folder (~/Documents/Ultravox Recordings/)
+ *  for display in Configuration → Recordings → "Folder" row. */
+export async function recordingsDefaultFolder(): Promise<string> {
+  return invoke<string>("recordings_default_folder");
+}
+
+/** Open the native macOS folder picker. Returns the picked absolute path,
+ *  or null if the user cancelled. Implemented via osascript on the Rust
+ *  side so no extra Tauri plugin is required. */
+export async function chooseRecordingsFolder(): Promise<string | null> {
+  return invoke<string | null>("choose_recordings_folder");
 }

@@ -4,6 +4,7 @@ import type { AppSettings } from "../lib/store-bridge";
 import { CLEANUP_VARIANTS, LANGUAGES, type VoiceMode } from "../lib/voiceModes";
 import { TRANSCRIPTION_VARIANTS } from "../lib/transcriptionVariants";
 import { localWhisperListModels, localWhisperDownloadModel } from "../lib/tauri-bridge";
+import { applyLocalToggle } from "../lib/autoLocalRoute";
 import { Button, Section, ToggleRow, tokens } from "../components/ui";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useT } from "../lib/i18n/I18nProvider";
@@ -209,19 +210,34 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
           checked={settings.localWhisperEnabled ?? true}
           onChange={(next) => {
             // Coupled-defaults: when the user turns local transcription ON
-            // for the first time (i.e. it was off and is becoming on AND the
-            // cleanup toggle has never been set explicitly), auto-flip cleanup
-            // ON too. Same heuristic as Superwhisper's "fully local" preset.
-            // Once the user has touched the cleanup toggle once, it sticks.
+            // for the first time, also flip cleanup ON if they haven't
+            // touched it. Same Superwhisper "fully local" preset.
             const patch: Partial<AppSettings> = { localWhisperEnabled: next };
-            if (
+            const couplingCleanup =
               next &&
               !(settings.localWhisperEnabled ?? true) &&
-              settings.localCleanupEnabled === undefined
-            ) {
-              patch.localCleanupEnabled = true;
+              settings.localCleanupEnabled === undefined;
+            if (couplingCleanup) patch.localCleanupEnabled = true;
+
+            // When flipping ON (not just toggling false → true on a fresh
+            // install — also includes the explicit user click), reroute
+            // every mode to local equivalents AND start downloading the
+            // essential local models in the background. "Always local"
+            // user-experience.
+            if (next) {
+              void applyLocalToggle(settings, {
+                transcription: true,
+                cleanup: couplingCleanup || (settings.localCleanupEnabled ?? true),
+              }).then(({ modes }) => {
+                if (modes) {
+                  void onChange({ ...patch, modes });
+                } else {
+                  void onChange(patch);
+                }
+              });
+            } else {
+              void onChange(patch);
             }
-            void onChange(patch);
             emit("localWhisperEnabled:changed", next).catch(() => {});
           }}
         />
@@ -230,7 +246,21 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
           help={t.panels.modes.enableLocalCleanupHelp}
           checked={settings.localCleanupEnabled ?? true}
           onChange={(next) => {
-            void onChange({ localCleanupEnabled: next });
+            // Same pattern: flipping cleanup ON reroutes provider on every
+            // mode and ensures essential LLM weights are downloading.
+            if (next) {
+              void applyLocalToggle(settings, {
+                transcription: false,
+                cleanup: true,
+              }).then(({ modes }) => {
+                void onChange({
+                  localCleanupEnabled: true,
+                  ...(modes ? { modes } : {}),
+                });
+              });
+            } else {
+              void onChange({ localCleanupEnabled: false });
+            }
             emit("localCleanupEnabled:changed", next).catch(() => {});
           }}
         />
