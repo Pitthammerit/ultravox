@@ -22,6 +22,7 @@ import {
   tokens,
 } from "../components/ui";
 import { MODE_ICON_NAMES, ModeGlyph } from "../components/ModeIcons";
+import { AutoModeAppsSection } from "../components/AutoModeAppsSection";
 import { TranscriptionModelPicker, useTranscriptionModelPicker } from "../components/TranscriptionModelPicker";
 import { LocalLLMPicker, useLocalLLMPicker } from "../components/LocalLLMPicker";
 import type { TranscriptionModelValue } from "../lib/voiceModes";
@@ -249,6 +250,11 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
           }
         />
       </Group>
+
+      <AutoModeAppsSection
+        mode={draft}
+        onChange={(autoModeApps) => setDraft({ ...draft, autoModeApps })}
+      />
 
       <AccordionGroup
         label="Models"
