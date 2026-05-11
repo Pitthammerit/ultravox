@@ -231,6 +231,13 @@ export interface MessageCatalog {
       newMode: string;
       newModeCopy: (name: string) => string;
       configureMode: (name: string) => string;
+      // v0.19.0 per-mode auto-switching UI:
+      autoModeAppsLabel: string;
+      autoModeAppsHelp: (modeName: string) => string;
+      autoModeAppsEmpty: string;
+      autoModeAppsAdd: string;
+      autoModeAppsRemove: (appName: string) => string;
+      autoModeAppsPickerTitle: (modeName: string) => string;
     };
     sound: {
       roundTripTest: string;

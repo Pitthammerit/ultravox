@@ -219,6 +219,13 @@ const en: MessageCatalog = {
       newMode: "New mode",
       newModeCopy: (name) => `New mode — copy of ${name}`,
       configureMode: (name) => `Configure — ${name}`,
+      autoModeAppsLabel: "Auto-mode for this mode",
+      autoModeAppsHelp: (modeName) =>
+        `When you focus one of these apps, recording automatically switches into "${modeName}" mode. Only takes effect when Configuration → Mode Selection → Auto-mode is on.`,
+      autoModeAppsEmpty: "No apps yet — add one to auto-switch into this mode.",
+      autoModeAppsAdd: "+ Add app…",
+      autoModeAppsRemove: (appName) => `Remove ${appName}`,
+      autoModeAppsPickerTitle: (modeName) => `Pick an app for ${modeName} mode`,
     },
     sound: {
       roundTripTest: "Round-trip test",
@@ -552,6 +559,13 @@ const de: MessageCatalog = {
       newMode: "Neuer Modus",
       newModeCopy: (name) => `Neuer Modus — Kopie von ${name}`,
       configureMode: (name) => `Konfigurieren — ${name}`,
+      autoModeAppsLabel: "Auto-Modus für diesen Modus",
+      autoModeAppsHelp: (modeName) =>
+        `Wenn du eine dieser Apps fokussierst, wechselt die Aufnahme automatisch in den Modus „${modeName}“. Wirkt nur, wenn Konfiguration → Modusauswahl → Auto-Modus aktiv ist.`,
+      autoModeAppsEmpty: "Noch keine Apps — füge eine hinzu, um automatisch in diesen Modus zu wechseln.",
+      autoModeAppsAdd: "+ App hinzufügen…",
+      autoModeAppsRemove: (appName) => `${appName} entfernen`,
+      autoModeAppsPickerTitle: (modeName) => `App für Modus „${modeName}“ wählen`,
     },
     sound: {
       roundTripTest: "Round-Trip-Test",
@@ -897,6 +911,13 @@ const es: MessageCatalog = {
       newMode: "Nuevo modo",
       newModeCopy: (name) => `Nuevo modo — copia de ${name}`,
       configureMode: (name) => `Configurar — ${name}`,
+      autoModeAppsLabel: "Modo automático para este modo",
+      autoModeAppsHelp: (modeName) =>
+        `Cuando enfoques una de estas apps, la grabación cambiará automáticamente al modo «${modeName}». Solo se aplica si Configuración → Selección de modo → Modo automático está activo.`,
+      autoModeAppsEmpty: "Aún no hay apps — añade una para activar automáticamente este modo.",
+      autoModeAppsAdd: "+ Añadir app…",
+      autoModeAppsRemove: (appName) => `Quitar ${appName}`,
+      autoModeAppsPickerTitle: (modeName) => `Elige una app para el modo ${modeName}`,
     },
     sound: {
       roundTripTest: "Prueba de ida y vuelta",
@@ -1243,6 +1264,13 @@ const sv: MessageCatalog = {
       newMode: "Nytt läge",
       newModeCopy: (name) => `Nytt läge — kopia av ${name}`,
       configureMode: (name) => `Konfigurera — ${name}`,
+      autoModeAppsLabel: "Auto-läge för detta läge",
+      autoModeAppsHelp: (modeName) =>
+        `När du växlar till en av dessa appar växlar inspelningen automatiskt till läget "${modeName}". Gäller bara när Konfiguration → Lägesval → Auto-läge är på.`,
+      autoModeAppsEmpty: "Inga appar än — lägg till en för att automatiskt växla till detta läge.",
+      autoModeAppsAdd: "+ Lägg till app…",
+      autoModeAppsRemove: (appName) => `Ta bort ${appName}`,
+      autoModeAppsPickerTitle: (modeName) => `Välj en app för läget ${modeName}`,
     },
     sound: {
       roundTripTest: "Tur-och-retur-test",
