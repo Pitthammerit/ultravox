@@ -91,6 +91,33 @@ post-mount AppleScript icon positioning, re-sign + staple after
 modifying the DMG). **Never use `pnpm tauri build` directly** — it
 will skip the uninstaller injection and re-sign step.
 
+### Shipping resources map
+
+Everything needed to produce + ship a DMG, and where it lives. Bundle
+resources (TIFF, uninstaller) live inside `apps/ultravox/src-tauri/`
+because Tauri's bundler resolves them via relative paths anchored
+there — moving them would break `tauri.conf.json` resolution. Scripts
+live inside `apps/ultravox/scripts/` because they reference
+`$APP_DIR/src-tauri/...` paths internally and are wired into the
+package.json of `@ultravox/app`. **Only the DMG output is centralized
+at repo root** (`releases/`), because that's the cross-cutting
+shipping artifact.
+
+| What | Path |
+|---|---|
+| Latest signed DMG (canonical) | `releases/Ultravox_<ver>_aarch64.dmg` |
+| Releases folder convention | `releases/README.md` |
+| Build scripts | `apps/ultravox/scripts/{build,notarize,reposition}-dmg.sh` |
+| Tauri bundle config | `apps/ultravox/src-tauri/tauri.conf.json` → `bundle.macOS` |
+| DMG background TIFF | `apps/ultravox/src-tauri/dmg-assets/background.tiff` |
+| Uninstall Ultravox.app | `apps/ultravox/src-tauri/dmg-assets/Uninstall Ultravox.app` |
+| Apple notary creds | `apps/ultravox/.env.build` (gitignored) |
+| Credential template | `apps/ultravox/.env.build.example` |
+| Apple .p12 cert | `~/Documents/localcoding/ultravox/certificate apple/` (gitignored) |
+| Tauri raw DMG output | `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg` (auto-copied to `releases/`) |
+| Tauri .app output | `apps/ultravox/src-tauri/target/release/bundle/macos/Ultravox.app` |
+| Full human-readable docs | `docs/shipping.md` |
+
 **Editing a resource inside a signed `.app` invalidates its signature.**
 The Uninstall Ultravox.app is signed in-source under `dmg-assets/`. If
 anything mutates `Contents/Resources/Scripts/main.scpt` (e.g. recompiling

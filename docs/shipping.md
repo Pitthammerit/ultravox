@@ -10,11 +10,19 @@ release. Read this end-to-end **once**; after that the commands are short.
 | Goal                                  | Command                                       | Output                                                |
 |---------------------------------------|------------------------------------------------|-------------------------------------------------------|
 | Test the app on your Mac              | `pnpm --filter @ultravox/app app`              | `apps/ultravox/src-tauri/target/release/bundle/macos/Ultravox.app` |
-| Release-ready DMG (signed, notarized) | `pnpm --filter @ultravox/app dmg`              | `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg` |
+| Release-ready DMG (signed, notarized) | `pnpm --filter @ultravox/app dmg`              | `releases/Ultravox_<ver>_aarch64.dmg` (auto-copied from Tauri's `target/.../bundle/dmg/` after notarization) |
 | Notarize the existing DMG only        | `pnpm --filter @ultravox/app notarize`         | re-notarizes + staples — skips Cargo + Tauri build |
 | Tweak DMG layout only (~10 sec)       | `pnpm --filter @ultravox/app reposition`       | mounts existing DMG, re-applies icon coordinates, re-signs |
 
 Run from the repo root or anywhere — the script resolves paths itself.
+
+**Where the latest DMG lives:** `releases/Ultravox_<ver>_aarch64.dmg`. This
+is the canonical local home — worktree-stable, single source of truth.
+Tauri's bundler still writes to `apps/ultravox/src-tauri/target/release/bundle/dmg/`
+first (worktree-specific build artifact); the script then `cp`s into
+`releases/` as the last step. The notarization ticket is stapled to the
+DMG itself, so the `releases/` copy is Gatekeeper-equivalent to the source
+copy — no re-notarize needed to redistribute from there.
 
 The **layout iteration loop** is `reposition` (10 s) → mount + screenshot →
 nudge a coord → repeat. Don't run `dmg` (30 s + notarize) until the layout
@@ -24,20 +32,32 @@ is final.
 
 ## Where things live
 
-| What                       | Path                                                                |
-|----------------------------|---------------------------------------------------------------------|
-| Build script               | `apps/ultravox/scripts/build-dmg.sh`                                |
-| Tauri bundle config        | `apps/ultravox/src-tauri/tauri.conf.json` → `bundle.macOS`          |
-| DMG background (1600×1200) | `apps/ultravox/src-tauri/dmg-assets/background.tiff`                |
-| Uninstaller (.app)         | `apps/ultravox/src-tauri/dmg-assets/Uninstall Ultravox.app`         |
-| Apple credentials          | `apps/ultravox/.env.build`  *(gitignored, never committed)*         |
-| Credential template        | `apps/ultravox/.env.build.example`                                  |
-| Reference DMG (legacy 0.9.4) | `~/Desktop/Ultravox-0.9.4.dmg`  *(your machine; not in repo)*     |
-| Built `.app`               | `apps/ultravox/src-tauri/target/release/bundle/macos/Ultravox.app`  |
-| Built `.dmg`               | `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg` |
+| What                       | Path                                                                | Notes |
+|----------------------------|---------------------------------------------------------------------|-------|
+| **Latest DMG (canonical)** | **`releases/Ultravox_<ver>_aarch64.dmg`**                           | **Tracked folder + README; DMGs gitignored.** Worktree-stable shipping path. |
+| Releases folder README     | `releases/README.md`                                                | Explains the convention |
+| Build script               | `apps/ultravox/scripts/build-dmg.sh`                                | Auto-copies the final DMG into `releases/` after notarization |
+| Notarize-only script       | `apps/ultravox/scripts/notarize-dmg.sh`                             | Skip Cargo + Tauri; just re-notarize + staple |
+| Reposition script          | `apps/ultravox/scripts/reposition-dmg.sh`                           | Layout-only iteration (~10s) |
+| Tauri bundle config        | `apps/ultravox/src-tauri/tauri.conf.json` → `bundle.macOS`          | `dmg.background` is relative to src-tauri/ |
+| DMG background (1600×1200) | `apps/ultravox/src-tauri/dmg-assets/background.tiff`                | Sealed into the DMG window by Tauri's bundler |
+| Uninstaller (.app)         | `apps/ultravox/src-tauri/dmg-assets/Uninstall Ultravox.app`         | Pre-signed; copied onto the mounted DMG |
+| Apple credentials          | `apps/ultravox/.env.build`                                          | Gitignored. Auto-loaded by `build-dmg.sh`. |
+| Credential template        | `apps/ultravox/.env.build.example`                                  | Committed; clone from this when bootstrapping |
+| Apple cert (.p12)          | `~/Documents/localcoding/ultravox/certificate apple/`               | Outside the repo. Gitignored as `certificate*/`. |
+| Built `.app`               | `apps/ultravox/src-tauri/target/release/bundle/macos/Ultravox.app`  | Tauri output for `app` target |
+| Built `.dmg` (Tauri raw)   | `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg` | Worktree-specific; auto-copied to `releases/` |
+| Reference DMG (legacy 0.9.4) | `~/Desktop/Ultravox-0.9.4.dmg`                                    | Personal machine; not in repo |
 
-Replacing the TIFF or the uninstaller is just "drop a new file at the path
+**Replacing the TIFF or the uninstaller** is just "drop a new file at the path
 above and re-run `pnpm dmg`." No config edits needed.
+
+**Why two DMG paths?** Tauri's bundler writes to `target/.../bundle/dmg/`
+(a Cargo-target path tied to whichever worktree did the build). When
+multiple worktrees coexist, latest-build resolution becomes ambiguous.
+`releases/` at the repo root is the single canonical location; `build-dmg.sh`
+copies into it at the end of every successful build. Take the `releases/`
+copy when redistributing.
 
 ---
 
