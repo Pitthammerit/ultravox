@@ -42,7 +42,14 @@ const PILL_CONTENT_H = 108;
 // render around the rounded corners. macOS native shadow is disabled
 // (`shadow: false`) because it draws around the rectangular WINDOW bounds,
 // not the alpha mask — that produced a visible square frame.
-const SHADOW_PAD = 14;
+//
+// Bumped 14 → 32 in v0.18.6 so the multi-layer --pill-shadow (largest
+// blur 28-32px) has room to fade smoothly to invisible. With 14px the
+// outer shadow layer was clipped at the window edge, producing the boxy
+// rectangular halo the user reported. Window dimensions in
+// tauri.conf.json + the hardcoded width in hotkey.rs::set_pill_height
+// must stay in lockstep with this constant.
+const SHADOW_PAD = 32;
 
 // Total window height (must match tauri.conf.json).
 const PILL_H = PILL_CONTENT_H + SHADOW_PAD * 2;
@@ -545,34 +552,27 @@ export default function PillWindow() {
   }, [compact, cancelSilenceTimers]);
 
   /**
-   * Two-phase auto-dismiss flow for the silence-detected case.
-   *  1) Show the red "No speech detected…" error for 2 s.
-   *  2) Transition to a neutral "Nothing to transcribe. Closing…" message
-   *     rendered with the same large/centered styling as the Transcribing
-   *     status (NOT the error styling) for 800 ms.
-   *  3) Auto-hide the pill and reset to idle. No user dismiss required.
+   * Auto-dismiss flow for the silence-detected case.
+   *
+   * Skips straight to the neutral "Nothing to transcribe. Closing…"
+   * message rendered with the same large/centered styling as the
+   * Transcribing status (NOT the error styling) for 3 s, then auto-
+   * hides. The `reason` arg is logged only — never rendered — so
+   * verbose silence messages ("No speech detected. Move closer to the
+   * mic…") that used to flash for 2 s before "Closing…" no longer
+   * appear in the pill UI. Keeps the API stable for callers but
+   * collapses the previous two-phase flow into one neutral message.
    */
-  const showSilenceFlow = useCallback((msg: string) => {
-    console.warn("[pill] silence flow:", msg);
+  const showSilenceFlow = useCallback((reason: string) => {
+    console.warn("[pill] silence flow:", reason);
     cancelSilenceTimers();
-    setErrorMsg(msg);
-    setState("error");
-    // Previously: when compact, we resized to PILL_W × PILL_H so the full-
-    // pill JSX could render the message. The user found that jarring —
-    // the pill grew to classic size for ~3 s just to say "nothing to
-    // transcribe". Keep the compact window dimensions; the compact
-    // branch now renders the error + silenceClosing states inline as a
-    // newsticker-style marquee (see the compact render guard below).
+    setState("silenceClosing");
     invoke("show_pill").catch(() => {});
 
     const t1 = window.setTimeout(() => {
-      setState("silenceClosing");
-      const t2 = window.setTimeout(() => {
-        setState("idle");
-        invoke("hide_pill").catch(() => {});
-      }, 800);
-      silenceTimersRef.current.push(t2);
-    }, 2000);
+      setState("idle");
+      invoke("hide_pill").catch(() => {});
+    }, 3000);
     silenceTimersRef.current.push(t1);
   }, [cancelSilenceTimers]);
 
@@ -1028,7 +1028,7 @@ export default function PillWindow() {
   /* ── First-paint gate ─────────────────────────────────────────
    * Render nothing until the initial settings load + window resize
    * has completed. Without this, the first render uses the pill's
-   * tauri.conf.json default dimensions (388×136) — if the user's
+   * tauri.conf.json default dimensions (424×172) — if the user's
    * stored style is Mini, this paints the Mini JSX inside the
    * larger window for one frame, producing the "rounded only on
    * top, square on bottom, oversized" glitch the user reported.

@@ -78,10 +78,20 @@
   --pill-fg-muted: rgba(34, 65, 96, 0.55);
   --pill-fg-subtle: rgba(34, 65, 96, 0.40);
   --pill-border: rgba(34, 65, 96, 0.10);
-  --pill-footer: rgba(34, 65, 96, 0.05);
+  /* Footer: subtle translucent tint over the body bg — no darker base
+   * color so the footer shares the same translucency as the rest of the
+   * pill. The 1px border-top alone provides visual separation. */
+  --pill-footer: rgba(34, 65, 96, 0.04);
   --pill-row-hover: rgba(34, 65, 96, 0.06);
   --pill-icon-bg: rgba(34, 65, 96, 0.10);
-  --pill-shadow: 0 6px 18px rgba(34, 65, 96, 0.22);
+  /* Multi-layer shadow with smooth falloff — three stacked layers at
+   * progressively wider blur radii produce a much softer gradient than
+   * a single shadow, so the rounded corners no longer read as a hard
+   * rectangular halo. SHADOW_PAD must accommodate the largest blur. */
+  --pill-shadow:
+    0 1px 2px rgba(34, 65, 96, 0.10),
+    0 6px 12px rgba(34, 65, 96, 0.14),
+    0 16px 28px rgba(34, 65, 96, 0.20);
   /* Waveform color — passed to RollingWaveform; resolved at draw time. */
   --pill-waveform: rgba(34, 65, 96, 0.72);
 }
@@ -158,10 +168,17 @@
   --pill-fg-muted: rgba(220, 232, 248, 0.58);
   --pill-fg-subtle: rgba(220, 232, 248, 0.40);
   --pill-border: rgba(118, 150, 173, 0.18);
-  --pill-footer: rgba(13, 24, 38, 0.45);
+  /* Footer: low-alpha black tint over the navy body — same translucency
+   * as the body, the 1px border-top divides waveform from controls. The
+   * old rgba(13, 24, 38, 0.45) used a much darker base color which read
+   * as fully opaque next to the 0.82-alpha body. */
+  --pill-footer: rgba(0, 0, 0, 0.10);
   --pill-row-hover: rgba(118, 150, 173, 0.12);
   --pill-icon-bg: rgba(118, 150, 173, 0.16);
-  --pill-shadow: 0 8px 24px rgba(13, 24, 38, 0.65);
+  --pill-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.20),
+    0 6px 14px rgba(0, 0, 0, 0.40),
+    0 18px 32px rgba(0, 0, 0, 0.50);
   --pill-waveform: rgba(118, 150, 173, 0.95);
 }
 
@@ -189,10 +206,15 @@
   --pill-fg-muted: rgba(230, 232, 238, 0.55);
   --pill-fg-subtle: rgba(230, 232, 238, 0.40);
   --pill-border: rgba(255, 255, 255, 0.06);
-  --pill-footer: rgba(0, 0, 0, 0.40);
+  /* Footer: subtle white tint over the near-black body — keeps the
+   * footer translucent rather than reading as opaque solid black. */
+  --pill-footer: rgba(255, 255, 255, 0.04);
   --pill-row-hover: rgba(255, 255, 255, 0.05);
   --pill-icon-bg: rgba(255, 255, 255, 0.07);
-  --pill-shadow: 0 6px 18px rgba(0, 0, 0, 0.65);
+  --pill-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 6px 14px rgba(0, 0, 0, 0.50),
+    0 18px 32px rgba(0, 0, 0, 0.60);
   /* Neutral grey — clearly visible on near-black bg. */
   --pill-waveform: rgba(180, 182, 188, 0.78);
 }
