@@ -18,9 +18,18 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import type { Lang, MessageCatalog } from "./catalog";
+import { LANGS, type Lang, type MessageCatalog } from "./catalog";
 import { CATALOG as MESSAGES } from "./messages";
 import { loadSettings } from "../store-bridge";
+
+/** Type guard so the hydration + cross-window paths accept any catalog
+ *  Lang (en | de | es | sv | future additions) instead of the old
+ *  hardcoded `"en" | "de"` clamp that silently dropped es/sv updates.
+ *  Defensive against legacy or malformed stored values — falls through
+ *  to the previous lang state when the stored value isn't recognized. */
+function isLang(value: unknown): value is Lang {
+  return typeof value === "string" && (LANGS as ReadonlyArray<string>).includes(value);
+}
 
 interface I18nContextValue {
   lang: Lang;
@@ -52,7 +61,7 @@ export function I18nProvider({ children, initialLang }: I18nProviderProps) {
     loadSettings()
       .then((s) => {
         if (cancelled) return;
-        if (s.uiLanguage === "en" || s.uiLanguage === "de") {
+        if (isLang(s.uiLanguage)) {
           setLang(s.uiLanguage);
         }
       })
@@ -70,8 +79,9 @@ export function I18nProvider({ children, initialLang }: I18nProviderProps) {
     listen("settings:saved", async () => {
       try {
         const fresh = await loadSettings();
-        if (fresh.uiLanguage === "en" || fresh.uiLanguage === "de") {
-          setLang((cur) => (cur === fresh.uiLanguage ? cur : fresh.uiLanguage));
+        if (isLang(fresh.uiLanguage)) {
+          const nextLang = fresh.uiLanguage;
+          setLang((cur) => (cur === nextLang ? cur : nextLang));
         }
       } catch { /* swallow */ }
     }).then((u) => { unsub = u; });
