@@ -40,7 +40,7 @@ const en: MessageCatalog = {
     loading: "Loading…",
   },
   tray: {
-    toggleRecord: "Toggle Recording",
+    toggleRecord: "Start / Stop Recording",
     copyLastTranscription: "Copy Last Transcription",
     settingsItem: "Settings…",
     micSettings: "Microphone Settings",
@@ -82,7 +82,7 @@ const en: MessageCatalog = {
       navSound: "Sound & Microphone",
       sectionRecording: "Recording",
       hotkeyHelp: "Click a chip to record a new combo. Esc cancels, Backspace clears.",
-      recordToggle: "Record toggle",
+      recordToggle: "Toggle recording",
       modeSwitcher: "Mode switcher",
       pushToTalk: "Push-to-talk",
       pushToTalkHelp: "Hold the hotkey while speaking instead of toggling. Set a dedicated key combo below.",
@@ -121,7 +121,7 @@ const en: MessageCatalog = {
       sectionOnboardingHelp: "Re-open the setup wizard. Your settings are preserved.",
       launchOnboarding: "Launch",
       diagnosticsFooter: (n) => `${n} entries · newest first`,
-      diagnosticsConfirmAgain: "Click again",
+      diagnosticsConfirmAgain: "Click to confirm",
       diagnosticsEmpty: "No events yet — try a recording.",
       installedWhisperEmpty: "No Whisper models installed. Pick a variant in a Mode's Transcription Model setting to download one.",
       installedLlmHeader: "Installed LLM models",
@@ -155,7 +155,7 @@ const en: MessageCatalog = {
       saveAudioLocally: "Save audio recordings locally",
       saveAudioOnHelp: (retentionLabel) =>
         `Auto-deleted after ${retentionLabel}. Folder is configurable below.`,
-      saveAudioOffHelp: "Off — recordings are transcribed and discarded as today.",
+      saveAudioOffHelp: "Off — recordings are transcribed and discarded, the same as before.",
       folderLabel: "Folder",
       folderDefaultHelp: "Using the default location. Pick a different folder if you'd prefer recordings elsewhere.",
       folderCustomHelp: "Using a custom folder. Reset to put recordings back into Documents.",
@@ -167,7 +167,7 @@ const en: MessageCatalog = {
       toggleOffTitle: "Delete existing recordings?",
       toggleOffBody: (count, size) =>
         `You have ${count} saved recording${count === 1 ? "" : "s"} (${size}). Future recordings will no longer be saved — what should we do with the existing files? Recording + transcription continue normally either way; this only affects the audio backup on disk.`,
-      toggleOffDelete: "Delete all + folder",
+      toggleOffDelete: "Delete all",
       toggleOffKeep: "Keep on disk",
       sectionLastTranscription: "Last transcription",
       sectionLastTranscriptionHelp: "Where transcribed text goes after each recording — clipboard, history, both, or neither.",
@@ -185,7 +185,7 @@ const en: MessageCatalog = {
       diskUsageFull: (size) => `${size}`,
       openFolder: "Open folder",
       deleteAll: (count) => `Delete all (${count})`,
-      deleteAllConfirm: "Tap again to delete",
+      deleteAllConfirm: "Click to delete",
       sectionDiagnostics: "Diagnostics",
       sectionDiagnosticsHelp: "Recent log entries. Useful when reporting an issue.",
       clearLog: "Clear log",
@@ -203,10 +203,10 @@ const en: MessageCatalog = {
       enableLocalCleanupHelp:
         "When on, modes with provider = Local (on-device LLM) run cleanup on-device. When off, those modes silently fall back to the cloud worker.",
       sectionActiveMode: "Active mode",
-      addMode: "+ New",
+      addMode: "Add mode",
       noModes: "No modes configured.",
       unsavedTitle: "Save or discard changes?",
-      unsavedBody: "You have unsaved changes in this mode. Save them or discard before navigating away.",
+      unsavedBody: "You have unsaved changes in this mode. Save or discard them before leaving.",
       unsavedSave: "Save",
       unsavedDiscard: "Discard",
       downloadModelTitle: "Download model?",
@@ -244,7 +244,7 @@ const en: MessageCatalog = {
       noiseSuppression: "Noise suppression",
       noiseSuppressionHelp: "Reduce background noise. Mild quality tradeoff.",
       silenceRemoval: "Silence removal",
-      silenceRemovalHelp: "Trim silent passages before upload (v1.1)",
+      silenceRemovalHelp: "Trim silent passages before upload (coming in v1.1).",
       sectionSoundEffects: "Sound effects",
       pauseMusic: "Pause music while recording",
       pauseMusicHelp:
@@ -306,7 +306,7 @@ const en: MessageCatalog = {
     pasteFailed: (msg) =>
       `Paste failed: ${msg} — Accessibility access likely denied.`,
     invalidConstraint:
-      "Invalid mic constraint — restart Ultravox or check System Settings → Sound → Input.",
+      "Couldn't configure the mic — restart Ultravox or check System Settings → Sound → Input.",
     silentDescription: "Recording…",
   },
   modeOverlay: {
