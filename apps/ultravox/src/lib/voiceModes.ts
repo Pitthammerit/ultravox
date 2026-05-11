@@ -108,6 +108,21 @@ export interface VoiceMode {
   activateWhen?: { panels?: string[]; urls?: string[] };
   autocapitalize?: boolean;
   insertion?: "cursor" | "paste" | "append";
+  /** Apps that trigger this mode when frontmost AND
+   *  `settings.autoModeEnabled` is true. Empty array (or omitted) = mode
+   *  is never auto-selected by app. Bundle IDs are case-insensitive on
+   *  the lookup side. Order in this array doesn't matter; tie-break
+   *  between modes uses `settings.modes` order. v0.19.0. */
+  autoModeApps?: Array<{
+    bundleId: string;
+    /** Display name surfaced in the picker UI. Cached at pick time so
+     *  we don't round-trip to AppKit on every render. */
+    displayName: string;
+    /** Base64-encoded PNG of the app icon for the picker UI's left rail.
+     *  Resolved via NSWorkspace.icon(forFile:) at pick time. Optional —
+     *  skipped if cost is too high or the lookup fails. */
+    iconBase64?: string;
+  }>;
 }
 
 export interface VoiceSettings {
@@ -140,6 +155,14 @@ export const DEFAULT_MODES: VoiceMode[] = [
     transcriptionModel: "base",
     autocapitalize: true,
     insertion: "paste",
+    // v0.19.0: curated apps that auto-activate this mode (when the
+    // global autoModeEnabled toggle is on). Pre-seeded from apps.json
+    // for fresh installs; existing users get the same via the
+    // migrateSeedAutoModeApps migration on v0.19.0 first launch.
+    autoModeApps: [
+      { bundleId: "com.apple.mail", displayName: "Mail" },
+      { bundleId: "com.microsoft.Outlook", displayName: "Outlook" },
+    ],
     systemPrompt: `You are an email-formatting specialist. Transform the dictated transcript into a clean, ready-to-send email body.
 
 EMAIL STRUCTURE:
@@ -179,6 +202,13 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     transcriptionModel: "tiny",
     autocapitalize: true,
     insertion: "paste",
+    autoModeApps: [
+      { bundleId: "com.tinyspeck.slackmacgap", displayName: "Slack" },
+      { bundleId: "com.hnc.Discord", displayName: "Discord" },
+      { bundleId: "com.apple.MobileSMS", displayName: "Messages" },
+      { bundleId: "net.whatsapp.WhatsApp", displayName: "WhatsApp" },
+      { bundleId: "com.tdesktop.Telegram", displayName: "Telegram" },
+    ],
   },
   {
     id: "note",
@@ -194,6 +224,15 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     transcriptionModel: "base",
     autocapitalize: true,
     insertion: "paste",
+    autoModeApps: [
+      { bundleId: "com.google.Chrome", displayName: "Chrome" },
+      { bundleId: "com.apple.Safari", displayName: "Safari" },
+      { bundleId: "company.thebrowser.Browser", displayName: "Arc" },
+      { bundleId: "com.apple.Notes", displayName: "Notes" },
+      { bundleId: "notion.id", displayName: "Notion" },
+      { bundleId: "md.obsidian", displayName: "Obsidian" },
+      { bundleId: "com.toolforge.bear", displayName: "Bear" },
+    ],
   },
   {
     id: "code",
@@ -206,6 +245,13 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     transcriptionModel: "base.en",
     autocapitalize: false,
     insertion: "paste",
+    autoModeApps: [
+      { bundleId: "com.todesktop.230313mzl4w4u92", displayName: "Cursor" },
+      { bundleId: "com.microsoft.VSCode", displayName: "VS Code" },
+      { bundleId: "com.jetbrains.WebStorm", displayName: "WebStorm" },
+      { bundleId: "com.googlecode.iterm2", displayName: "iTerm" },
+      { bundleId: "com.apple.Terminal", displayName: "Terminal" },
+    ],
   },
   {
     id: "raw-v3-turbo",

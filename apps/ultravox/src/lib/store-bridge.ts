@@ -193,6 +193,12 @@ export interface AppSettings {
    *  Underscore prefix signals "internal migration marker, not config".
    *  See migratePillPositions for semantics. */
   _pillPositionsMigratedShadowPad32?: boolean;
+  /** Internal: marks that the v0.18.x curated apps.json → per-mode
+   *  `autoModeApps` seed migration has run. Set to true the first time a
+   *  v0.19.0+ build loads settings, regardless of whether any matches
+   *  were seeded. Never user-edited; never displayed. See
+   *  migrateSeedAutoModeApps for semantics. */
+  autoModeSeeded?: boolean;
 }
 
 export const HISTORY_MAX = 50;
@@ -229,6 +235,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // positions to fix. The migration only fires for upgrade paths where
   // the stored file lacks this marker (see migratePillPositions).
   _pillPositionsMigratedShadowPad32: true,
+  // Fresh installs ship with DEFAULT_MODES already including the
+  // curated autoModeApps directly — no migration needed. Existing-user
+  // upgrade path runs the seed migration once when this marker is
+  // absent (see migrateSeedAutoModeApps).
+  autoModeSeeded: true,
   recordings: {
     saveLocal: false,         // Privacy-first default — audio opt-in only.
     retentionDays: 30,        // Auto-clean monthly when enabled.
