@@ -177,6 +177,12 @@ export interface AppSettings {
   /** Whether the "Models" accordion in the Mode editor is expanded. Defaults
    *  to open; collapsed state is persisted across sessions. */
   modelsBoxOpen?: boolean;
+  /** Internal: marks that the v0.18.6 SHADOW_PAD bump (14 → 32 pt)
+   *  position-shift compensation has run. Set to true the first time a
+   *  v0.18.7+ build loads settings. Never user-edited; never displayed.
+   *  Underscore prefix signals "internal migration marker, not config".
+   *  See migratePillPositions for semantics. */
+  _pillPositionsMigratedShadowPad32?: boolean;
 }
 
 export const HISTORY_MAX = 50;
@@ -208,6 +214,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   localWhisperEnabled: true,
   localCleanupEnabled: true,
   modelsBoxOpen: true,
+  // Fresh installs start "already migrated" — there are no v0.18.5
+  // positions to fix. The migration only fires for upgrade paths where
+  // the stored file lacks this marker (see migratePillPositions).
+  _pillPositionsMigratedShadowPad32: true,
   recordings: {
     saveLocal: false,         // Privacy-first default — audio opt-in only.
     retentionDays: 30,        // Auto-clean monthly when enabled.
@@ -323,22 +333,87 @@ function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): App
 
 // Test export.
 export const __test__mergeWithDefaults = mergeWithDefaults;
+export const __test__migratePillPositions = migratePillPositions;
+
+/**
+ * v0.18.6 → 0.18.7 one-shot migration for the SHADOW_PAD bump (14 → 32).
+ *
+ * Saved `pillExpandedPosition` / `pillCompactPosition` are the *window*
+ * origin in screen coords. With the larger transparent margin, the
+ * visible pill sits at (x + SHADOW_PAD, y + SHADOW_PAD) within the
+ * window — so a window opened at OLD saved coords shows the visible
+ * pill 18 pt further down-and-right than it used to be. Subtract that
+ * delta once so the visible pill returns to its previous screen
+ * position.
+ *
+ * Decision based on the **stored** value (not the merged one):
+ * DEFAULT_SETTINGS now seeds the marker as `true`, so the merged result
+ * always carries the marker — checking stored directly is the only way
+ * to detect a true v0.18.5-era settings file.
+ *
+ * Edge case: a user who installed v0.18.6 fresh, saved a position
+ * under SHADOW_PAD=32, then upgrades to v0.18.7 will have their
+ * position incorrectly subtracted by 18 — accept this since the v0.18.6
+ * audience is small at time of write, and one re-drag fixes it.
+ */
+const SHADOW_PAD_BUMP_DELTA = 18;
+function migratePillPositions(
+  storedRaw: Partial<AppSettings> | null | undefined,
+  merged: AppSettings,
+): { settings: AppSettings; changed: boolean } {
+  // No stored file → fresh install → DEFAULT_SETTINGS already has the
+  // marker, nothing to do.
+  if (!storedRaw) return { settings: merged, changed: false };
+  // Already-migrated saves carry the marker.
+  if (storedRaw._pillPositionsMigratedShadowPad32) {
+    return { settings: merged, changed: false };
+  }
+  // Pre-migration save (v0.18.5 or earlier): adjust positions if any,
+  // and persist the marker so future loads no-op.
+  let next: AppSettings = { ...merged, _pillPositionsMigratedShadowPad32: true };
+  if (merged.pillExpandedPosition) {
+    next = {
+      ...next,
+      pillExpandedPosition: {
+        x: merged.pillExpandedPosition.x - SHADOW_PAD_BUMP_DELTA,
+        y: merged.pillExpandedPosition.y - SHADOW_PAD_BUMP_DELTA,
+      },
+    };
+  }
+  if (merged.pillCompactPosition) {
+    next = {
+      ...next,
+      pillCompactPosition: {
+        x: merged.pillCompactPosition.x - SHADOW_PAD_BUMP_DELTA,
+        y: merged.pillCompactPosition.y - SHADOW_PAD_BUMP_DELTA,
+      },
+    };
+  }
+  return { settings: next, changed: true };
+}
 
 export async function loadSettings(): Promise<AppSettings> {
   const store = getStore();
   const stored = await store.get<Partial<AppSettings>>(SETTINGS_KEY);
-  const merged = mergeWithDefaults(stored ?? null);
-  // One-time data migration: rewrite any obsolete model IDs to current ones,
-  // then persist so the next read is a no-op.
-  const { modes, changed } = migrateModes(merged.modes);
-  if (changed) {
-    const next = { ...merged, modes };
-    await store.set(SETTINGS_KEY, next);
-    await store.save();
+  let working = mergeWithDefaults(stored ?? null);
+  let needsPersist = false;
+  const modeMigration = migrateModes(working.modes);
+  if (modeMigration.changed) {
+    working = { ...working, modes: modeMigration.modes };
+    needsPersist = true;
     console.log("[store-bridge] migrated obsolete model IDs in stored modes");
-    return next;
   }
-  return merged;
+  const positionMigration = migratePillPositions(stored, working);
+  if (positionMigration.changed) {
+    working = positionMigration.settings;
+    needsPersist = true;
+    console.log("[store-bridge] migrated pill positions for SHADOW_PAD bump (v0.18.6)");
+  }
+  if (needsPersist) {
+    await store.set(SETTINGS_KEY, working);
+    await store.save();
+  }
+  return working;
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {

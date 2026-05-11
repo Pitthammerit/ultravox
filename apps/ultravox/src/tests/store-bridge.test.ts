@@ -129,4 +129,44 @@ describe("store-bridge", () => {
       if (expected[m.id]) expect(m.transcriptionModel).toBe(expected[m.id]);
     }
   });
+
+  // v0.18.7 SHADOW_PAD migration. Saved positions from v0.18.5 (SHADOW_PAD=14)
+  // need to be shifted -18 per axis after the bump to SHADOW_PAD=32 in v0.18.6
+  // so the visible pill stays in the same screen location. Decision is keyed
+  // on the stored marker absence — DEFAULT_SETTINGS now seeds it true so a
+  // fresh install wouldn't otherwise be detectable as "needs migration".
+  it("migratePillPositions shifts a v0.18.5 settings file by -18 on first load", async () => {
+    // Seed the in-memory store with a v0.18.5-shaped record (no marker).
+    memory.set("settings", {
+      hotkeyRecord: "Cmd+Shift+;",
+      pillExpandedPosition: { x: 200, y: 300 },
+      pillCompactPosition: { x: 100, y: 50 },
+    });
+    const { loadSettings } = await importBridge();
+    const s = await loadSettings();
+    expect(s.pillExpandedPosition).toEqual({ x: 182, y: 282 });
+    expect(s.pillCompactPosition).toEqual({ x: 82, y: 32 });
+    expect(s._pillPositionsMigratedShadowPad32).toBe(true);
+  });
+
+  it("migratePillPositions is idempotent — no double-shift on repeat loads", async () => {
+    memory.set("settings", {
+      hotkeyRecord: "Cmd+Shift+;",
+      pillExpandedPosition: { x: 200, y: 300 },
+    });
+    const { loadSettings } = await importBridge();
+    const first = await loadSettings();
+    expect(first.pillExpandedPosition).toEqual({ x: 182, y: 282 });
+    // Second load reads the now-marker-stamped persisted record and skips.
+    const second = await loadSettings();
+    expect(second.pillExpandedPosition).toEqual({ x: 182, y: 282 });
+  });
+
+  it("migratePillPositions skips for a fresh install (DEFAULT_SETTINGS already marked)", async () => {
+    const { loadSettings, DEFAULT_SETTINGS } = await importBridge();
+    const s = await loadSettings();
+    expect(s._pillPositionsMigratedShadowPad32).toBe(true);
+    expect(s.pillExpandedPosition).toBeUndefined();
+    expect(s).toEqual(DEFAULT_SETTINGS);
+  });
 });
