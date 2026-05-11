@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { tokens } from "./ui";
+import { useT } from "../lib/i18n/I18nProvider";
 
 export type DuckPercent = 30 | 50 | 70;
 
@@ -8,65 +9,60 @@ interface DuckVolumePickerProps {
   onChange: (next: DuckPercent) => void;
 }
 
-const OPTIONS: Array<{ id: DuckPercent; label: string; description: string }> = [
-  { id: 30, label: "30%", description: "Subtle" },
-  { id: 50, label: "50%", description: "Balanced" },
-  { id: 70, label: "70%", description: "Strong" },
-];
-
-// Match PillStylePicker exactly so the two segmented controls read as one
-// consistent design language. Identical card dims, identical color tokens,
-// identical active scale + opacity transition.
-const PREVIEW_BG = "#2d2d33";
-const SMALL_ACTIVE_BORDER = "#224160";
-const CARD_W = 112;
-const CARD_H = 60;
-
 /**
- * Three-option segmented control for picking how much to duck other audio
- * while recording. Visually identical to PillStylePicker's small-mode card
- * row — same width/height, same active border + scale + opacity transition.
+ * Three-option segmented control for ducking depth.
+ *
+ * v0.18.11: refactored from the previous big-card layout (112×60 each
+ * with scale-up animation) to a compact pill-style segmented control,
+ * matching the visual language of HomePanel's RecordingStylePicker and
+ * the SettingsWindow LanguagePicker. The Subtle/Balanced/Strong labels
+ * describe the EFFECT (intensity); the exact percentage is in the hover
+ * title for users who want the number.
  */
 export function DuckVolumePicker({ value, onChange }: DuckVolumePickerProps) {
+  const t = useT();
   // Optimistic local state — same pattern as PillStylePicker, prevents
   // a one-render lag when the parent's onChange involves a disk write.
   const [selected, setSelected] = useState<DuckPercent>(value);
   useEffect(() => { setSelected(value); }, [value]);
 
+  const options: Array<{ id: DuckPercent; label: string }> = [
+    { id: 30, label: t.panels.sound.duckSubtle },
+    { id: 50, label: t.panels.sound.duckBalanced },
+    { id: 70, label: t.panels.sound.duckStrong },
+  ];
+
   return (
-    <div className="flex gap-4 items-center justify-center">
-      {OPTIONS.map((opt) => {
+    <div
+      className="inline-flex items-center gap-0.5 rounded-md p-0.5"
+      style={{ background: tokens.control }}
+      role="radiogroup"
+      aria-label={t.panels.sound.duckingDepth}
+    >
+      {options.map((opt) => {
         const active = opt.id === selected;
         return (
           <button
             key={opt.id}
             type="button"
-            aria-pressed={active}
-            aria-label={`${opt.label} ${opt.description}`}
-            title={`Duck other audio to ${100 - opt.id}% during recording`}
+            role="radio"
+            aria-checked={active}
+            aria-label={`${opt.label} (${opt.id}%)`}
+            title={t.panels.sound.duckTooltip(opt.id)}
             onClick={() => {
               setSelected(opt.id);
               onChange(opt.id);
             }}
-            className="rounded-lg flex flex-col items-center justify-center"
+            className="px-2.5 py-[3px] rounded text-[12px] font-medium transition-colors"
             style={{
-              width: CARD_W,
-              height: CARD_H,
-              background: PREVIEW_BG,
-              border: `1.5px solid ${active ? SMALL_ACTIVE_BORDER : "transparent"}`,
+              background: active ? tokens.card : "transparent",
+              color: active ? tokens.fg : tokens.fgMuted,
+              boxShadow: active ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
               cursor: "pointer",
-              opacity: active ? 1 : 0.5,
-              transform: active ? "scale(1.10)" : "scale(1)",
-              transition: "opacity 0.15s, transform 0.15s",
-              padding: 0,
+              border: "none",
             }}
           >
-            <span style={{ fontSize: 16, fontWeight: 600, color: tokens.fg, lineHeight: 1.1 }}>
-              {opt.label}
-            </span>
-            <span style={{ fontSize: 11, color: tokens.fgMuted, marginTop: 3, lineHeight: 1.1 }}>
-              {opt.description}
-            </span>
+            {opt.label}
           </button>
         );
       })}

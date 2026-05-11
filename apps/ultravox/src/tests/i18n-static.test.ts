@@ -57,7 +57,7 @@ const ALLOWLIST: ReadonlyArray<string> = [
   // Picker components have tiny English labels we'll migrate in their
   // panel-specific phases.
   "src/components/PillStylePicker.tsx",
-  "src/components/DuckVolumePicker.tsx",
+  // DuckVolumePicker fully migrated in v0.18.11 (compact segmented-control refactor).
   "src/components/HotkeyRecorder.tsx",
   "src/components/LocalLLMPicker.tsx",
   "src/components/TranscriptionModelPicker.tsx",

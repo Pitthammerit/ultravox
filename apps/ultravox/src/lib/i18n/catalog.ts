@@ -260,6 +260,13 @@ export interface MessageCatalog {
       duckMusic: string;
       duckMusicHelp: string;
       duckingDepth: string;
+      duckSubtle: string;
+      duckBalanced: string;
+      duckStrong: string;
+      /** Hover tooltip on each segment. `pct` is the user-selected
+       *  ducking amount (30/50/70). Body should describe the EFFECT,
+       *  not just restate the percentage. */
+      duckTooltip: (pct: number) => string;
       chime: string;
       chimeHelp: string;
       chimeVolume: string;

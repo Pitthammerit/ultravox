@@ -253,6 +253,10 @@ const en: MessageCatalog = {
       duckMusicHelp:
         "Lower Music/Spotify volume during recording, then restore. Less jarring than pausing if you want to keep listening.",
       duckingDepth: "Ducking depth",
+      duckSubtle: "Subtle",
+      duckBalanced: "Balanced",
+      duckStrong: "Strong",
+      duckTooltip: (pct) => `Lower other audio by ${pct}% while recording`,
       chime: "Chime on start/stop",
       chimeHelp: "Brief tone when recording starts and stops",
       chimeVolume: "Chime volume",
@@ -584,6 +588,10 @@ const de: MessageCatalog = {
       duckMusicHelp:
         "Reduziert Music/Spotify während der Aufnahme und stellt danach wieder her. Weniger störend als komplettes Pausieren.",
       duckingDepth: "Absenk-Tiefe",
+      duckSubtle: "Dezent",
+      duckBalanced: "Mittel",
+      duckStrong: "Stark",
+      duckTooltip: (pct) => `Anderes Audio während der Aufnahme um ${pct}% absenken`,
       chime: "Klang bei Start/Stopp",
       chimeHelp: "Kurzer Ton beim Aufnahmestart und -stopp",
       chimeVolume: "Klang-Lautstärke",
@@ -925,6 +933,10 @@ const es: MessageCatalog = {
       duckMusicHelp:
         "Baja el volumen de Music/Spotify durante la grabación y lo restaura después. Menos brusco que pausar si quieres seguir escuchando.",
       duckingDepth: "Profundidad de atenuación",
+      duckSubtle: "Sutil",
+      duckBalanced: "Equilibrado",
+      duckStrong: "Fuerte",
+      duckTooltip: (pct) => `Bajar el otro audio un ${pct}% durante la grabación`,
       chime: "Tono al iniciar/parar",
       chimeHelp: "Un tono breve al empezar y al parar la grabación",
       chimeVolume: "Volumen del tono",
@@ -1267,6 +1279,10 @@ const sv: MessageCatalog = {
       duckMusicHelp:
         "Sänk Music/Spotify under inspelningen och återställ sedan. Mindre störande än att pausa om du vill fortsätta lyssna.",
       duckingDepth: "Sänkningsnivå",
+      duckSubtle: "Mild",
+      duckBalanced: "Balanserad",
+      duckStrong: "Stark",
+      duckTooltip: (pct) => `Sänk annat ljud med ${pct}% under inspelning`,
       chime: "Ton vid start/stopp",
       chimeHelp: "Kort ton när inspelningen startar och stoppar",
       chimeVolume: "Ton-volym",
