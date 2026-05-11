@@ -20,7 +20,7 @@ interface OnboardingWizardProps {
 }
 
 type PermStatus = "idle" | "requesting" | "granted" | "denied";
-type Lang = "en" | "de";
+type Lang = "en" | "de" | "es" | "sv";
 type ThemeChoice = AppSettings["theme"];
 
 // Steps:
@@ -70,6 +70,8 @@ const COPY: Record<Lang, {
   langHintLine2: string;
   english: string;
   deutsch: string;
+  espanol: string;
+  svenska: string;
   // step 1
   startedTitle: string;
   startedBody: string;
@@ -147,6 +149,8 @@ const COPY: Record<Lang, {
     langHintLine2: "Make your preferred selection.",
     english: "English",
     deutsch: "Deutsch",
+    espanol: "Español",
+    svenska: "Svenska",
     startedTitle: "Let's get started",
     startedBody: "Voice-dictate into any text field on your Mac. Press a hotkey, speak, press again — the text appears wherever your cursor is.",
     nameTitle: "What's your name?",
@@ -221,6 +225,8 @@ const COPY: Record<Lang, {
     langHintLine2: "Make your preferred selection.",
     english: "English",
     deutsch: "Deutsch",
+    espanol: "Español",
+    svenska: "Svenska",
     startedTitle: "Los geht's",
     startedBody: "Diktiere in jedes Textfeld auf deinem Mac. Hotkey drücken, sprechen, erneut drücken — der Text erscheint dort, wo dein Cursor ist.",
     nameTitle: "Wie ist dein Name?",
@@ -288,11 +294,167 @@ const COPY: Record<Lang, {
     waiting: "Warte…",
     awaitingDialog: "Warte auf Systemdialog…",
   },
+  es: {
+    langTitle: `Bienvenido a ${BRANDING.appName}`,
+    langPrompt: "Continuar en…",
+    langHintLine1: "Elige tu idioma arriba.",
+    langHintLine2: "Make your preferred selection.",
+    english: "English",
+    deutsch: "Deutsch",
+    espanol: "Español",
+    svenska: "Svenska",
+    startedTitle: "Vamos a empezar",
+    startedBody: "Dicta por voz en cualquier campo de texto de tu Mac. Pulsa un atajo, habla, vuelve a pulsarlo — el texto aparece donde tengas el cursor.",
+    nameTitle: "¿Cómo te llamas?",
+    firstNamePlaceholder: "Nombre",
+    lastNamePlaceholder: "Apellido",
+    themeTitle: "Elige tu tema",
+    themeBody: "Elige un estilo. Puedes cambiarlo más tarde en Ajustes → Configuración.",
+    themeAuto: "Automático",
+    themeLight: "Claro",
+    themeDarkOcean: "Dark Ocean",
+    themeDarkNight: "Dark Night",
+    hotkeyTitle: "Elige tus atajos",
+    hotkeyBody: "El atajo de grabación inicia y detiene el dictado desde cualquier sitio — incluso cuando Ultravox no está en primer plano. El atajo del selector de modos abre un menú rápido para cambiar entre Correo, Nota, etc. al vuelo. Haz clic en una fila y pulsa tu combinación para cambiarla.",
+    hotkeyRecordLabel: "Iniciar / detener grabación",
+    hotkeyOverlayLabel: "Abrir selector de modo",
+    styleTitle: "¿Cómo quieres grabar?",
+    styleBody: "El modo alternar es ideal para dictar con manos libres. Pulsar para hablar resulta natural si estás acostumbrado a walkie-talkies o Discord.",
+    styleToggle: "Alternar",
+    styleToggleDesc: "Toca para empezar, toca para parar",
+    stylePtt: "Pulsar para hablar",
+    stylePttDesc: "Mantén pulsado el atajo para grabar, suéltalo para parar",
+    modeTitle: "¿Qué sueles escribir?",
+    modeBody: "Lo configuraremos como tu modo predeterminado. Puedes cambiarlo en cualquier momento con el atajo del selector de modos.",
+    whisperTitle: "Transcripción más rápida en tu dispositivo",
+    whisperBody: "Ejecuta Whisper localmente para que el audio nunca salga de tu Mac y la transcripción sea casi instantánea. Elige un modelo — lo descargaremos en segundo plano mientras terminas la configuración. También puedes saltarte este paso y descargarlo más tarde desde los ajustes.",
+    whisperVariants: [
+      { id: "tiny",            label: "Tiny",            size: "~78 MB",  description: "El más rápido — solo borradores breves" },
+      { id: "base.en",         label: "Base (Inglés)",   size: "~148 MB", description: "Borrador rápido optimizado para inglés" },
+      { id: "small",           label: "Small",           size: "~488 MB", description: "Buen equilibrio para cualquier uso" },
+      { id: "medium-q8_0",     label: "Medium (q8)",     size: "~823 MB", description: "El mejor equilibrio — recomendado" },
+      { id: "large-v3",        label: "Large v3",        size: "~3,1 GB", description: "Máxima precisión (máx.)" },
+    ],
+    whisperSkip: "Omitir — usar transcripción en la nube",
+    whisperDownloading: "Descargando",
+    whisperBackgroundHint: "Las descargas continúan en segundo plano — puedes seguir cuando quieras.",
+    pillTitle: "Ventana de grabación",
+    pillBody: "Elige cómo se ve la pastilla flotante mientras grabas. Puedes cambiarlo más tarde en los ajustes de sonido.",
+    pillOptions: [
+      { id: "classic", label: "Clásica", description: "Pastilla completa con forma de onda" },
+      { id: "mini",    label: "Mini",    description: "Puntos compactos en la parte superior de la pantalla" },
+    ],
+    micTitle: "Permitir acceso al micrófono",
+    micBody: "Ultravox graba tu voz localmente y solo envía el audio al servicio de transcripción. macOS te lo preguntará una vez — pulsa Permitir cuando aparezca el aviso.",
+    micLabel: "Micrófono",
+    micGranted: "Acceso concedido",
+    micDenied: "Acceso denegado — abre Ajustes del sistema → Privacidad → Micrófono",
+    allowMic: "Permitir acceso al micrófono",
+    axTitle: "Permitir acceso de accesibilidad",
+    axBody: "Ultravox necesita el permiso de Accesibilidad para pegar el texto transcrito en cualquier app activa — el mismo permiso que usa DeepL para su superposición.",
+    axLabel: "Accesibilidad",
+    axGranted: "Acceso concedido",
+    axIdleHint: "Activa Ultravox en la lista que se acaba de abrir y luego pulsa Actualizar abajo.",
+    axNotGranted: "Aún no concedido",
+    allowAx: "Permitir acceso de accesibilidad",
+    refresh: "Lo he activado — Actualizar",
+    doneTitle: "Todo listo",
+    doneBody: (kbd) => (<>Haz clic en cualquier campo de texto — Notas, Mail, un navegador — coloca el cursor, pulsa {kbd} para grabar y vuelve a pulsarlo para parar.</>),
+    doneTip: "Consejo: activa la transcripción local en Ajustes → Modes & AI Models para dictar más rápido y de forma totalmente privada.",
+    open: `Abrir ${BRANDING.appName}`,
+    continueBtn: "Continuar",
+    tryAgain: "Intentar de nuevo",
+    openSettings: "Abrir Ajustes del sistema",
+    skip: "Omitir configuración",
+    back: "← Atrás",
+    waiting: "Esperando…",
+    awaitingDialog: "Esperando el diálogo del sistema…",
+  },
+  sv: {
+    langTitle: `Välkommen till ${BRANDING.appName}`,
+    langPrompt: "Fortsätt på…",
+    langHintLine1: "Välj ditt språk ovan.",
+    langHintLine2: "Make your preferred selection.",
+    english: "English",
+    deutsch: "Deutsch",
+    espanol: "Español",
+    svenska: "Svenska",
+    startedTitle: "Då sätter vi igång",
+    startedBody: "Diktera med rösten i vilket textfält som helst på din Mac. Tryck på ett kortkommando, prata, tryck igen — texten dyker upp där markören står.",
+    nameTitle: "Vad heter du?",
+    firstNamePlaceholder: "Förnamn",
+    lastNamePlaceholder: "Efternamn",
+    themeTitle: "Välj ditt tema",
+    themeBody: "Välj ett utseende. Du kan ändra det senare under Inställningar → Konfiguration.",
+    themeAuto: "Automatiskt",
+    themeLight: "Ljust",
+    themeDarkOcean: "Dark Ocean",
+    themeDarkNight: "Dark Night",
+    hotkeyTitle: "Välj dina kortkommandon",
+    hotkeyBody: "Inspelningskortkommandot startar och stoppar diktering var som helst — även när Ultravox inte är i fokus. Kortkommandot för lägesväljaren öppnar en snabb meny så att du kan växla mellan E-post, Anteckning osv. när du vill. Klicka på en rad och tryck din kombination för att ändra den.",
+    hotkeyRecordLabel: "Starta / stoppa inspelning",
+    hotkeyOverlayLabel: "Öppna lägesväljare",
+    styleTitle: "Hur vill du spela in?",
+    styleBody: "Växla är perfekt för diktering utan händer. Tryck-för-att-prata känns naturligt om du är van vid walkie-talkies eller Discord.",
+    styleToggle: "Växla",
+    styleToggleDesc: "Tryck för att starta, tryck för att stoppa",
+    stylePtt: "Tryck-för-att-prata",
+    stylePttDesc: "Håll inne kortkommandot för att spela in, släpp för att stoppa",
+    modeTitle: "Vad skriver du mest?",
+    modeBody: "Vi sätter det som ditt standardläge. Du kan byta när som helst med kortkommandot för lägesväljaren.",
+    whisperTitle: "Snabbare transkribering på din enhet",
+    whisperBody: "Kör Whisper lokalt så att ljudet aldrig lämnar din Mac och transkriberingen sker på under en sekund. Välj en modell — vi laddar ner den i bakgrunden medan du blir klar med inställningarna. Du kan också hoppa över och ladda ner senare från Inställningar.",
+    whisperVariants: [
+      { id: "tiny",            label: "Tiny",            size: "~78 MB",  description: "Snabbast — bara för korta utkast" },
+      { id: "base.en",         label: "Base (Engelska)", size: "~148 MB", description: "Engelskanpassat snabbutkast" },
+      { id: "small",           label: "Small",           size: "~488 MB", description: "Stabil allroundare" },
+      { id: "medium-q8_0",     label: "Medium (q8)",     size: "~823 MB", description: "Bästa balansen — rekommenderas" },
+      { id: "large-v3",        label: "Large v3",        size: "~3,1 GB", description: "Högsta noggrannheten (max)" },
+    ],
+    whisperSkip: "Hoppa över — använd molntranskribering",
+    whisperDownloading: "Laddar ner",
+    whisperBackgroundHint: "Nedladdningarna fortsätter i bakgrunden — du kan gå vidare när du vill.",
+    pillTitle: "Inspelningsfönster",
+    pillBody: "Välj hur den flytande pillret ser ut medan du spelar in. Du kan ändra det senare i ljudinställningarna.",
+    pillOptions: [
+      { id: "classic", label: "Klassisk", description: "Helt piller med vågform" },
+      { id: "mini",    label: "Mini",     description: "Kompakta prickar högst upp på skärmen" },
+    ],
+    micTitle: "Tillåt mikrofonåtkomst",
+    micBody: "Ultravox spelar in din röst lokalt och skickar bara ljudet till transkriberingstjänsten. macOS frågar en gång — klicka på Tillåt när dialogrutan dyker upp.",
+    micLabel: "Mikrofon",
+    micGranted: "Åtkomst beviljad",
+    micDenied: "Åtkomst nekad — öppna Systeminställningar → Integritet → Mikrofon",
+    allowMic: "Tillåt mikrofonåtkomst",
+    axTitle: "Tillåt åtkomst till hjälpmedel",
+    axBody: "Ultravox behöver behörigheten Hjälpmedel för att kunna klistra in den transkriberade texten i valfri app i fokus — samma behörighet som DeepL använder för sitt överlägg.",
+    axLabel: "Hjälpmedel",
+    axGranted: "Åtkomst beviljad",
+    axIdleHint: "Aktivera Ultravox i listan som just öppnades, klicka sedan på Uppdatera nedan.",
+    axNotGranted: "Inte beviljad ännu",
+    allowAx: "Tillåt hjälpmedelsåtkomst",
+    refresh: "Jag har aktiverat det — Uppdatera",
+    doneTitle: "Allt klart",
+    doneBody: (kbd) => (<>Klicka i valfritt textfält — Anteckningar, Mail, en webbläsare — placera markören, tryck {kbd} för att spela in, tryck igen för att stoppa.</>),
+    doneTip: "Tips: aktivera transkribering på enheten under Inställningar → Modes & AI Models för snabbare och helt privat diktering.",
+    open: `Öppna ${BRANDING.appName}`,
+    continueBtn: "Fortsätt",
+    tryAgain: "Försök igen",
+    openSettings: "Öppna Systeminställningar",
+    skip: "Hoppa över introduktionen",
+    back: "← Tillbaka",
+    waiting: "Väntar…",
+    awaitingDialog: "Väntar på systemdialog…",
+  },
 };
 
 function detectInitialLang(): Lang {
   const nav = typeof navigator !== "undefined" ? navigator.language ?? "" : "";
-  return nav.toLowerCase().startsWith("de") ? "de" : "en";
+  const lower = nav.toLowerCase();
+  if (lower.startsWith("de")) return "de";
+  if (lower.startsWith("es")) return "es";
+  if (lower.startsWith("sv")) return "sv";
+  return "en";
 }
 
 export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
@@ -325,11 +487,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   // the system language so we can pre-emphasize the matching choice.
   useEffect(() => {
     loadSettings().then((s) => {
-      // OnboardingWizard ships its own onboarding-specific COPY catalog
-      // limited to en + de — the main i18n catalog (en/de/es/sv) covers
-      // the post-onboarding app shell. Clamp here so an es/sv-preferring
-      // user sees the wizard in English instead of crashing the picker.
-      if (s.uiLanguage === "en" || s.uiLanguage === "de") setLang(s.uiLanguage);
+      if (s.uiLanguage) setLang(s.uiLanguage);
       // Hydrate from new fields, falling back to legacy split for users
       // upgrading from <0.9.16 (mergeWithDefaults already migrates the saved
       // store, but the saved object passed here may still carry the old shape).
@@ -363,7 +521,11 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
       if (!s.uiLanguage) {
         getSystemLanguage()
           .then((sys) => {
-            const next: Lang = sys === "de" ? "de" : "en";
+            const next: Lang =
+              sys === "de" ? "de"
+              : sys === "es" ? "es"
+              : sys === "sv" ? "sv"
+              : "en";
             setLang(next);
           })
           .catch(() => {});
@@ -372,7 +534,11 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
     }).catch(() => {
       getSystemLanguage()
         .then((sys) => {
-          const next: Lang = sys === "de" ? "de" : "en";
+          const next: Lang =
+            sys === "de" ? "de"
+            : sys === "es" ? "es"
+            : sys === "sv" ? "sv"
+            : "en";
           setLang(next);
         })
         .catch(() => {});
@@ -424,7 +590,10 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
 
   const switchLang = useCallback(async (next: Lang, autoAdvance = false) => {
     setLang(next);
-    await patchSettings({ uiLanguage: next });
+    // AppSettings.uiLanguage is still typed `"en" | "de"` in store-bridge.ts —
+    // widening to include "es" | "sv" lives in a parallel patch landing
+    // alongside this one. Cast here so the store accepts the new values now.
+    await patchSettings({ uiLanguage: next as AppSettings["uiLanguage"] });
     if (autoAdvance) setStep(1);
   }, [patchSettings]);
 
@@ -571,6 +740,8 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
       <div className="absolute top-4 right-4 flex gap-1 z-10">
         <LangBtn active={lang === "en"} onClick={() => switchLang("en")}>EN</LangBtn>
         <LangBtn active={lang === "de"} onClick={() => switchLang("de")}>DE</LangBtn>
+        <LangBtn active={lang === "es"} onClick={() => switchLang("es")}>ES</LangBtn>
+        <LangBtn active={lang === "sv"} onClick={() => switchLang("sv")}>SV</LangBtn>
       </div>
 
       <div className="w-full max-w-sm flex flex-col items-stretch gap-8">
@@ -596,9 +767,11 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
             <p className="text-center" style={{ color: FG_BODY, fontSize: 14, marginBottom: 4 }}>
               {t.langPrompt}
             </p>
-            <div className="flex gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <BigChoiceBtn onClick={() => switchLang("en", true)}>{t.english}</BigChoiceBtn>
               <BigChoiceBtn onClick={() => switchLang("de", true)}>{t.deutsch}</BigChoiceBtn>
+              <BigChoiceBtn onClick={() => switchLang("es", true)}>{t.espanol}</BigChoiceBtn>
+              <BigChoiceBtn onClick={() => switchLang("sv", true)}>{t.svenska}</BigChoiceBtn>
             </div>
             <div className="flex flex-col gap-0.5 mt-2 text-center" style={{ color: FG_MUTED, fontSize: 12 }}>
               <span>{t.langHintLine1}</span>

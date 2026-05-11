@@ -729,14 +729,14 @@ const es: MessageCatalog = {
         "Haz clic en un chip para grabar una nueva combinación. Esc cancela, Retroceso borra.",
       recordToggle: "Atajo de grabación",
       modeSwitcher: "Selector de modo",
-      pushToTalk: "Pulsar para hablar",
+      pushToTalk: "Mantener para hablar",
       pushToTalkHelp:
         "Mantén pulsado el atajo mientras hablas en lugar de alternar. Define una combinación de teclas dedicada abajo.",
       pushToTalkPlaceholder: "v1.5",
       recordingStyleLabel: "Estilo de grabación",
       recordingStyleToggle: "Alternar",
-      recordingStylePtt: "Pulsar para hablar",
-      pttHotkeyLabel: "Atajo de pulsar para hablar",
+      recordingStylePtt: "Mantener para hablar",
+      pttHotkeyLabel: "Atajo para mantener y hablar",
       sectionAppearance: "Apariencia",
       themeLabel: "Tema",
       themeLight: "Claro",
@@ -771,7 +771,7 @@ const es: MessageCatalog = {
       sectionOnboardingHelp:
         "Vuelve a abrir el asistente de configuración. Tus ajustes se conservan.",
       launchOnboarding: "Iniciar",
-      diagnosticsFooter: (n) => `${n} entradas · más recientes primero`,
+      diagnosticsFooter: (n) => `${n} entradas · más recientes arriba`,
       diagnosticsConfirmAgain: "Haz clic otra vez",
       diagnosticsEmpty: "Aún no hay eventos — prueba con una grabación.",
       installedWhisperEmpty:
@@ -789,7 +789,7 @@ const es: MessageCatalog = {
       sectionModeSelection: "Selección de modo",
       sectionModeSelectionHelp:
         "Cómo decide Ultravox qué modo de voz usar en cada grabación.",
-      autoModeLabel: "Elegir modo automáticamente según la app",
+      autoModeLabel: "Modo automático por app",
       autoModeHelp:
         "Cuando está activo, la app en primer plano elige el modo (p. ej. Mail → Email, VS Code → Code). Para apps desconocidas se usa tu modo activo.",
       sectionTranscription: "Transcripción instalada",
@@ -839,9 +839,9 @@ const es: MessageCatalog = {
       cacheModeLabel: "Comportamiento",
       cacheModeHelp:
         "Controla qué pasa con cada transcripción DESPUÉS de pegarla. Independiente del almacenamiento de audio. La transcripción siempre se envía a nuestro servidor para procesarla — esto solo afecta a si el texto limpio se conserva también en tu historial local.",
-      cacheModeAutoCopy: "Auto-copia + caché",
-      cacheModeCacheOnly: "Solo caché (copia manual)",
-      cacheModeNoCache: "No guardar en caché",
+      cacheModeAutoCopy: "Copiar y guardar en caché",
+      cacheModeCacheOnly: "Solo caché (copiar a mano)",
+      cacheModeNoCache: "No guardar nada",
       showRecordingsButton: "Mostrar grabaciones recientes",
       autoDeleteAfter: "Eliminar tras",
       retentionNever: "Nunca",
@@ -953,9 +953,9 @@ const es: MessageCatalog = {
         "El audio solo se guarda cuando 'Guardar grabaciones de audio localmente' está activado en Configuración → Grabaciones.",
       footnoteCap: "Se conservan las últimas 50 transcripciones.",
       timeJustNow: "ahora mismo",
-      timeMinutesAgo: (n) => `hace ${n}m`,
-      timeHoursAgo: (n) => `hace ${n}h`,
-      timeDaysAgo: (n) => `hace ${n}d`,
+      timeMinutesAgo: (n) => `hace ${n} min`,
+      timeHoursAgo: (n) => `hace ${n} h`,
+      timeDaysAgo: (n) => `hace ${n} d`,
       clickToCopy: "Haz clic para copiar",
       expand: "Expandir",
       collapse: "Contraer",
@@ -997,7 +997,7 @@ const es: MessageCatalog = {
     miniDescription: "Puntos compactos en la parte superior de la pantalla",
   },
   errors: {
-    generic: "Algo ha ido mal.",
+    generic: "Algo ha salido mal.",
   },
 };
 
@@ -1041,7 +1041,7 @@ const sv: MessageCatalog = {
     about: "Om Ultravox",
     copyLastTranscription: "Kopiera senaste transkription",
     hide: "Göm Ultravox",
-    hideOthers: "Göm övriga",
+    hideOthers: "Göm andra",
     showAll: "Visa alla",
     quit: "Avsluta Ultravox",
     edit: "Redigera",
@@ -1068,17 +1068,17 @@ const sv: MessageCatalog = {
       navSound: "Ljud & mikrofon",
       sectionRecording: "Inspelning",
       hotkeyHelp:
-        "Klicka på en chip för att spela in en ny kombination. Esc avbryter, Backsteg rensar.",
+        "Klicka på en bricka för att spela in en ny kombination. Esc avbryter, Backsteg rensar.",
       recordToggle: "Inspelnings-snabbtangent",
       modeSwitcher: "Lägesväxlare",
-      pushToTalk: "Tryck-för-att-prata",
+      pushToTalk: "Tryck och tala",
       pushToTalkHelp:
         "Håll ned snabbtangenten medan du pratar istället för att växla. Ange en egen tangentkombination nedan.",
       pushToTalkPlaceholder: "v1.5",
       recordingStyleLabel: "Inspelningsstil",
       recordingStyleToggle: "Växla",
-      recordingStylePtt: "Tryck-för-att-prata",
-      pttHotkeyLabel: "Snabbtangent för tryck-för-att-prata",
+      recordingStylePtt: "Tryck och tala",
+      pttHotkeyLabel: "Tangent för tryck och tala",
       sectionAppearance: "Utseende",
       themeLabel: "Tema",
       themeLight: "Ljust",
@@ -1099,7 +1099,7 @@ const sv: MessageCatalog = {
         "Används av dina lägen för att personifiera städningen (hälsningsfraser, avslutningar, ersättningar via {{firstName}} / {{fullName}}). Sparas bara lokalt.",
       firstName: "Förnamn",
       lastName: "Efternamn",
-      sectionCleanupBackends: "Städnings-backends",
+      sectionCleanupBackends: "Städningsmotorer",
       sectionCleanupBackendsHelp:
         "Städning per läge konfigureras i Lägen-panelen. Den här sidan visar bara vilka backends som finns på den här Macen.",
       claudeCodeCli: "Claude Code CLI",
@@ -1131,7 +1131,7 @@ const sv: MessageCatalog = {
       sectionModeSelection: "Lägesval",
       sectionModeSelectionHelp:
         "Hur Ultravox väljer röstläge för varje inspelning.",
-      autoModeLabel: "Välj läge automatiskt efter app",
+      autoModeLabel: "Välj läge per app",
       autoModeHelp:
         "När påslagen väljer den aktiva appen läget (t.ex. Mail → Email, VS Code → Code). För okända appar används ditt aktiva läge.",
       sectionTranscription: "Installerad transkription",
@@ -1181,9 +1181,9 @@ const sv: MessageCatalog = {
       cacheModeLabel: "Beteende",
       cacheModeHelp:
         "Styr vad som händer med varje transkription EFTER inklistring. Oberoende av ljudlagring. Transkriptionen skickas alltid till vår server för bearbetning — det här påverkar bara om den städade texten också sparas i din lokala historik.",
-      cacheModeAutoCopy: "Auto-kopia + cache",
-      cacheModeCacheOnly: "Bara cache (manuell kopia)",
-      cacheModeNoCache: "Cacha inte",
+      cacheModeAutoCopy: "Kopiera och spara i cache",
+      cacheModeCacheOnly: "Endast cache (kopiera manuellt)",
+      cacheModeNoCache: "Spara inget",
       showRecordingsButton: "Visa senaste inspelningar",
       autoDeleteAfter: "Radera efter",
       retentionNever: "Aldrig",
@@ -1219,7 +1219,7 @@ const sv: MessageCatalog = {
       unsavedBody:
         "Du har osparade ändringar i det här läget. Spara eller släng dem innan du byter.",
       unsavedSave: "Spara",
-      unsavedDiscard: "Släng",
+      unsavedDiscard: "Kassera",
       downloadModelTitle: "Ladda ner modell?",
       downloadModelBody: (label, size) =>
         `Det här läget använder ${label}${size ? ` (${size})` : ""}, som inte är installerat än. Ladda ner nu?`,
@@ -1295,9 +1295,9 @@ const sv: MessageCatalog = {
         "Ljud sparas bara när 'Spara ljudinspelningar lokalt' är på i Konfiguration → Inspelningar.",
       footnoteCap: "De senaste 50 transkriptionerna bevaras.",
       timeJustNow: "just nu",
-      timeMinutesAgo: (n) => `${n}m sedan`,
-      timeHoursAgo: (n) => `${n}h sedan`,
-      timeDaysAgo: (n) => `${n}d sedan`,
+      timeMinutesAgo: (n) => `${n} min sedan`,
+      timeHoursAgo: (n) => `${n} tim sedan`,
+      timeDaysAgo: (n) => `${n} d sedan`,
       clickToCopy: "Klicka för att kopiera",
       expand: "Expandera",
       collapse: "Fäll ihop",
@@ -1322,7 +1322,7 @@ const sv: MessageCatalog = {
       `Inklistring misslyckades: ${msg} — hjälpmedelsåtkomst sannolikt nekad.`,
     invalidConstraint:
       "Ogiltig mikrofonkonfiguration — starta om Ultravox eller kontrollera Systeminställningar → Ljud → Indata.",
-    silentDescription: "Spelar in…",
+    silentDescription: "Inspelning pågår…",
   },
   modeOverlay: {
     title: "Byt läge",
