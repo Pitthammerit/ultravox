@@ -87,6 +87,19 @@ post-mount AppleScript icon positioning, re-sign + staple after
 modifying the DMG). **Never use `pnpm tauri build` directly** — it
 will skip the uninstaller injection and re-sign step.
 
+**Editing a resource inside a signed `.app` invalidates its signature.**
+The Uninstall Ultravox.app is signed in-source under `dmg-assets/`. If
+anything mutates `Contents/Resources/Scripts/main.scpt` (e.g. recompiling
+the AppleScript), the bundle's sealed-resource hash goes stale and
+notarytool rejects the DMG with `"The signature of the binary is
+invalid."` on `Uninstall Ultravox.app/Contents/MacOS/applet`. The fix —
+already encoded in `scripts/build-dmg.sh` — is to re-sign the bundle in
+place on the mounted volume with the Developer ID identity + hardened
+runtime + timestamp BEFORE `.DS_Store` rewrites and DMG re-compression.
+General rule: any resource edit inside a signed bundle must be followed
+by a re-sign of the bundle. Skip the re-sign and notarization fails 5
+minutes later with a generic error that doesn't name the resource.
+
 **Apple ID for notarization is `kurtzfilm@me.com`** (in `apps/ultravox/.env.build`).
 The session prompt's `# userEmail` (`hallo@benjaminkurtz.de`) is Benjamin's
 Claude account email, *not* the Apple ID — don't substitute. Apple's
@@ -178,10 +191,54 @@ global setting, not flipping the global default.
 
 The pill is an NSPanel (ISA-swapped from NSWindow at runtime in `src-tauri/src/pill_window.rs`) so it can float above other apps' fullscreen Spaces while the app's activation policy stays `Regular` (Dock + Cmd-Tab visible).
 
-- **`canBecomeKeyWindow` override required.** With `NSWindowStyleMaskNonactivatingPanel` set, the framework default for `canBecomeKeyWindow` is NO → panel can never be key → JS `keydown` listeners never fire. We `class_replaceMethod` it on the `NSPanel` class to return YES. Without this, Esc and every keyboard interaction silently dies in both compact and full pill.
+- **`canBecomeKeyWindow` override required.** With `NSWindowStyleMaskNonactivatingPanel` set, the framework default for `canBecomeKeyWindow` is NO → panel can never be key → JS `keydown` listeners never fire. We `class_replaceMethod` it on the `NSPanel` class to return YES. Without this, Esc and every keyboard interaction silently dies in both compact and full pill. Caveat: `class_replaceMethod` mutates the entire `NSPanel` class, not just our pill — every NSPanel in the process now returns YES from `canBecomeKeyWindow`. Acceptable in practice (we don't host other NSPanels) but keep in mind when reading AppKit-side bug reports.
+- **App-level activation ≠ NSWindow key status.** A window becoming "key" only means it receives keystrokes; the *app* becoming frontmost is a separate state owned by `[NSApplication activate/deactivate]` / `[NSRunningApplication activateWithOptions:]`. The pill's `canBecomeKeyWindow=YES` lets the panel receive Esc *without* activating Ultravox — that's the entire point of `NSWindowStyleMaskNonactivatingPanel`. When debugging "wrong app stole focus" reports, separate the two concepts before forming hypotheses.
 - **Compact-pill window size = visible pill + 2×SHADOW_PAD.** CSS `box-shadow` clips at the window edge, so the inner rounded element needs a transparent margin around it — same pattern as the full pill (`padding: SHADOW_PAD` on outer container). Forgetting this gives a square shadow halo around rounded corners.
 - **Top-center Y offset ≥40pt on macOS.** Tauri's `monitor.position()` returns NSScreen `frame.origin` which **includes** the menu bar and notch. On notched MacBooks the notch reaches ~37pt; the previous 12pt offset placed the compact pill behind it. Use 44pt.
 - **Saved expanded position must be in *logical* points.** `webviewWindow.outerPosition()` returns `PhysicalPosition` (raw pixels); the Rust command `set_pill_size_at_position` interprets x/y as `LogicalPosition`. On retina (scale 2), saving raw physical position warps the window 2× off-screen on next expand. Divide by `webviewWindow.scaleFactor()` before persisting to `settings.pillExpandedPosition`.
+
+## Paste pipeline — focus-stealing defense (v0.18.3+)
+
+The flow: transcription completes → JS hides the pill → JS invokes
+`paste_to_frontmost(text, target_pid)` → Rust writes the clipboard →
+activates the target app → 90 ms settle → dispatches a synthetic Cmd+V →
+500 ms later restores the previous clipboard.
+
+Two failure modes converge to "paste lands in our own Settings window":
+
+1. **Captured target IS ourselves.** If the user fires the hotkey while
+   Settings was frontmost, `getFrontmostApp()` returns Ultravox's own
+   PID. Re-activating that PID brings Settings forward instead of any
+   user app.
+2. **Activation race after pill hide.** Hiding the pill (NSPanel with
+   `canBecomeKeyWindow=YES`) lets AppKit promote the next-ordered
+   window of the same app — typically Settings — to key. Ultravox is
+   then briefly the OS-frontmost app, and the subsequent
+   `activate_app_by_pid(notes)` can lose the race against the in-flight
+   key-window swap.
+
+**Rule:** `paste_to_frontmost` MUST `[NSApp deactivate]` BEFORE calling
+`activate_app_by_pid`, and MUST skip self-activation when
+`target_pid == std::process::id()`. The deactivate gives macOS room to
+promote the previously-frontmost non-self app; the skip prevents
+re-activating ourselves on the "captured target is Ultravox" path. Both
+together cover every scenario seen so far. Don't remove either without
+adding a replacement defense.
+
+**Diagnostic contract.** `paste_to_frontmost` returns
+`PasteDiagnostics { target_was_self, frontmost_at_paste }`. The frontend
+writes both into `debug-log.json` alongside the captured target bundle
+id. Result: any future "paste went to the wrong place" report is
+triageable from logs alone — you can tell apart wrong-PID-captured (look
+at the `record-start` `WARNING=self` tag) from activation-race (look at
+`frontmost_at_paste` in the `paste` entry — if it's `com.ultravox.*`
+when it shouldn't be, the deactivate-before-activate sequence needs
+another defense layer). Preserve this return shape on every future edit
+to the paste path; downgrading it back to `Result<(), String>` blinds us.
+
+Code path: `apps/ultravox/src-tauri/src/paste.rs` +
+`apps/ultravox/src-tauri/src/frontmost.rs` (helpers `deactivate_self` +
+`current_frontmost_bundle_id`).
 
 ## Local Whisper — CoreML acceleration (v0.15.0+)
 
