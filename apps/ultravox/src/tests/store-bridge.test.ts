@@ -169,4 +169,59 @@ describe("store-bridge", () => {
     expect(s.pillExpandedPosition).toBeUndefined();
     expect(s).toEqual(DEFAULT_SETTINGS);
   });
+
+  // v0.19.0 seed migration. The curated apps.json registry was the
+  // runtime source-of-truth before v0.19.0. v0.19.0 makes it seed-only:
+  // on first launch, walk apps.json, look up each preferredMode in the
+  // user's saved modes, and append { bundleId, displayName } to that
+  // mode's autoModeApps (de-duped by bundle ID). Set autoModeSeeded=true
+  // after so we don't re-add user-deleted entries on every launch.
+  it("migrateSeedAutoModeApps seeds curated apps.json into matching modes on first load", async () => {
+    memory.set("settings", {
+      hotkeyRecord: "Cmd+Shift+;",
+      modes: [
+        // v0.18.x save shape: existing modes, NO autoModeApps, NO autoModeSeeded.
+        { id: "email", name: "Email", languageModelProvider: "claude-code", languageModel: "anthropic/claude-haiku-4.5", voiceModel: "whisper-large-v3-turbo", language: "auto", cleanup: "prose", transcriptionModel: "base", autocapitalize: true, insertion: "paste" },
+        { id: "note", name: "Note", languageModelProvider: "claude-code", languageModel: "anthropic/claude-haiku-4.5", voiceModel: "whisper-large-v3-turbo", language: "auto", cleanup: "note", transcriptionModel: "base", autocapitalize: true, insertion: "paste" },
+      ],
+    });
+    const { loadSettings } = await importBridge();
+    const s = await loadSettings();
+    const email = s.modes.find((m) => m.id === "email");
+    expect(email?.autoModeApps?.length, "email mode should have curated apps seeded").toBeGreaterThan(0);
+    expect(email?.autoModeApps?.some((a) => a.bundleId === "com.apple.mail")).toBe(true);
+    expect(s.autoModeSeeded).toBe(true);
+  });
+
+  it("migrateSeedAutoModeApps is idempotent — does NOT re-seed on second load (user-deletes persist)", async () => {
+    memory.set("settings", {
+      modes: [
+        { id: "email", name: "Email", languageModelProvider: "claude-code", languageModel: "anthropic/claude-haiku-4.5", voiceModel: "whisper-large-v3-turbo", language: "auto", cleanup: "prose", transcriptionModel: "base", autocapitalize: true, insertion: "paste" },
+      ],
+    });
+    const { loadSettings, saveSettings } = await importBridge();
+    // First load: seed runs, autoModeSeeded becomes true.
+    const first = await loadSettings();
+    // Simulate the user deleting one of the seeded entries.
+    const emailMode = first.modes.find((m) => m.id === "email")!;
+    emailMode.autoModeApps = (emailMode.autoModeApps ?? []).filter((a) => a.bundleId !== "com.apple.mail");
+    await saveSettings(first);
+    // Second load: seeded marker is now true, deleted entry stays deleted.
+    const second = await loadSettings();
+    const emailAfter = second.modes.find((m) => m.id === "email");
+    expect(emailAfter?.autoModeApps?.some((a) => a.bundleId === "com.apple.mail"), "user-deleted bundle must NOT be re-added").toBe(false);
+  });
+
+  it("migrateSeedAutoModeApps skips when autoModeSeeded is already true (no re-seeding empty lists)", async () => {
+    memory.set("settings", {
+      modes: [
+        { id: "email", name: "Email", languageModelProvider: "claude-code", languageModel: "anthropic/claude-haiku-4.5", voiceModel: "whisper-large-v3-turbo", language: "auto", cleanup: "prose", transcriptionModel: "base", autocapitalize: true, insertion: "paste", autoModeApps: [] },
+      ],
+      autoModeSeeded: true,
+    });
+    const { loadSettings } = await importBridge();
+    const s = await loadSettings();
+    const email = s.modes.find((m) => m.id === "email");
+    expect(email?.autoModeApps?.length, "marker true → no seeding").toBe(0);
+  });
 });

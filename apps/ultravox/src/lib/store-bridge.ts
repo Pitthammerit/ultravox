@@ -2,6 +2,18 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 import { emit } from "@tauri-apps/api/event";
 import { DEFAULT_MODES, type VoiceMode } from "./voiceModes";
 import type { Lang } from "./i18n/catalog";
+import appsJson from "./apps.json";
+
+interface AppsRegistryEntry {
+  bundleId: string;
+  preferredMode: string;
+  displayName: string;
+}
+interface AppsRegistry {
+  version: number;
+  apps: AppsRegistryEntry[];
+}
+const appsRegistry: AppsRegistry = appsJson as AppsRegistry;
 
 export interface VocabularyEntry {
   input: string;
@@ -356,6 +368,49 @@ function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): App
 // Test export.
 export const __test__mergeWithDefaults = mergeWithDefaults;
 export const __test__migratePillPositions = migratePillPositions;
+export const __test__migrateSeedAutoModeApps = migrateSeedAutoModeApps;
+
+/**
+ * v0.18.x → 0.19.0 one-shot seed migration. Before v0.19.0 the
+ * `apps.json` curated registry was the runtime source-of-truth for
+ * auto-mode (bundle ID → preferredMode lookup). v0.19.0 makes
+ * `apps.json` seed-only: walk it once, look up each `preferredMode` in
+ * the user's saved modes, and append `{ bundleId, displayName }` to
+ * that mode's `autoModeApps` (de-duped by bundle ID).
+ *
+ * Decision based on `storedRaw.autoModeSeeded` — same stored-not-merged
+ * check pattern as migratePillPositions. DEFAULT_SETTINGS seeds the
+ * marker true so fresh installs (storedRaw=null) skip naturally; only
+ * upgrade paths with a v0.18.x save (marker absent in stored) trigger
+ * the seeding.
+ *
+ * Idempotent: user-deleted entries stay deleted on subsequent loads
+ * because the marker is set to true on first run.
+ */
+function migrateSeedAutoModeApps(
+  storedRaw: Partial<AppSettings> | null | undefined,
+  merged: AppSettings,
+): { settings: AppSettings; changed: boolean } {
+  if (!storedRaw) return { settings: merged, changed: false };
+  if (storedRaw.autoModeSeeded) return { settings: merged, changed: false };
+  // Pre-v0.19.0 save: walk apps.json and append to matching modes.
+  const next: AppSettings = { ...merged, autoModeSeeded: true };
+  next.modes = merged.modes.map((m) => {
+    const seedEntries = appsRegistry.apps.filter((a) => a.preferredMode === m.id);
+    if (seedEntries.length === 0) {
+      // Ensure the field exists even when no curated entries — empty
+      // array beats undefined for downstream code clarity.
+      return { ...m, autoModeApps: m.autoModeApps ?? [] };
+    }
+    const existing = m.autoModeApps ?? [];
+    const existingBundleIds = new Set(existing.map((e) => e.bundleId.toLowerCase()));
+    const toAdd = seedEntries
+      .filter((s) => !existingBundleIds.has(s.bundleId.toLowerCase()))
+      .map((s) => ({ bundleId: s.bundleId, displayName: s.displayName }));
+    return { ...m, autoModeApps: [...existing, ...toAdd] };
+  });
+  return { settings: next, changed: true };
+}
 
 /**
  * v0.18.6 → 0.18.7 one-shot migration for the SHADOW_PAD bump (14 → 32).
@@ -430,6 +485,12 @@ export async function loadSettings(): Promise<AppSettings> {
     working = positionMigration.settings;
     needsPersist = true;
     console.log("[store-bridge] migrated pill positions for SHADOW_PAD bump (v0.18.6)");
+  }
+  const autoModeMigration = migrateSeedAutoModeApps(stored, working);
+  if (autoModeMigration.changed) {
+    working = autoModeMigration.settings;
+    needsPersist = true;
+    console.log("[store-bridge] seeded apps.json curated entries into per-mode autoModeApps (v0.19.0)");
   }
   if (needsPersist) {
     await store.set(SETTINGS_KEY, working);
