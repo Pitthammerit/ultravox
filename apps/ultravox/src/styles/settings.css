@@ -80,10 +80,15 @@ body[data-route="settings"] #root {
 }
 
 .ux-help-tip {
-  /* Fixed positioning lets the tooltip escape any overflow:hidden parent —
-     bottom/left are set via JS from the anchor's getBoundingClientRect. */
+  /* Fixed positioning lets the tooltip escape any overflow:hidden parent.
+     top/left are set via JS from HelpIcon.updateTipPos, which centers on
+     the anchor when there's room and clamps to the viewport otherwise.
+     No CSS transform on the position — it used to be translateX(-50%) to
+     center, but that overflowed when the anchor was near the viewport edge.
+     The tiny translateY(4px) on rest preserves the fade-up motion without
+     interfering with the JS-computed left. */
   position: fixed;
-  transform: translateX(-50%) translateY(4px);
+  transform: translateY(4px);
   opacity: 0;
   pointer-events: none;
   /* Always dark navy — must not invert when theme switches to dark mode. */
@@ -108,7 +113,7 @@ body[data-route="settings"] #root {
 .ux-help:hover .ux-help-tip,
 .ux-help:focus-within .ux-help-tip {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
   transition: opacity 120ms ease 250ms, transform 120ms ease 250ms;
 }
 

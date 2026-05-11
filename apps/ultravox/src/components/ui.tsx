@@ -249,23 +249,85 @@ export function SectionLabel({
   );
 }
 
+/**
+ * Position the tooltip such that:
+ *   - It's always fully within the viewport (8px margin on every edge).
+ *   - Default placement is above the anchor.
+ *   - Flips below if there isn't enough room above.
+ *   - Centered horizontally on the anchor when there's room; clamped to the
+ *     nearest edge when the anchor is too close to the viewport edge.
+ *
+ * The previous implementation used CSS `transform: translateX(-50%)` for
+ * centering. That blindly shifted the tooltip half its width to the left of
+ * the anchor center — fine in the middle of the viewport, broken at either
+ * edge (user reported the Recording-section help tip cropped off the left
+ * edge in German, 2026-05-11). New approach computes the explicit top + left
+ * in JS so we can clamp into the viewport.
+ */
+const TIP_VIEWPORT_MARGIN = 8;
+const TIP_ANCHOR_GAP = 6;
+
 export function HelpIcon({ tooltip }: { tooltip?: string }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
-  const [tipPos, setTipPos] = useState<{ bottom: number; left: number } | null>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const [tipPos, setTipPos] = useState<{ top: number; left: number } | null>(null);
 
-  function updateTipPos() {
-    if (!anchorRef.current) return;
-    const r = anchorRef.current.getBoundingClientRect();
-    setTipPos({
-      // "bottom" in fixed context = distance from viewport bottom to tip's bottom edge.
-      // Placing tip bottom 6px above anchor top keeps it clear of the icon.
-      bottom: window.innerHeight - r.top + 6,
-      left: r.left + r.width / 2,
-    });
-  }
+  const updateTipPos = useCallback(() => {
+    const anchor = anchorRef.current;
+    const tip = tipRef.current;
+    if (!anchor || !tip) return;
+    const a = anchor.getBoundingClientRect();
+    // offsetWidth/Height reflect the rendered size including padding; works
+    // even while opacity:0 since the element is in flow.
+    const tw = tip.offsetWidth;
+    const th = tip.offsetHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Horizontal: prefer centered on anchor, clamp into viewport.
+    const desiredLeft = a.left + a.width / 2 - tw / 2;
+    const left = Math.max(
+      TIP_VIEWPORT_MARGIN,
+      Math.min(desiredLeft, vw - tw - TIP_VIEWPORT_MARGIN),
+    );
+
+    // Vertical: prefer above anchor; flip below if no room.
+    let top = a.top - th - TIP_ANCHOR_GAP;
+    if (top < TIP_VIEWPORT_MARGIN) {
+      top = a.bottom + TIP_ANCHOR_GAP;
+      // If even below would overflow (tiny window), pin to bottom margin
+      // and let the tooltip overlap the anchor — still readable.
+      if (top + th > vh - TIP_VIEWPORT_MARGIN) {
+        top = Math.max(TIP_VIEWPORT_MARGIN, vh - th - TIP_VIEWPORT_MARGIN);
+      }
+    }
+
+    setTipPos({ top, left });
+  }, []);
+
+  // Recompute on scroll/resize so multi-monitor and window-drag corner cases
+  // don't strand the tip off-screen between hover and re-hover.
+  useEffect(() => {
+    const onResize = () => {
+      if (anchorRef.current && anchorRef.current.matches(":hover, :focus-within")) {
+        updateTipPos();
+      }
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onResize, true);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onResize, true);
+    };
+  }, [updateTipPos]);
 
   return (
-    <span className="ux-help inline-flex items-center" onMouseEnter={updateTipPos} ref={anchorRef}>
+    <span
+      className="ux-help inline-flex items-center"
+      onMouseEnter={updateTipPos}
+      onFocus={updateTipPos}
+      ref={anchorRef}
+    >
       <span
         className="inline-flex items-center justify-center cursor-help shrink-0"
         style={{ width: 13, height: 13, color: T.fgSubtle }}
@@ -289,9 +351,10 @@ export function HelpIcon({ tooltip }: { tooltip?: string }) {
       </span>
       {tooltip && (
         <span
+          ref={tipRef}
           className="ux-help-tip"
           role="tooltip"
-          style={tipPos ? { bottom: tipPos.bottom, left: tipPos.left } : undefined}
+          style={tipPos ? { top: tipPos.top, left: tipPos.left } : undefined}
         >
           {tooltip}
         </span>
