@@ -25,9 +25,9 @@
  *  - Numeric units like "MB" / "GB" — universal.
  */
 
-export type Lang = "en" | "de";
+export type Lang = "en" | "de" | "es" | "sv";
 
-export const LANGS: ReadonlyArray<Lang> = ["en", "de"] as const;
+export const LANGS: ReadonlyArray<Lang> = ["en", "de", "es", "sv"] as const;
 
 export interface MessageCatalog {
   /** Common buttons and actions reused across panels. */
@@ -149,6 +149,10 @@ export interface MessageCatalog {
       sectionRecordingWindow: string;
       sectionRecordingWindowHelp: string;
       pillStyleLabel: string;
+      sectionModeSelection: string;
+      sectionModeSelectionHelp: string;
+      autoModeLabel: string;
+      autoModeHelp: string;
       sectionTranscription: string;
       sectionPermissions: string;
       sectionPermissionsHelp: string;

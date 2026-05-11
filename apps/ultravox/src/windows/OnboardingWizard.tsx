@@ -325,7 +325,11 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   // the system language so we can pre-emphasize the matching choice.
   useEffect(() => {
     loadSettings().then((s) => {
-      if (s.uiLanguage) setLang(s.uiLanguage);
+      // OnboardingWizard ships its own onboarding-specific COPY catalog
+      // limited to en + de — the main i18n catalog (en/de/es/sv) covers
+      // the post-onboarding app shell. Clamp here so an es/sv-preferring
+      // user sees the wizard in English instead of crashing the picker.
+      if (s.uiLanguage === "en" || s.uiLanguage === "de") setLang(s.uiLanguage);
       // Hydrate from new fields, falling back to legacy split for users
       // upgrading from <0.9.16 (mergeWithDefaults already migrates the saved
       // store, but the saved object passed here may still carry the old shape).

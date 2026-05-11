@@ -1,6 +1,7 @@
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { emit } from "@tauri-apps/api/event";
 import { DEFAULT_MODES, type VoiceMode } from "./voiceModes";
+import type { Lang } from "./i18n/catalog";
 
 export interface VocabularyEntry {
   input: string;
@@ -111,8 +112,10 @@ export interface AppSettings {
   vocabulary: VocabularyEntry[];
   /** Theme choice: 'auto' | 'light' | 'dark-ocean' | 'dark-night'. */
   theme: "auto" | "light" | "dark-ocean" | "dark-night";
-  /** UI language preference (chosen during onboarding). */
-  uiLanguage: "en" | "de";
+  /** UI language preference (chosen during onboarding). All four members
+   *  of the catalog Lang union are now selectable in the LANG_OPTIONS
+   *  picker — keep this type in sync with catalog.ts. */
+  uiLanguage: Lang;
   /** Legacy single-field display name. v0.9.16+ stores firstName/lastName
    *  separately; mergeWithDefaults migrates this on load. Retained in the
    *  interface so older saves still parse without errors. */
@@ -177,6 +180,13 @@ export interface AppSettings {
   /** Whether the "Models" accordion in the Mode editor is expanded. Defaults
    *  to open; collapsed state is persisted across sessions. */
   modelsBoxOpen?: boolean;
+  /** When true, each recording picks its mode based on the frontmost app's
+   *  bundle id (apps.json lookup → preferred mode). Falls back to the user's
+   *  activeModeId when the bundle isn't registered. Default false — the
+   *  user's explicit choice always wins unless this is opted into. Was
+   *  removed in v0.11.7 (silent override hid user intent); restored in
+   *  v0.18.8 behind this opt-in. */
+  autoModeEnabled?: boolean;
   /** Internal: marks that the v0.18.6 SHADOW_PAD bump (14 → 32 pt)
    *  position-shift compensation has run. Set to true the first time a
    *  v0.18.7+ build loads settings. Never user-edited; never displayed.
@@ -214,6 +224,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   localWhisperEnabled: true,
   localCleanupEnabled: true,
   modelsBoxOpen: true,
+  autoModeEnabled: false,
   // Fresh installs start "already migrated" — there are no v0.18.5
   // positions to fix. The migration only fires for upgrade paths where
   // the stored file lacks this marker (see migratePillPositions).

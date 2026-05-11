@@ -24,8 +24,7 @@ import {
 } from "../lib/tauri-bridge";
 import { DEFAULT_MODES, type VoiceMode } from "../lib/voiceModes";
 import { appendHistory, loadSettings, patchSettings, saveSettings, type AppSettings } from "../lib/store-bridge";
-// pickAutoMode intentionally unused — see startRecord comment.
-// import { pickAutoMode } from "../lib/autoMode";
+import { selectModeForRecording } from "../lib/autoMode";
 import { invoke } from "@tauri-apps/api/core";
 import { captureError, track } from "../lib/telemetry";
 import { logDebug } from "../lib/debugLog";
@@ -707,15 +706,21 @@ export default function PillWindow() {
         message: `target capture: pid=${frontmost?.pid ?? "none"} bundle=${frontmost?.bundle_id ?? "none"}${capturedSelf ? " WARNING=self" : ""}`,
       });
       const modes = cur?.modes ?? DEFAULT_MODES;
-      // Trust the user's manually-selected activeModeId. The previous
-      // pickAutoMode(...) call silently overrode their selection whenever the
-      // frontmost app was in apps.json (browsers → "note", IDEs → "code"
-      // etc.) — recording in a custom mode like Raw v3 Turbo while a browser
-      // was focused always reverted to Note. Auto-mode-by-frontmost-app will
-      // come back as an opt-in toggle later; respecting the explicit choice
-      // is the right default.
+      // Mode selection. By default, the user's manually-selected
+      // activeModeId wins — `pickAutoMode` silently overrode that
+      // pre-v0.11.7 (every browser-focused recording reverted to "note").
+      // v0.18.8 reintroduces it as an opt-in via settings.autoModeEnabled:
+      // when true, frontmost-app bundle id is looked up in apps.json and
+      // the matching mode is used (falling back to activeModeId for
+      // unknown apps). Gating extracted into selectModeForRecording so
+      // the logic is unit-testable.
       const activeId = cur?.activeModeId ?? modes[0]!.id;
-      const picked = modes.find((m) => m.id === activeId) ?? modes[0]!;
+      const picked = selectModeForRecording(
+        modes,
+        activeId,
+        frontmost?.bundle_id,
+        cur?.autoModeEnabled ?? false,
+      );
       setMode(picked);
       track("recording.started", { modeId: picked.id, bundleId: frontmost?.bundle_id ?? null });
       if (cur?.sound.chime) playStartChime(cur.sound.chimeVolume);

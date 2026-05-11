@@ -37,6 +37,7 @@ import { VARIANT_LABEL_MAP } from "../lib/transcriptionVariants";
 import { LLM_LABEL_MAP } from "../lib/llmVariants";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 import { useT } from "../lib/i18n/I18nProvider";
+import type { Lang } from "../lib/i18n/catalog";
 
 type SettingsSection =
   | "home"
@@ -235,6 +236,28 @@ export default function ConfigurationPanel({ settings, onChange, onNavigate }: C
               size="small"
             />
           }
+        />
+      </Section>
+
+      {/* Mode selection — opt-in auto-mode-by-frontmost-app. Default off:
+          the user's manually-picked activeModeId always wins until they
+          flip this. Restored in v0.18.8 after being removed in v0.11.7
+          (it silently overrode user intent). Sits ABOVE the model lists
+          so it reads as a "how modes resolve" setting, not an "advanced
+          model" tweak. */}
+      <Section
+        collapsible
+        defaultCollapsed
+        label={t.panels.configuration.sectionModeSelection}
+        help={t.panels.configuration.sectionModeSelectionHelp}
+      >
+        <ToggleRow
+          label={t.panels.configuration.autoModeLabel}
+          help={t.panels.configuration.autoModeHelp}
+          checked={settings?.autoModeEnabled ?? false}
+          onChange={(v) => {
+            if (onChange) void onChange({ autoModeEnabled: v });
+          }}
         />
       </Section>
 
@@ -1322,29 +1345,30 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
    active segment uses --color-accent to match the rest of the
    highlight states.
 
-   Locked at the Lang catalog union ("en" | "de") so adding Swedish/
-   Spanish means: append to LANG_OPTIONS here AND add the corresponding
-   entry in catalog.ts + messages.ts. TypeScript fails the build if
-   any of the three drifts out of sync.
+   Locked at the Lang catalog union (en | de | es | sv) so adding new
+   languages means: append to LANG_OPTIONS here AND add the
+   corresponding entry in catalog.ts + messages.ts. TypeScript fails
+   the build if any of the three drifts out of sync.
    ────────────────────────────────────────────────────────────────── */
 
 interface LangOption {
-  id: "en" | "de";
+  id: Lang;
   label: string;
 }
 
 const LANG_OPTIONS: LangOption[] = [
   { id: "en", label: "English" },
   { id: "de", label: "Deutsch" },
-  // Spanish + Swedish reserved — add catalog entries first, then list here.
+  { id: "es", label: "Español" },
+  { id: "sv", label: "Svenska" },
 ];
 
 function LanguagePicker({
   value,
   onChange,
 }: {
-  value: "en" | "de";
-  onChange: (next: "en" | "de") => void;
+  value: Lang;
+  onChange: (next: Lang) => void;
 }) {
   return (
     <div

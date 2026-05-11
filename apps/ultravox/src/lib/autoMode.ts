@@ -42,3 +42,23 @@ export function getRegistryEntry(bundleId: string | null | undefined): AppEntry 
   if (!bundleId) return null;
   return byBundle.get(bundleId.toLowerCase()) ?? null;
 }
+
+/**
+ * Pick the mode for a single recording, gated on the user's opt-in setting.
+ * When `autoModeEnabled` is true → frontmost-app lookup via pickAutoMode.
+ * When false → user's explicit activeModeId wins (the v0.11.7+ default).
+ *
+ * Extracted from PillWindow.startRecord so the gating is unit-testable
+ * without mounting the recording pipeline.
+ */
+export function selectModeForRecording(
+  modes: VoiceMode[],
+  activeModeId: string,
+  frontmostBundleId: string | null | undefined,
+  autoModeEnabled: boolean,
+): VoiceMode {
+  if (autoModeEnabled) {
+    return pickAutoMode(frontmostBundleId, modes, activeModeId);
+  }
+  return modes.find((m) => m.id === activeModeId) ?? modes[0]!;
+}

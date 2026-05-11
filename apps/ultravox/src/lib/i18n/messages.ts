@@ -131,6 +131,12 @@ const en: MessageCatalog = {
       sectionRecordingWindow: "Recording window",
       sectionRecordingWindowHelp: "Choose how the floating pill appears while you're recording.",
       pillStyleLabel: "Style",
+      sectionModeSelection: "Mode selection",
+      sectionModeSelectionHelp:
+        "How Ultravox decides which voice mode to use for each recording.",
+      autoModeLabel: "Auto-pick mode by app",
+      autoModeHelp:
+        "When on, the frontmost app picks the mode (e.g. Mail → Email, VS Code → Code). Falls back to your active mode for unknown apps.",
       sectionTranscription: "Installed transcription",
       sectionPermissions: "Permissions",
       sectionPermissionsHelp: "Required for Ultravox to record audio and paste transcriptions into other apps.",
@@ -442,6 +448,12 @@ const de: MessageCatalog = {
       sectionRecordingWindowHelp:
         "Wähle, wie die schwebende Pille während der Aufnahme aussieht.",
       pillStyleLabel: "Stil",
+      sectionModeSelection: "Modusauswahl",
+      sectionModeSelectionHelp:
+        "Wie Ultravox entscheidet, welcher Voice-Modus für jede Aufnahme verwendet wird.",
+      autoModeLabel: "Modus automatisch nach App",
+      autoModeHelp:
+        "Wenn aktiv, bestimmt die fokussierte App den Modus (z. B. Mail → E-Mail, VS Code → Code). Für unbekannte Apps wird dein aktiver Modus verwendet.",
       sectionTranscription: "Installierte Transkription",
       sectionPermissions: "Berechtigungen",
       sectionPermissionsHelp:
@@ -647,4 +659,688 @@ const de: MessageCatalog = {
   },
 };
 
-export const CATALOG: Record<Lang, MessageCatalog> = { en, de };
+const es: MessageCatalog = {
+  common: {
+    back: "Atrás",
+    cancel: "Cancelar",
+    confirm: "Confirmar",
+    save: "Guardar",
+    delete: "Eliminar",
+    deleteConfirm: "Haz clic para confirmar",
+    copy: "Copiar",
+    copied: "✓ Copiado",
+    close: "Cerrar",
+    open: "Abrir",
+    next: "Siguiente",
+    skip: "Omitir",
+    continueLabel: "Continuar",
+    refresh: "Actualizar",
+    settings: "Ajustes",
+    granted: "Concedido",
+    denied: "Denegado",
+    notYet: "Aún no",
+    on: "Activado",
+    off: "Desactivado",
+    loading: "Cargando…",
+  },
+  tray: {
+    toggleRecord: "Iniciar/parar grabación",
+    copyLastTranscription: "Copiar última transcripción",
+    settingsItem: "Ajustes…",
+    micSettings: "Ajustes de micrófono",
+    micOpenSystemSettings: "Abrir Ajustes del Sistema…",
+    micDefault: "Predeterminado (sistema)",
+    axSettings: "Ajustes de accesibilidad…",
+    modeMenu: "Modo",
+    quit: "Salir de Ultravox",
+    versionLabel: (version) => `Versión ${version}`,
+  },
+  appMenu: {
+    about: "Acerca de Ultravox",
+    copyLastTranscription: "Copiar última transcripción",
+    hide: "Ocultar Ultravox",
+    hideOthers: "Ocultar otros",
+    showAll: "Mostrar todo",
+    quit: "Salir de Ultravox",
+    edit: "Edición",
+    undo: "Deshacer",
+    redo: "Rehacer",
+    cut: "Cortar",
+    copy: "Copiar",
+    paste: "Pegar",
+    selectAll: "Seleccionar todo",
+  },
+  breadcrumbs: {
+    home: "Inicio",
+    modes: "Modos y modelos de IA",
+    vocabulary: "Vocabulario",
+    configuration: "Configuración",
+    sound: "Sonido y micrófono",
+    history: "Historial",
+  },
+  panels: {
+    home: {
+      sectionVoice: "Voz",
+      navModes: "Modos y modelos de IA",
+      navVocabulary: "Vocabulario",
+      navSound: "Sonido y micrófono",
+      sectionRecording: "Grabación",
+      hotkeyHelp:
+        "Haz clic en un chip para grabar una nueva combinación. Esc cancela, Retroceso borra.",
+      recordToggle: "Atajo de grabación",
+      modeSwitcher: "Selector de modo",
+      pushToTalk: "Pulsar para hablar",
+      pushToTalkHelp:
+        "Mantén pulsado el atajo mientras hablas en lugar de alternar. Define una combinación de teclas dedicada abajo.",
+      pushToTalkPlaceholder: "v1.5",
+      recordingStyleLabel: "Estilo de grabación",
+      recordingStyleToggle: "Alternar",
+      recordingStylePtt: "Pulsar para hablar",
+      pttHotkeyLabel: "Atajo de pulsar para hablar",
+      sectionAppearance: "Apariencia",
+      themeLabel: "Tema",
+      themeLight: "Claro",
+      themeDark: "Oscuro",
+      themeAuto: "Automático",
+      themeOcean: "Ocean",
+      themeNight: "Night",
+      sectionApp: "App",
+      navConfiguration: "Configuración",
+      navHistory: "Historial",
+      lastTranscriptionLabel: "Última transcripción",
+      lastTranscriptionHelp:
+        "Vuelve a copiar la transcripción más reciente al portapapeles si tu pegado fue al sitio equivocado. Después pega con ⌘V.",
+    },
+    configuration: {
+      sectionAboutYou: "Sobre ti",
+      sectionAboutYouHelp:
+        "Usado por tus modos para personalizar la limpieza (saludos, despedidas, sustituciones vía {{firstName}} / {{fullName}}). Solo se guarda localmente.",
+      firstName: "Nombre",
+      lastName: "Apellido",
+      sectionCleanupBackends: "Backends de limpieza",
+      sectionCleanupBackendsHelp:
+        "La limpieza por modo se configura en el panel de Modos. Esta página solo muestra qué backends están disponibles en este Mac.",
+      claudeCodeCli: "Claude Code CLI",
+      claudeCodeCliInstall:
+        "Instala Claude Code CLI para activar la limpieza en el dispositivo con tu modelo local.",
+      claudeCodeCliDetected: (path) => `Detectado en ${path}`,
+      claudeCodeCliChecking: "Comprobando…",
+      claudeCodeCliAvailable: (version) => `Disponible · ${version || "v?"}`,
+      claudeCodeCliNotInstalled: "No instalado",
+      sectionOnboarding: "Asistente de inicio",
+      sectionOnboardingHelp:
+        "Vuelve a abrir el asistente de configuración. Tus ajustes se conservan.",
+      launchOnboarding: "Iniciar",
+      diagnosticsFooter: (n) => `${n} entradas · más recientes primero`,
+      diagnosticsConfirmAgain: "Haz clic otra vez",
+      diagnosticsEmpty: "Aún no hay eventos — prueba con una grabación.",
+      installedWhisperEmpty:
+        "No hay modelos de Whisper instalados. Elige una variante en el ajuste de Modelo de Transcripción de un modo para descargar uno.",
+      installedLlmHeader: "Modelos LLM instalados",
+      installedLlmEmpty:
+        "No hay modelos LLM instalados. Elige una variante en el ajuste de Modelo de Procesamiento de un modo para descargar uno.",
+      deleteModelTitle: "Eliminar archivo de modelo",
+      coremlAneBadgeTitle:
+        "Encoder CoreML instalado — se ejecuta en Apple Neural Engine",
+      sectionRecordingWindow: "Ventana de grabación",
+      sectionRecordingWindowHelp:
+        "Elige cómo aparece la píldora flotante mientras grabas.",
+      pillStyleLabel: "Estilo",
+      sectionModeSelection: "Selección de modo",
+      sectionModeSelectionHelp:
+        "Cómo decide Ultravox qué modo de voz usar en cada grabación.",
+      autoModeLabel: "Elegir modo automáticamente según la app",
+      autoModeHelp:
+        "Cuando está activo, la app en primer plano elige el modo (p. ej. Mail → Email, VS Code → Code). Para apps desconocidas se usa tu modo activo.",
+      sectionTranscription: "Transcripción instalada",
+      sectionPermissions: "Permisos",
+      sectionPermissionsHelp:
+        "Necesarios para que Ultravox pueda grabar audio y pegar transcripciones en otras apps.",
+      micAccess: "Acceso al micrófono",
+      micGrantedHelp: "Concedido — la grabación funciona.",
+      micDeniedHelp:
+        "Denegado — abre Ajustes del Sistema → Privacidad y seguridad → Micrófono y activa Ultravox.",
+      micPromptHelp: "Aún no solicitado — haz clic en Conceder acceso.",
+      micCheckingHelp: "Comprobando…",
+      grantAccess: "Conceder acceso",
+      axAccess: "Acceso de accesibilidad",
+      axGrantedHelp: "Concedido — el pegado con Cmd+V funciona en cualquier app.",
+      axIdleHelp:
+        "Necesario para que Ultravox pueda pegar el texto transcrito en la app con foco mediante Cmd+V.",
+      axRequestingHelp:
+        "Esperando al diálogo del sistema — haz clic en Abrir Ajustes del Sistema si no aparece.",
+      sectionRecordings: "Grabaciones",
+      sectionRecordingsHelp:
+        "Guarda opcionalmente el audio de cada grabación en tu Mac. Los archivos permanecen locales — nunca se suben excepto para la petición original de transcripción. Útil para reproducir, re-transcribir o auditar.",
+      saveAudioLocally: "Guardar grabaciones de audio localmente",
+      saveAudioOnHelp: (retentionLabel) =>
+        `Eliminado automáticamente tras ${retentionLabel}. La carpeta se puede cambiar abajo.`,
+      saveAudioOffHelp:
+        "Desactivado — las grabaciones se transcriben y se descartan como hasta ahora.",
+      folderLabel: "Carpeta",
+      folderDefaultHelp:
+        "Usando la ubicación predeterminada. Elige otra carpeta si prefieres guardar las grabaciones en otro sitio.",
+      folderCustomHelp:
+        "Usando una carpeta personalizada. Restablece para volver a guardar las grabaciones en Documentos.",
+      folderChoose: "Elegir carpeta…",
+      folderReset: "Restablecer al valor predeterminado",
+      sectionLanguage: "Idioma",
+      sectionLanguageHelp:
+        "Idioma de la interfaz. El idioma hablado se detecta de forma independiente en cada grabación.",
+      languageLabel: "Idioma de la interfaz",
+      toggleOffTitle: "¿Eliminar las grabaciones existentes?",
+      toggleOffBody: (count, size) =>
+        `Tienes ${count} grabación${count === 1 ? "" : "es"} guardada${count === 1 ? "" : "s"} (${size}). Las futuras grabaciones ya no se guardarán — ¿qué hacemos con los archivos existentes? La grabación y la transcripción siguen funcionando igual; esto solo afecta a la copia de seguridad de audio en el disco.`,
+      toggleOffDelete: "Eliminar todo + carpeta",
+      toggleOffKeep: "Conservar en el disco",
+      sectionLastTranscription: "Última transcripción",
+      sectionLastTranscriptionHelp:
+        "Adónde va el texto transcrito tras cada grabación — al portapapeles, al historial, a ambos o a ninguno.",
+      cacheModeLabel: "Comportamiento",
+      cacheModeHelp:
+        "Controla qué pasa con cada transcripción DESPUÉS de pegarla. Independiente del almacenamiento de audio. La transcripción siempre se envía a nuestro servidor para procesarla — esto solo afecta a si el texto limpio se conserva también en tu historial local.",
+      cacheModeAutoCopy: "Auto-copia + caché",
+      cacheModeCacheOnly: "Solo caché (copia manual)",
+      cacheModeNoCache: "No guardar en caché",
+      showRecordingsButton: "Mostrar grabaciones recientes",
+      autoDeleteAfter: "Eliminar tras",
+      retentionNever: "Nunca",
+      retentionDays: (days) => `${days} días`,
+      diskUsage: "Uso de disco",
+      diskUsageEmpty: "0 grabaciones",
+      diskUsageFull: (size) => `${size}`,
+      openFolder: "Abrir carpeta",
+      deleteAll: (count) => `Eliminar todo (${count})`,
+      deleteAllConfirm: "Toca otra vez para eliminar",
+      sectionDiagnostics: "Diagnóstico",
+      sectionDiagnosticsHelp:
+        "Últimas entradas del registro. Útil al reportar un problema.",
+      clearLog: "Vaciar registro",
+      sectionDangerZone: "Zona de peligro",
+      resetAll: "Restablecer todos los ajustes",
+      resetAllConfirm: "Haz clic otra vez para confirmar",
+      resetAllHelp:
+        "Borra todas las preferencias, modos e historial. No se puede deshacer.",
+    },
+    modes: {
+      sectionRunOnDevice: "Ejecutar en el dispositivo",
+      enableLocalTranscription: "Activar transcripción local",
+      enableLocalTranscriptionHelp:
+        "Cuando está activado, cada modo muestra un desplegable de Modelo de Transcripción para procesar el audio en el dispositivo. Desactivado = todos los modos usan la nube.",
+      enableLocalCleanup: "Activar limpieza local",
+      enableLocalCleanupHelp:
+        "Cuando está activado, los modos con proveedor = Local (LLM en el dispositivo) ejecutan la limpieza localmente. Cuando está desactivado, esos modos recurren silenciosamente al worker en la nube.",
+      sectionActiveMode: "Modo activo",
+      addMode: "+ Nuevo",
+      noModes: "Ningún modo configurado.",
+      unsavedTitle: "¿Guardar o descartar cambios?",
+      unsavedBody:
+        "Tienes cambios sin guardar en este modo. Guárdalos o descártalos antes de salir.",
+      unsavedSave: "Guardar",
+      unsavedDiscard: "Descartar",
+      downloadModelTitle: "¿Descargar modelo?",
+      downloadModelBody: (label, size) =>
+        `Este modo usa ${label}${size ? ` (${size})` : ""}, que aún no está instalado. ¿Descargar ahora?`,
+      downloadModelDownload: "Descargar",
+      downloadModelUseCloud: "Usar la nube por ahora",
+      dragHandleTitle: "Arrastra para reordenar",
+      duplicateTitle: "Duplicar este modo",
+      duplicateAriaLabel: (name) => `Duplicar ${name}`,
+      newMode: "Nuevo modo",
+      newModeCopy: (name) => `Nuevo modo — copia de ${name}`,
+      configureMode: (name) => `Configurar — ${name}`,
+    },
+    sound: {
+      roundTripTest: "Prueba de ida y vuelta",
+      roundTripTestHelp:
+        "Graba 2s, envía al worker y muestra la respuesta. Prueba la pipeline aislada — sin atajo, sin pegado.",
+      testRecordIdle: "Grabación de prueba",
+      testRecordRecording: "Grabando 2s…",
+      testRecordTranscribing: "Enviando al worker…",
+      compareIdle: "Grabar y comparar",
+      compareRecording: "Grabando 6s…",
+      compareRunning: "Comparando…",
+      compareRunAgain: "Ejecutar otra vez",
+      compareWhisperRaw: "Whisper (en bruto)",
+      sectionMicrophone: "Micrófono",
+      sectionMicrophoneHelp:
+        "Ultravox usa el micrófono predeterminado del sistema. La selección por dispositivo llega en v1.1.",
+      sectionCompare: "Comparar calidad de limpieza",
+      sectionCompareHelp:
+        "Graba 6s y luego envía el mismo audio en paralelo por Whisper en bruto + cuatro variantes de LLM. Usa esto para elegir el modelo adecuado para tu estilo de dictado.",
+      sectionInputProcessing: "Procesamiento de entrada",
+      autoGain: "Ganancia automática",
+      autoGainHelp: "El navegador ajusta el nivel del micrófono automáticamente",
+      noiseSuppression: "Supresión de ruido",
+      noiseSuppressionHelp:
+        "Reduce el ruido de fondo. Ligera pérdida de calidad.",
+      silenceRemoval: "Eliminación de silencios",
+      silenceRemovalHelp:
+        "Recortar pasajes silenciosos antes de la subida (v1.1)",
+      sectionSoundEffects: "Efectos de sonido",
+      pauseMusic: "Pausar música mientras grabas",
+      pauseMusicHelp:
+        "Pausa Music y Spotify al iniciar una grabación; reanuda al pararla.",
+      duckMusic: "Bajar el otro audio mientras grabas",
+      duckMusicHelp:
+        "Baja el volumen de Music/Spotify durante la grabación y lo restaura después. Menos brusco que pausar si quieres seguir escuchando.",
+      duckingDepth: "Profundidad de atenuación",
+      chime: "Tono al iniciar/parar",
+      chimeHelp: "Un tono breve al empezar y al parar la grabación",
+      chimeVolume: "Volumen del tono",
+      chimeTest: "Probar",
+      chimeTestStart: "▶ Iniciar",
+      chimeTestStop: "▶ Parar",
+    },
+    vocabulary: {
+      title: "Vocabulario",
+      help: "Reemplaza palabras que Whisper malinterpreta siempre. La fuente coincide sin distinguir mayúsculas; la sustitución conserva la grafía que escribas.",
+      addEntry: "+ Añadir entrada",
+      sourceLabel: "Fuente",
+      replacementLabel: "Sustitución",
+      empty: "Aún no hay entradas de vocabulario.",
+    },
+    history: {
+      sectionTitle: (count) => `Transcripciones recientes (${count})`,
+      clearAll: "Borrar todo",
+      empty:
+        "Aún no hay transcripciones — captura una con el atajo de grabación.",
+      audioBadgeTitle: (size) => `Audio guardado (${size})`,
+      deleteAudio: "Eliminar audio",
+      footnoteAudio: (count) =>
+        `${count} entrada${count === 1 ? "" : "s"} tiene${count === 1 ? "" : "n"} audio guardado.`,
+      footnoteNoAudio:
+        "El audio solo se guarda cuando 'Guardar grabaciones de audio localmente' está activado en Configuración → Grabaciones.",
+      footnoteCap: "Se conservan las últimas 50 transcripciones.",
+      timeJustNow: "ahora mismo",
+      timeMinutesAgo: (n) => `hace ${n}m`,
+      timeHoursAgo: (n) => `hace ${n}h`,
+      timeDaysAgo: (n) => `hace ${n}d`,
+      clickToCopy: "Haz clic para copiar",
+      expand: "Expandir",
+      collapse: "Contraer",
+    },
+  },
+  pill: {
+    discardConfirm: "¿Descartar?",
+    discardKeepHint: "Espacio para conservar",
+    discardConfirmHint: "Esc para descartar",
+    transcribing: "Transcribiendo…",
+    silenceClosing: "Nada que transcribir. Cerrando…",
+    error: "Error",
+    dismiss: "Cerrar",
+    noSpeech:
+      "No se ha detectado voz. Acércate al micrófono o comprueba tu dispositivo de entrada.",
+    nothingToTranscribe: "Nada que transcribir.",
+    micDenied:
+      "Acceso al micrófono denegado — actívalo en Ajustes del Sistema → Privacidad → Micrófono.",
+    micNotFound: "No se ha encontrado ningún micrófono.",
+    couldntStart: "No se ha podido iniciar la grabación.",
+    pasteFailed: (msg) =>
+      `Pegado fallido: ${msg} — probablemente falta acceso de accesibilidad.`,
+    invalidConstraint:
+      "Configuración de micrófono inválida — reinicia Ultravox o comprueba Ajustes del Sistema → Sonido → Entrada.",
+    silentDescription: "Grabando…",
+  },
+  modeOverlay: {
+    title: "Cambiar de modo",
+    hint: "↑↓ para elegir · Intro para confirmar · Esc para cancelar",
+  },
+  confirmDialog: {
+    confirm: "Confirmar",
+    cancel: "Cancelar",
+  },
+  pillStylePicker: {
+    classicLabel: "Clásica",
+    classicDescription: "Píldora completa con forma de onda",
+    miniLabel: "Mini",
+    miniDescription: "Puntos compactos en la parte superior de la pantalla",
+  },
+  errors: {
+    generic: "Algo ha ido mal.",
+  },
+};
+
+const sv: MessageCatalog = {
+  common: {
+    back: "Tillbaka",
+    cancel: "Avbryt",
+    confirm: "Bekräfta",
+    save: "Spara",
+    delete: "Radera",
+    deleteConfirm: "Klicka för att bekräfta",
+    copy: "Kopiera",
+    copied: "✓ Kopierat",
+    close: "Stäng",
+    open: "Öppna",
+    next: "Nästa",
+    skip: "Hoppa över",
+    continueLabel: "Fortsätt",
+    refresh: "Uppdatera",
+    settings: "Inställningar",
+    granted: "Beviljad",
+    denied: "Nekad",
+    notYet: "Inte än",
+    on: "På",
+    off: "Av",
+    loading: "Laddar…",
+  },
+  tray: {
+    toggleRecord: "Starta/stoppa inspelning",
+    copyLastTranscription: "Kopiera senaste transkription",
+    settingsItem: "Inställningar…",
+    micSettings: "Mikrofoninställningar",
+    micOpenSystemSettings: "Öppna Systeminställningar…",
+    micDefault: "Standard (system)",
+    axSettings: "Hjälpmedelsinställningar…",
+    modeMenu: "Läge",
+    quit: "Avsluta Ultravox",
+    versionLabel: (version) => `Version ${version}`,
+  },
+  appMenu: {
+    about: "Om Ultravox",
+    copyLastTranscription: "Kopiera senaste transkription",
+    hide: "Göm Ultravox",
+    hideOthers: "Göm övriga",
+    showAll: "Visa alla",
+    quit: "Avsluta Ultravox",
+    edit: "Redigera",
+    undo: "Ångra",
+    redo: "Gör om",
+    cut: "Klipp ut",
+    copy: "Kopiera",
+    paste: "Klistra in",
+    selectAll: "Markera allt",
+  },
+  breadcrumbs: {
+    home: "Hem",
+    modes: "Lägen & AI-modeller",
+    vocabulary: "Ordlista",
+    configuration: "Konfiguration",
+    sound: "Ljud & mikrofon",
+    history: "Historik",
+  },
+  panels: {
+    home: {
+      sectionVoice: "Röst",
+      navModes: "Lägen & AI-modeller",
+      navVocabulary: "Ordlista",
+      navSound: "Ljud & mikrofon",
+      sectionRecording: "Inspelning",
+      hotkeyHelp:
+        "Klicka på en chip för att spela in en ny kombination. Esc avbryter, Backsteg rensar.",
+      recordToggle: "Inspelnings-snabbtangent",
+      modeSwitcher: "Lägesväxlare",
+      pushToTalk: "Tryck-för-att-prata",
+      pushToTalkHelp:
+        "Håll ned snabbtangenten medan du pratar istället för att växla. Ange en egen tangentkombination nedan.",
+      pushToTalkPlaceholder: "v1.5",
+      recordingStyleLabel: "Inspelningsstil",
+      recordingStyleToggle: "Växla",
+      recordingStylePtt: "Tryck-för-att-prata",
+      pttHotkeyLabel: "Snabbtangent för tryck-för-att-prata",
+      sectionAppearance: "Utseende",
+      themeLabel: "Tema",
+      themeLight: "Ljust",
+      themeDark: "Mörkt",
+      themeAuto: "Automatiskt",
+      themeOcean: "Ocean",
+      themeNight: "Night",
+      sectionApp: "App",
+      navConfiguration: "Konfiguration",
+      navHistory: "Historik",
+      lastTranscriptionLabel: "Senaste transkription",
+      lastTranscriptionHelp:
+        "Kopiera senaste transkriptionen till urklipp igen om din inklistring hamnade på fel ställe. Klistra sedan in med ⌘V.",
+    },
+    configuration: {
+      sectionAboutYou: "Om dig",
+      sectionAboutYouHelp:
+        "Används av dina lägen för att personifiera städningen (hälsningsfraser, avslutningar, ersättningar via {{firstName}} / {{fullName}}). Sparas bara lokalt.",
+      firstName: "Förnamn",
+      lastName: "Efternamn",
+      sectionCleanupBackends: "Städnings-backends",
+      sectionCleanupBackendsHelp:
+        "Städning per läge konfigureras i Lägen-panelen. Den här sidan visar bara vilka backends som finns på den här Macen.",
+      claudeCodeCli: "Claude Code CLI",
+      claudeCodeCliInstall:
+        "Installera Claude Code CLI för att aktivera städning på enheten via din lokala modell.",
+      claudeCodeCliDetected: (path) => `Hittad vid ${path}`,
+      claudeCodeCliChecking: "Kontrollerar…",
+      claudeCodeCliAvailable: (version) => `Tillgänglig · ${version || "v?"}`,
+      claudeCodeCliNotInstalled: "Inte installerad",
+      sectionOnboarding: "Introduktionsguide",
+      sectionOnboardingHelp:
+        "Öppna konfigurationsguiden igen. Dina inställningar bevaras.",
+      launchOnboarding: "Starta",
+      diagnosticsFooter: (n) => `${n} poster · senaste först`,
+      diagnosticsConfirmAgain: "Klicka igen",
+      diagnosticsEmpty: "Inga händelser än — testa en inspelning.",
+      installedWhisperEmpty:
+        "Inga Whisper-modeller installerade. Välj en variant i ett läges Transkriptionsmodell-inställning för att ladda ner en.",
+      installedLlmHeader: "Installerade LLM-modeller",
+      installedLlmEmpty:
+        "Inga LLM-modeller installerade. Välj en variant i ett läges Bearbetningsmodell-inställning för att ladda ner en.",
+      deleteModelTitle: "Radera modellfil",
+      coremlAneBadgeTitle:
+        "CoreML-encoder installerad — körs på Apple Neural Engine",
+      sectionRecordingWindow: "Inspelningsfönster",
+      sectionRecordingWindowHelp:
+        "Välj hur den flytande pillerformen ser ut medan du spelar in.",
+      pillStyleLabel: "Stil",
+      sectionModeSelection: "Lägesval",
+      sectionModeSelectionHelp:
+        "Hur Ultravox väljer röstläge för varje inspelning.",
+      autoModeLabel: "Välj läge automatiskt efter app",
+      autoModeHelp:
+        "När påslagen väljer den aktiva appen läget (t.ex. Mail → Email, VS Code → Code). För okända appar används ditt aktiva läge.",
+      sectionTranscription: "Installerad transkription",
+      sectionPermissions: "Behörigheter",
+      sectionPermissionsHelp:
+        "Krävs för att Ultravox ska kunna spela in ljud och klistra in transkriptioner i andra appar.",
+      micAccess: "Mikrofonåtkomst",
+      micGrantedHelp: "Beviljad — inspelning fungerar.",
+      micDeniedHelp:
+        "Nekad — öppna Systeminställningar → Integritet och säkerhet → Mikrofon och aktivera Ultravox.",
+      micPromptHelp: "Inte begärd än — klicka Bevilja åtkomst.",
+      micCheckingHelp: "Kontrollerar…",
+      grantAccess: "Bevilja åtkomst",
+      axAccess: "Hjälpmedelsåtkomst",
+      axGrantedHelp: "Beviljad — Cmd+V inklistring fungerar i alla appar.",
+      axIdleHelp:
+        "Krävs för att Ultravox ska kunna klistra in transkriberad text i den fokuserade appen via Cmd+V.",
+      axRequestingHelp:
+        "Väntar på systemdialog — klicka Öppna Systeminställningar om den inte dyker upp.",
+      sectionRecordings: "Inspelningar",
+      sectionRecordingsHelp:
+        "Spara valfritt ljudet från varje inspelning på din Mac. Filer förblir lokala — laddas aldrig upp förutom för själva transkriptionsförfrågan. Praktiskt för uppspelning, ny transkription eller granskning.",
+      saveAudioLocally: "Spara ljudinspelningar lokalt",
+      saveAudioOnHelp: (retentionLabel) =>
+        `Tas automatiskt bort efter ${retentionLabel}. Mappen kan ändras nedan.`,
+      saveAudioOffHelp:
+        "Av — inspelningar transkriberas och kastas som idag.",
+      folderLabel: "Mapp",
+      folderDefaultHelp:
+        "Använder standardplatsen. Välj en annan mapp om du vill spara inspelningar någon annanstans.",
+      folderCustomHelp:
+        "Använder en egen mapp. Återställ för att flytta tillbaka inspelningarna till Dokument.",
+      folderChoose: "Välj mapp…",
+      folderReset: "Återställ till standard",
+      sectionLanguage: "Språk",
+      sectionLanguageHelp:
+        "Gränssnittets språk. Det talade språket identifieras per inspelning separat.",
+      languageLabel: "Visningsspråk",
+      toggleOffTitle: "Radera befintliga inspelningar?",
+      toggleOffBody: (count, size) =>
+        `Du har ${count} sparad inspelning${count === 1 ? "" : "ar"} (${size}). Framtida inspelningar sparas inte längre — vad ska vi göra med de befintliga filerna? Inspelning och transkription fungerar som vanligt oavsett; det här påverkar bara ljudsäkerhetskopian på disken.`,
+      toggleOffDelete: "Radera allt + mapp",
+      toggleOffKeep: "Behåll på disken",
+      sectionLastTranscription: "Senaste transkription",
+      sectionLastTranscriptionHelp:
+        "Var den transkriberade texten hamnar efter varje inspelning — urklipp, historik, båda eller ingen.",
+      cacheModeLabel: "Beteende",
+      cacheModeHelp:
+        "Styr vad som händer med varje transkription EFTER inklistring. Oberoende av ljudlagring. Transkriptionen skickas alltid till vår server för bearbetning — det här påverkar bara om den städade texten också sparas i din lokala historik.",
+      cacheModeAutoCopy: "Auto-kopia + cache",
+      cacheModeCacheOnly: "Bara cache (manuell kopia)",
+      cacheModeNoCache: "Cacha inte",
+      showRecordingsButton: "Visa senaste inspelningar",
+      autoDeleteAfter: "Radera efter",
+      retentionNever: "Aldrig",
+      retentionDays: (days) => `${days} dagar`,
+      diskUsage: "Diskanvändning",
+      diskUsageEmpty: "0 inspelningar",
+      diskUsageFull: (size) => `${size}`,
+      openFolder: "Öppna mapp",
+      deleteAll: (count) => `Radera allt (${count})`,
+      deleteAllConfirm: "Tryck igen för att radera",
+      sectionDiagnostics: "Diagnostik",
+      sectionDiagnosticsHelp:
+        "Senaste loggposter. Bra när du rapporterar ett problem.",
+      clearLog: "Töm logg",
+      sectionDangerZone: "Riskzon",
+      resetAll: "Återställ alla inställningar",
+      resetAllConfirm: "Klicka igen för att bekräfta",
+      resetAllHelp:
+        "Raderar alla inställningar, lägen och historik. Kan inte ångras.",
+    },
+    modes: {
+      sectionRunOnDevice: "Kör på enheten",
+      enableLocalTranscription: "Aktivera lokal transkription",
+      enableLocalTranscriptionHelp:
+        "När påslaget visar varje läge en Transkriptionsmodell-meny för att köra ljudet på enheten. Av = alla lägen använder molnet.",
+      enableLocalCleanup: "Aktivera lokal städning",
+      enableLocalCleanupHelp:
+        "När påslaget kör lägen med leverantör = Lokal (on-device LLM) städningen på enheten. När av faller dessa lägen tyst tillbaka på moln-workern.",
+      sectionActiveMode: "Aktivt läge",
+      addMode: "+ Nytt",
+      noModes: "Inga lägen konfigurerade.",
+      unsavedTitle: "Spara eller släng ändringar?",
+      unsavedBody:
+        "Du har osparade ändringar i det här läget. Spara eller släng dem innan du byter.",
+      unsavedSave: "Spara",
+      unsavedDiscard: "Släng",
+      downloadModelTitle: "Ladda ner modell?",
+      downloadModelBody: (label, size) =>
+        `Det här läget använder ${label}${size ? ` (${size})` : ""}, som inte är installerat än. Ladda ner nu?`,
+      downloadModelDownload: "Ladda ner",
+      downloadModelUseCloud: "Använd molnet tills vidare",
+      dragHandleTitle: "Dra för att ändra ordning",
+      duplicateTitle: "Duplicera det här läget",
+      duplicateAriaLabel: (name) => `Duplicera ${name}`,
+      newMode: "Nytt läge",
+      newModeCopy: (name) => `Nytt läge — kopia av ${name}`,
+      configureMode: (name) => `Konfigurera — ${name}`,
+    },
+    sound: {
+      roundTripTest: "Tur-och-retur-test",
+      roundTripTestHelp:
+        "Spelar in 2s, skickar till workern och visar svaret. Testar pipelinen isolerat — utan snabbtangent, utan inklistring.",
+      testRecordIdle: "Testinspelning",
+      testRecordRecording: "Spelar in 2s…",
+      testRecordTranscribing: "Skickar till worker…",
+      compareIdle: "Spela in & jämför",
+      compareRecording: "Spelar in 6s…",
+      compareRunning: "Jämför…",
+      compareRunAgain: "Kör igen",
+      compareWhisperRaw: "Whisper (rå)",
+      sectionMicrophone: "Mikrofon",
+      sectionMicrophoneHelp:
+        "Ultravox använder systemets standardmikrofon. Val per enhet kommer i v1.1.",
+      sectionCompare: "Jämför städningskvalitet",
+      sectionCompareHelp:
+        "Spelar in 6s och kör sedan samma ljud parallellt genom Whisper rå + fyra LLM-varianter. Använd det här för att hitta rätt modell för din dikteringsstil.",
+      sectionInputProcessing: "Indatabehandling",
+      autoGain: "Autoförstärkning",
+      autoGainHelp: "Webbläsaren justerar mikrofonnivån automatiskt",
+      noiseSuppression: "Brusreducering",
+      noiseSuppressionHelp:
+        "Minskar bakgrundsbrus. Liten kvalitetsförlust.",
+      silenceRemoval: "Ta bort tystnad",
+      silenceRemovalHelp:
+        "Klipp bort tysta partier före uppladdning (v1.1)",
+      sectionSoundEffects: "Ljudeffekter",
+      pauseMusic: "Pausa musik under inspelning",
+      pauseMusicHelp:
+        "Pausa Music och Spotify när en inspelning startar; återuppta när den stoppar.",
+      duckMusic: "Sänk annat ljud under inspelning",
+      duckMusicHelp:
+        "Sänk Music/Spotify under inspelningen och återställ sedan. Mindre störande än att pausa om du vill fortsätta lyssna.",
+      duckingDepth: "Sänkningsnivå",
+      chime: "Ton vid start/stopp",
+      chimeHelp: "Kort ton när inspelningen startar och stoppar",
+      chimeVolume: "Ton-volym",
+      chimeTest: "Testa",
+      chimeTestStart: "▶ Start",
+      chimeTestStop: "▶ Stopp",
+    },
+    vocabulary: {
+      title: "Ordlista",
+      help: "Ersätt ord som Whisper konsekvent hör fel. Källan matchar utan att skilja på versaler/gemener; ersättningen behåller stavningen du skrev.",
+      addEntry: "+ Lägg till post",
+      sourceLabel: "Källa",
+      replacementLabel: "Ersättning",
+      empty: "Inga ordlistposter än.",
+    },
+    history: {
+      sectionTitle: (count) => `Senaste transkriptioner (${count})`,
+      clearAll: "Rensa alla",
+      empty:
+        "Inga transkriptioner än — gör en med inspelnings-snabbtangenten.",
+      audioBadgeTitle: (size) => `Ljud sparat (${size})`,
+      deleteAudio: "Radera ljud",
+      footnoteAudio: (count) =>
+        `${count} post${count === 1 ? "" : "er"} har sparat ljud.`,
+      footnoteNoAudio:
+        "Ljud sparas bara när 'Spara ljudinspelningar lokalt' är på i Konfiguration → Inspelningar.",
+      footnoteCap: "De senaste 50 transkriptionerna bevaras.",
+      timeJustNow: "just nu",
+      timeMinutesAgo: (n) => `${n}m sedan`,
+      timeHoursAgo: (n) => `${n}h sedan`,
+      timeDaysAgo: (n) => `${n}d sedan`,
+      clickToCopy: "Klicka för att kopiera",
+      expand: "Expandera",
+      collapse: "Fäll ihop",
+    },
+  },
+  pill: {
+    discardConfirm: "Släng?",
+    discardKeepHint: "Mellanslag för att behålla",
+    discardConfirmHint: "Esc för att slänga",
+    transcribing: "Transkriberar…",
+    silenceClosing: "Inget att transkribera. Stänger…",
+    error: "Fel",
+    dismiss: "Stäng",
+    noSpeech:
+      "Inget tal upptäckt. Gå närmare mikrofonen eller kontrollera din indataenhet.",
+    nothingToTranscribe: "Inget att transkribera.",
+    micDenied:
+      "Mikrofonåtkomst nekad — aktivera i Systeminställningar → Integritet → Mikrofon.",
+    micNotFound: "Ingen mikrofon hittades.",
+    couldntStart: "Kunde inte starta inspelningen.",
+    pasteFailed: (msg) =>
+      `Inklistring misslyckades: ${msg} — hjälpmedelsåtkomst sannolikt nekad.`,
+    invalidConstraint:
+      "Ogiltig mikrofonkonfiguration — starta om Ultravox eller kontrollera Systeminställningar → Ljud → Indata.",
+    silentDescription: "Spelar in…",
+  },
+  modeOverlay: {
+    title: "Byt läge",
+    hint: "↑↓ för att välja · Enter för att bekräfta · Esc för att avbryta",
+  },
+  confirmDialog: {
+    confirm: "Bekräfta",
+    cancel: "Avbryt",
+  },
+  pillStylePicker: {
+    classicLabel: "Klassisk",
+    classicDescription: "Hel piller-form med vågform",
+    miniLabel: "Mini",
+    miniDescription: "Kompakta prickar längst upp på skärmen",
+  },
+  errors: {
+    generic: "Något gick fel.",
+  },
+};
+
+export const CATALOG: Record<Lang, MessageCatalog> = { en, de, es, sv };
