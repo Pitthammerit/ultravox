@@ -39,3 +39,15 @@ Thumbs.db
 
 # Git worktrees
 .worktrees/
+.claude/worktrees/
+
+# Apple Developer certificates / signing material — never commit these
+certificate*/
+*.p12
+*.cer
+
+# Shipping binaries — releases/ is tracked as a folder (with README) but
+# the DMGs themselves are huge artifacts that belong in GitHub Releases,
+# not the source tree.
+*.dmg
+*.app/

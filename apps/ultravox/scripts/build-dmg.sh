@@ -381,6 +381,20 @@ if [[ "$WILL_NOTARIZE" == "1" ]]; then
   xcrun stapler validate "$DMG_PATH"
 fi
 
+# ─── Auto-publish to repo-root releases/ ──────────────────────────────
+# Mirror the final notarized DMG into <repo-root>/releases/ so the latest
+# build lives at a stable, worktree-agnostic path. The build output at
+# apps/ultravox/src-tauri/target/release/bundle/dmg/ is tied to a specific
+# worktree's Cargo target dir and gets buried when multiple worktrees are
+# in play; releases/ is the single source-of-truth folder for shipping.
+# Walk up from this script's location to find the repo root.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+RELEASES_DIR="$REPO_ROOT/releases"
+mkdir -p "$RELEASES_DIR"
+PUBLISHED_PATH="$RELEASES_DIR/$(basename "$DMG_PATH")"
+cp "$DMG_PATH" "$PUBLISHED_PATH"
+
 # ─── Done ─────────────────────────────────────────────────────────────
 echo
 echo "✓ DMG ready: $DMG_PATH"
@@ -389,3 +403,4 @@ echo "  Signed:  $(codesign -dv "$DMG_PATH" 2>&1 | grep "^Authority" | head -1 |
 if [[ "$WILL_NOTARIZE" == "1" ]]; then
   echo "  Notary:  stapled"
 fi
+echo "  Published to: $PUBLISHED_PATH"

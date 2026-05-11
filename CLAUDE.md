@@ -72,8 +72,12 @@ Quick reference:
   `apps/ultravox/src-tauri/target/release/bundle/macos/Ultravox.app`.
 - **`pnpm --filter @ultravox/app dmg`** → release DMG: signed,
   notarized (if `.env.build` populated), with the legacy beige TIFF
-  background and the `Uninstall Ultravox.app` injected. Output at
-  `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg`.
+  background and the `Uninstall Ultravox.app` injected. Original output
+  at `apps/ultravox/src-tauri/target/release/bundle/dmg/Ultravox_<ver>_aarch64.dmg`,
+  **also auto-copied to `releases/Ultravox_<ver>_aarch64.dmg`** at the
+  repo root for a worktree-stable shipping path. `releases/` is the
+  canonical local home for the latest signed DMG; the build folder is
+  ephemeral (target-dir specific). See `releases/README.md`.
 - **`pnpm --filter @ultravox/app reposition`** → modify icons / window
   inside an existing DMG only (~10 s, no Cargo + Tauri rebuild). Use
   for layout-tuning iteration; strips notarization so re-run `pnpm notarize`
