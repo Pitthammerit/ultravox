@@ -8,6 +8,10 @@ export interface VariantMeta {
   isEnglish?: boolean;
   /** Quantized models (q5_0, q8_0) — smaller file, near-identical accuracy. */
   isQuantized?: boolean;
+  /** Recommendation ranking from the WisperSync benchmark (Queen
+   *  "Don't Stop Me Now" on Apple M1 Pro, 2026-05). Lower number = better
+   *  recommendation for general use. Cloud + Auto routes are unranked. */
+  rank?: number;
 }
 
 /**
@@ -95,6 +99,7 @@ export const TRANSCRIPTION_VARIANTS: VariantMeta[] = [
     tooltip:
       "Whisper Medium quantized to 8-bit weights (823 MB). The WisperSync benchmark's pick: ~17s for a 3:31 audio clip on Apple Silicon, near-Medium accuracy. Best speed/quality/disk-usage balance of any variant.",
     isQuantized: true,
+    rank: 1,
   },
   {
     id: "medium",
@@ -103,6 +108,7 @@ export const TRANSCRIPTION_VARIANTS: VariantMeta[] = [
     description: "High accuracy multilingual",
     tooltip:
       "Whisper Medium (1.5 GB). High quality across all languages. ~21 s for a 3:31 audio clip on Apple Silicon (per WisperSync benchmark). For most workloads, prefer Medium (q8) — same accuracy, half the disk.",
+    rank: 5,
   },
   {
     id: "medium.en",
@@ -130,6 +136,7 @@ export const TRANSCRIPTION_VARIANTS: VariantMeta[] = [
     tooltip:
       "Whisper Large-v3-turbo quantized to 8-bit weights (874 MB). Near-full Turbo accuracy at half the disk usage. Excellent default for new users who want Large-class quality without 1.6 GB on disk.",
     isQuantized: true,
+    rank: 2,
   },
   {
     id: "large-v3-turbo",
@@ -138,6 +145,7 @@ export const TRANSCRIPTION_VARIANTS: VariantMeta[] = [
     description: "Fast Large-class accuracy",
     tooltip:
       "Whisper Large-v3-turbo (1.6 GB). Distilled-decoder version of Large-v3 — runs at Medium speed (~17 s for 3:31 audio) but reaches near-Large accuracy on word-level transcription. Misses some non-lyrical vocalizations on music. Multilingual.",
+    rank: 3,
   },
   {
     id: "large-v3-q5_0",
@@ -155,6 +163,7 @@ export const TRANSCRIPTION_VARIANTS: VariantMeta[] = [
     description: "Highest accuracy (slow)",
     tooltip:
       "Whisper Large-v3 (3.1 GB), the full non-distilled model. Highest accuracy at the cost of disk space and ~3× the transcription time of Medium. Use for archival or high-stakes dictation. Multilingual.",
+    rank: 4,
   },
 ];
 

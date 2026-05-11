@@ -174,10 +174,10 @@ const COPY: Record<Lang, {
     whisperBody: "Run Whisper locally so audio never leaves your Mac and transcription is sub-second. Pick a model — we'll download it in the background while you finish setup. You can also skip and download later from Settings.",
     whisperVariants: [
       { id: "tiny",            label: "Tiny",            size: "~78 MB",  description: "Fastest — quick drafts only" },
-      { id: "base",            label: "Base",            size: "~148 MB", description: "Multilingual quick draft" },
       { id: "base.en",         label: "Base (English)",  size: "~148 MB", description: "English-tuned quick draft" },
       { id: "small",           label: "Small",           size: "~488 MB", description: "Solid all-rounder" },
-      { id: "large-v3-turbo",  label: "Large v3 Turbo",  size: "~1.6 GB", description: "Fast Large-class accuracy" },
+      { id: "medium-q8_0",     label: "Medium (q8)",     size: "~823 MB", description: "Best balance — recommended" },
+      { id: "large-v3",        label: "Large v3",        size: "~3.1 GB", description: "Highest accuracy (max)" },
     ],
     whisperSkip: "Skip — use cloud transcription",
     whisperDownloading: "Downloading",
@@ -248,10 +248,10 @@ const COPY: Record<Lang, {
     whisperBody: "Whisper läuft lokal — dein Audio verlässt nie den Mac und die Transkription ist unter einer Sekunde. Wähle ein Modell, wir laden es im Hintergrund herunter, während du das Setup beendest. Du kannst auch überspringen und später aus den Einstellungen herunterladen.",
     whisperVariants: [
       { id: "tiny",            label: "Tiny",            size: "~78 MB",  description: "Schnellste — nur für kurze Notizen" },
-      { id: "base",            label: "Base",            size: "~148 MB", description: "Mehrsprachiger Schnellentwurf" },
       { id: "base.en",         label: "Base (Englisch)", size: "~148 MB", description: "Englisch-optimierter Schnellentwurf" },
       { id: "small",           label: "Small",           size: "~488 MB", description: "Solider Allrounder" },
-      { id: "large-v3-turbo",  label: "Large v3 Turbo",  size: "~1,6 GB", description: "Large-Genauigkeit in mittlerer Geschwindigkeit" },
+      { id: "medium-q8_0",     label: "Medium (q8)",     size: "~823 MB", description: "Beste Balance — empfohlen" },
+      { id: "large-v3",        label: "Large v3",        size: "~3,1 GB", description: "Höchste Genauigkeit (max)" },
     ],
     whisperSkip: "Überspringen — Cloud-Transkription verwenden",
     whisperDownloading: "Herunterladen",
@@ -313,8 +313,10 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
   // the article's "common ones" (Tiny + Base + Large v3 Turbo). Downloads
   // run in the background; the user can advance to the next step at any time
   // and the chips on the dashboard track progress.
+  // Default-pick the WisperSync recommended balance — Tiny for instant
+  // baseline + Medium-q8 (#1 ranked, 823 MB) for everyday quality.
   const [whisperSelected, setWhisperSelected] = useState<Set<string>>(
-    new Set(["tiny", "base", "large-v3-turbo"]),
+    new Set(["tiny", "medium-q8_0"]),
   );
   const nameInputRef = useRef<HTMLInputElement>(null);
   const t = COPY[lang];
@@ -530,6 +532,30 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
     }
   };
   const back = () => setStep((s) => Math.max(0, s - 1));
+
+  // Enter / Return advances to the next step on every screen — power-user
+  // shortcut so the user doesn't have to mouse to the Continue button.
+  // Suppressed while an <input> / <textarea> has focus (so name typing
+  // doesn't auto-advance on every keystroke); the inputs already have
+  // their own onKeyDown=Enter handlers that call next() explicitly.
+  // Cmd/Alt-Enter never auto-advances (reserved for any future "submit
+  // form with modifier" affordance). Permission-requesting screens (mic,
+  // ax) are skipped — those need an explicit click on Allow first.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.metaKey || e.altKey || e.ctrlKey || e.shiftKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      // Mic + AX permission screens require user action first.
+      if (step === 7 && micStatus !== "granted") return;
+      if (step === 8 && axStatus !== "granted") return;
+      e.preventDefault();
+      void next();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, micStatus, axStatus]);
 
   return (
     <main
@@ -775,7 +801,11 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         {step === 9 && (
           <Step title={t.whisperTitle}>
             <Body>{t.whisperBody}</Body>
-            <div className="flex flex-col gap-2">
+            {/* Compact list — px-3 py-2 instead of px-4 py-3, gap-1 not
+                gap-2, single-row labels with size right-aligned. Per user
+                request: smaller list so all 5 variants + skip row fit in
+                view without scrolling on a 13" MacBook. */}
+            <div className="flex flex-col gap-1">
               {t.whisperVariants.map((opt) => {
                 const isSelected = whisperSelected.has(opt.id);
                 const isDownloading = whisperDownloadingId === opt.id;
@@ -789,52 +819,50 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                         nextSet.delete(opt.id);
                       } else {
                         nextSet.add(opt.id);
-                        // Fire-and-forget download. Already-installed models
-                        // resolve instantly. Track which one is the most
-                        // recent click for the spinner indicator.
                         setWhisperDownloadingId(opt.id);
                         void patchSettings({ localWhisperEnabled: true });
                         localWhisperDownloadModel(opt.id).catch(() => {});
                       }
                       setWhisperSelected(nextSet);
                     }}
-                    className="flex items-center justify-between rounded-lg px-4 py-3 text-left transition-all"
+                    className="flex items-center justify-between rounded-md px-3 py-2 text-left transition-all"
                     style={{
                       background: SURFACE,
-                      border: `2px solid ${isSelected ? FG_PRIMARY : SURFACE_BORDER}`,
+                      border: `1.5px solid ${isSelected ? FG_PRIMARY : SURFACE_BORDER}`,
                       cursor: "pointer",
                     }}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <span
                         aria-hidden
                         style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: 4,
+                          width: 16,
+                          height: 16,
+                          borderRadius: 3,
                           border: `1.5px solid ${isSelected ? FG_PRIMARY : SURFACE_BORDER}`,
                           background: isSelected ? FG_PRIMARY : "transparent",
                           display: "inline-flex",
                           alignItems: "center",
                           justifyContent: "center",
                           color: SURFACE,
-                          fontSize: 12,
+                          fontSize: 11,
                           lineHeight: 1,
+                          flexShrink: 0,
                         }}
                       >
                         {isSelected ? "✓" : ""}
                       </span>
-                      <span className="flex flex-col gap-0.5">
-                        <span style={{ fontSize: 14, fontWeight: isSelected ? 600 : 500, color: isSelected ? FG_PRIMARY : FG_BODY }}>
+                      <span className="flex flex-col min-w-0">
+                        <span style={{ fontSize: 13, fontWeight: isSelected ? 600 : 500, color: isSelected ? FG_PRIMARY : FG_BODY, lineHeight: 1.2 }}>
                           {opt.label}
                         </span>
-                        <span style={{ fontSize: 12, color: FG_MUTED }}>{opt.description}</span>
+                        <span style={{ fontSize: 11, color: FG_MUTED, lineHeight: 1.2 }}>{opt.description}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span style={{ fontSize: 12, color: FG_MUTED }}>{opt.size}</span>
+                      <span style={{ fontSize: 11, color: FG_MUTED }}>{opt.size}</span>
                       {isDownloading && (
-                        <span style={{ fontSize: 11, color: ACCENT }}>{t.whisperDownloading}…</span>
+                        <span style={{ fontSize: 10, color: ACCENT }}>{t.whisperDownloading}…</span>
                       )}
                     </div>
                   </button>
@@ -847,11 +875,11 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                   void patchSettings({ localWhisperEnabled: false });
                   next();
                 }}
-                className="text-center rounded-lg px-4 py-3 transition-opacity hover:opacity-80"
+                className="text-center rounded-md px-3 py-2 transition-opacity hover:opacity-80"
                 style={{
                   background: "transparent",
                   border: `1px solid ${SURFACE_BORDER}`,
-                  fontSize: 13,
+                  fontSize: 12,
                   color: FG_MUTED,
                   cursor: "pointer",
                 }}

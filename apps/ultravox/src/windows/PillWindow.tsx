@@ -102,6 +102,15 @@ const PILL_KEYFRAMES = `
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
+/* Newsticker scroll for the compact-pill error/closing states. Travels
+ * the full pill width from right to left in 4s, then loops. The text is
+ * rendered twice (the marquee technique) so the loop has no visible gap.
+ * translateX moves from 0% to -50% (since the content is duplicated),
+ * landing the second copy in the same position the first started from. */
+@keyframes ultravox-marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 `;
 
 export default function PillWindow() {
@@ -542,9 +551,12 @@ export default function PillWindow() {
     cancelSilenceTimers();
     setErrorMsg(msg);
     setState("error");
-    if (compact) {
-      setPillPositionTopCenter(PILL_W, PILL_H).catch(() => {});
-    }
+    // Previously: when compact, we resized to PILL_W × PILL_H so the full-
+    // pill JSX could render the message. The user found that jarring —
+    // the pill grew to classic size for ~3 s just to say "nothing to
+    // transcribe". Keep the compact window dimensions; the compact
+    // branch now renders the error + silenceClosing states inline as a
+    // newsticker-style marquee (see the compact render guard below).
     invoke("show_pill").catch(() => {});
 
     const t1 = window.setTimeout(() => {
@@ -556,7 +568,7 @@ export default function PillWindow() {
       silenceTimersRef.current.push(t2);
     }, 2000);
     silenceTimersRef.current.push(t1);
-  }, [compact, cancelSilenceTimers]);
+  }, [cancelSilenceTimers]);
 
   const dismissError = useCallback(() => {
     setView("pill");
@@ -698,6 +710,10 @@ export default function PillWindow() {
         autoGainControl: autoGain,
         noiseSuppression: true,
         echoCancellation: false,
+        // Force mono — see useMicStream comment. Saved recordings were
+        // playing back left-channel-only because macOS defaults to stereo
+        // with one channel silent on most built-in mics.
+        channelCount: 1,
       };
       if (micId) constraints.deviceId = { exact: micId };
       await recorder.start(constraints);
@@ -920,10 +936,15 @@ export default function PillWindow() {
 
   /* ── Compact mini-pill ────────────────────────────────────────
    * Renders for idle / recording / transcribing / discardConfirm.
-   * Modes-view and error force the full pill so the user can read
-   * the message / pick a mode.
+   * Plus error + silenceClosing — these used to force a re-expand to
+   * full pill, which felt jarring for the short-lived "Nothing to
+   * transcribe" / "Closing…" toast. v0.18.1: stay compact, render the
+   * message as a newsticker-style marquee inside the existing pill
+   * footprint (see SilenceMarquee component below).
+   * Modes-view is the one state that still forces full pill — the user
+   * needs the bigger surface to read the mode list.
    */
-  if (compact && view === "pill" && state !== "error" && state !== "silenceClosing") {
+  if (compact && view === "pill") {
     const isDiscardConfirm = state === "discardConfirm";
     console.log("[pill] compact render, state=", state);
     return (
@@ -1035,6 +1056,18 @@ export default function PillWindow() {
             >
               Transcribing…
             </span>
+          ) : state === "error" || state === "silenceClosing" ? (
+            // Newsticker-style marquee. Auto-dismisses after the showSilence
+            // timers fire (2s error → 800ms silenceClosing → idle hide).
+            // Lower-emphasis color than recording so the user knows it's
+            // informational and the pill is about to disappear.
+            <CompactMarquee
+              text={
+                state === "silenceClosing"
+                  ? "Nothing to transcribe. Closing…"
+                  : (errorMsg || "Error")
+              }
+            />
           ) : (
             <div className="flex items-center" style={{ gap: 6 }}>
               {[0, 1, 2, 3, 4].map((i) => (
@@ -1374,6 +1407,70 @@ function HintRow({
             {k}
           </kbd>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   CompactMarquee — scrolling text used inside the compact mini-pill for
+   the short-lived error + silenceClosing states. Replaces the previous
+   behavior where these states forced a re-expand to the full pill, which
+   felt jarring for a ~3s informational toast (user feedback 2026-05-11).
+
+   The text is rendered twice with a gap separator so the marquee loop is
+   seamless. translateX animates 0% → -50% on the duplicated content,
+   meaning copy #2 finishes in the position copy #1 started — no visible
+   jump on each loop iteration. Speed is tied to text length so short
+   messages don't read too fast and long ones don't crawl.
+   ────────────────────────────────────────────────────────────────────── */
+
+function CompactMarquee({ text }: { text: string }) {
+  // ~30 px per second feels right at the compact pill's 12px font.
+  // Math: each "copy" occupies an unknown width. Use a generous duration
+  // proportional to text length so the perceived speed stays steady.
+  const durationSec = Math.max(4, Math.round(text.length / 8));
+  return (
+    <div
+      style={{
+        flex: 1,
+        overflow: "hidden",
+        position: "relative",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 10px",
+      }}
+    >
+      <div
+        style={{
+          display: "inline-flex",
+          gap: 32,
+          whiteSpace: "nowrap",
+          animation: `ultravox-marquee ${durationSec}s linear infinite`,
+        }}
+      >
+        <span
+          style={{
+            color: "var(--pill-fg-muted)",
+            fontSize: 12,
+            fontWeight: 500,
+            letterSpacing: "0.01em",
+          }}
+        >
+          {text}
+        </span>
+        <span
+          aria-hidden
+          style={{
+            color: "var(--pill-fg-muted)",
+            fontSize: 12,
+            fontWeight: 500,
+            letterSpacing: "0.01em",
+          }}
+        >
+          {text}
+        </span>
       </div>
     </div>
   );

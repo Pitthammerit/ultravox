@@ -143,17 +143,26 @@
   --color-ink-30: rgba(255, 255, 255, 0.36);
   --color-ink-45: rgba(255, 255, 255, 0.60);
 
-  --pill-bg: rgba(13, 24, 38, 0.74);
-  --pill-fg: rgba(240, 242, 248, 0.96);
-  --pill-fg-muted: rgba(230, 232, 238, 0.55);
-  --pill-fg-subtle: rgba(230, 232, 238, 0.40);
-  --pill-border: rgba(255, 255, 255, 0.09);
-  --pill-footer: rgba(0, 0, 0, 0.32);
-  --pill-row-hover: rgba(255, 255, 255, 0.07);
-  --pill-icon-bg: rgba(255, 255, 255, 0.10);
-  --pill-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
-  /* Secondary light blue — clearly visible on dark navy bg. */
-  --pill-waveform: rgba(143, 163, 184, 0.92);
+  /* Pill chrome — Dark Ocean variant (2026-05-11):
+   * Aligned with the page palette (#224160 / #1a3455) instead of the
+   * neutral charcoal that v0.17 used. The pill now reads as part of the
+   * Ocean theme rather than a generic dark widget. Specifically:
+   *   bg       — Ocean primary navy at higher alpha so it carries the
+   *              theme color through the backdrop blur.
+   *   border   — soft ocean tint instead of generic white-alpha.
+   *   footer   — a darker shade of Ocean for clear separation.
+   *   waveform — pulled from --color-secondary (#7696AD), the Ocean
+   *              theme's steel-blue, so the waveform reads as in-family. */
+  --pill-bg: rgba(26, 52, 85, 0.82);
+  --pill-fg: rgba(240, 246, 255, 0.96);
+  --pill-fg-muted: rgba(220, 232, 248, 0.58);
+  --pill-fg-subtle: rgba(220, 232, 248, 0.40);
+  --pill-border: rgba(118, 150, 173, 0.18);
+  --pill-footer: rgba(13, 24, 38, 0.45);
+  --pill-row-hover: rgba(118, 150, 173, 0.12);
+  --pill-icon-bg: rgba(118, 150, 173, 0.16);
+  --pill-shadow: 0 8px 24px rgba(13, 24, 38, 0.65);
+  --pill-waveform: rgba(118, 150, 173, 0.95);
 }
 
 /* ── Dark Night — near-black background ──────────────────────────────── */

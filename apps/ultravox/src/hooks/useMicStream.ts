@@ -16,6 +16,11 @@ export function useMicStream(): MicStreamControls {
       autoGainControl: true,
       noiseSuppression: true,
       echoCancellation: false,
+      // Force mono. macOS' default getUserMedia stream is stereo with one
+      // channel left silent on most built-in mics — the user reports
+      // saved recordings play back only on the left speaker. Whisper
+      // resamples to mono anyway, so we lose nothing by capturing mono.
+      channelCount: 1,
     };
 
     // Progressive constraint fallback. Two macOS-26 WebKit failure modes
@@ -49,6 +54,7 @@ export function useMicStream(): MicStreamControls {
       autoGainControl: false,
       noiseSuppression: false,
       echoCancellation: false,
+      channelCount: 1,
     };
     const attempts: Array<{ label: string; audio: boolean | MediaTrackConstraints }> = [
       { label: "preferred", audio: requested },

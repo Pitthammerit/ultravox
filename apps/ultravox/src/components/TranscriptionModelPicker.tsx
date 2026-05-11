@@ -231,8 +231,31 @@ export function TranscriptionModelPicker({
                   paddingLeft: isActive ? "9px" : "12px",
                 }}
               >
-                {/* name col — flush left, EN pill only (no leading cloud icon) */}
+                {/* name col — flush left. Rank badge (per WisperSync 2026
+                    benchmark) prefixed for the top 5 models so users can
+                    pick the recommended option without reading every
+                    tooltip. */}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                  {opt.rank !== undefined && (
+                    <span
+                      style={{
+                        fontSize: 9.5,
+                        fontWeight: 700,
+                        letterSpacing: "0.02em",
+                        padding: "1px 5px",
+                        borderRadius: 3,
+                        background:
+                          opt.rank === 1
+                            ? "var(--color-accent)"
+                            : `color-mix(in srgb, var(--color-accent) 25%, transparent)`,
+                        color: opt.rank === 1 ? "var(--color-primary-on-dark)" : "var(--color-accent)",
+                        flexShrink: 0,
+                      }}
+                      title={`Recommendation rank #${opt.rank} per WisperSync benchmark`}
+                    >
+                      #{opt.rank}
+                    </span>
+                  )}
                   <span className="font-medium" style={{ fontSize: 12, color: tokens.fg, whiteSpace: "nowrap" }}>{opt.label}</span>
                   {opt.isEnglish && <EnPill />}
                   <span style={{ fontSize: 11, color: tokens.fgSubtle, marginLeft: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

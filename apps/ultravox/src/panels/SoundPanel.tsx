@@ -158,6 +158,7 @@ function TestRecordingRow({ settings }: { settings: AppSettings }) {
           autoGainControl: settings.sound.autoGain,
           noiseSuppression: settings.sound.noiseSuppression,
           echoCancellation: false,
+          channelCount: 1,
         },
       });
 
@@ -281,6 +282,7 @@ function CompareCleanupRow({ settings }: { settings: AppSettings }) {
           autoGainControl: settings.sound.autoGain,
           noiseSuppression: settings.sound.noiseSuppression,
           echoCancellation: false,
+          channelCount: 1,
         },
       });
       const candidates = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"];

@@ -133,27 +133,56 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
 
   return (
     <>
+      {/* About-you: a single row with two side-by-side text fields, no
+          per-field label. Placeholder text is the only affordance — fits
+          the user's "compact" mandate (2026-05-11). Width is split 1/1
+          so first and last name carry equal visual weight. */}
       <Section
-        label="About you"
-        help="Used by your modes to personalize cleanup — e.g. Email mode signs off with your first name. Available in custom prompts as {{firstName}}, {{lastName}}, and {{fullName}}."
+        label={t.panels.configuration.sectionAboutYou}
+        help={t.panels.configuration.sectionAboutYouHelp}
       >
-        <Row
-          label="First name"
-          control={
+        <div className="flex items-center gap-1.5">
+          <div className="flex-1">
             <Input
               value={settings?.firstName ?? ""}
-              onChange={(v) => { if (onChange) void onChange(v.trim() ? { firstName: v } : { firstName: "" }); }}
-              placeholder="First name"
+              onChange={(v) => {
+                if (onChange) void onChange(v.trim() ? { firstName: v } : { firstName: "" });
+              }}
+              placeholder={t.panels.configuration.firstName}
             />
-          }
-        />
-        <Row
-          label="Last name"
-          control={
+          </div>
+          <div className="flex-1">
             <Input
               value={settings?.lastName ?? ""}
-              onChange={(v) => { if (onChange) void onChange(v.trim() ? { lastName: v } : { lastName: "" }); }}
-              placeholder="Last name"
+              onChange={(v) => {
+                if (onChange) void onChange(v.trim() ? { lastName: v } : { lastName: "" });
+              }}
+              placeholder={t.panels.configuration.lastName}
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* UI language. Horizontal segmented control — same shape used for
+          appearance theme so the chrome reads as a related primitive.
+          Currently EN + DE; structure handles Swedish + Spanish (and any
+          future addition) by just adding entries to the LANG_OPTIONS
+          array. Width grows with the number of options, so 4 fits the
+          Settings column without wrapping. */}
+      <Section
+        label={t.panels.configuration.sectionLanguage}
+        help={t.panels.configuration.sectionLanguageHelp}
+      >
+        <Row
+          label={t.panels.configuration.languageLabel}
+          control={
+            <LanguagePicker
+              value={settings?.uiLanguage ?? "en"}
+              onChange={async (v) => {
+                if (!onChange) return;
+                await onChange({ uiLanguage: v });
+                emit("uiLanguage:changed", v).catch(() => {});
+              }}
             />
           }
         />
@@ -840,6 +869,8 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
     <Section
       label={t.panels.configuration.sectionRecordings}
       help={t.panels.configuration.sectionRecordingsHelp}
+      collapsible
+      defaultCollapsed
     >
       <ToggleRow
         label={t.panels.configuration.saveAudioLocally}
@@ -951,5 +982,65 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
         </>
       )}
     </Section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   LANGUAGE PICKER — horizontal segmented control. Shape mirrors the
+   theme picker on the Home panel so the visual language stays
+   consistent. Native ⌥-friendly via standard button focus, and the
+   active segment uses --color-accent to match the rest of the
+   highlight states.
+
+   Locked at the Lang catalog union ("en" | "de") so adding Swedish/
+   Spanish means: append to LANG_OPTIONS here AND add the corresponding
+   entry in catalog.ts + messages.ts. TypeScript fails the build if
+   any of the three drifts out of sync.
+   ────────────────────────────────────────────────────────────────── */
+
+interface LangOption {
+  id: "en" | "de";
+  label: string;
+}
+
+const LANG_OPTIONS: LangOption[] = [
+  { id: "en", label: "English" },
+  { id: "de", label: "Deutsch" },
+  // Spanish + Swedish reserved — add catalog entries first, then list here.
+];
+
+function LanguagePicker({
+  value,
+  onChange,
+}: {
+  value: "en" | "de";
+  onChange: (next: "en" | "de") => void;
+}) {
+  return (
+    <div
+      className="inline-flex rounded-md p-0.5"
+      style={{ background: tokens.control }}
+      role="radiogroup"
+    >
+      {LANG_OPTIONS.map((opt) => {
+        const active = opt.id === value;
+        return (
+          <button
+            key={opt.id}
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(opt.id)}
+            className="px-2.5 py-[3px] rounded text-[12px] font-medium transition-colors"
+            style={{
+              background: active ? tokens.card : "transparent",
+              color: active ? tokens.fg : tokens.fgMuted,
+              boxShadow: active ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

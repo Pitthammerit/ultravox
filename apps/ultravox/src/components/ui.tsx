@@ -189,6 +189,12 @@ interface SectionProps {
   help?: string | undefined;
   right?: ReactNode;
   children: ReactNode;
+  /** Make the section header click-to-toggle. The children mount/unmount
+   *  with the toggled state (no CSS-only hide so children with side
+   *  effects like polling intervals release cleanly when collapsed). */
+  collapsible?: boolean;
+  /** Initial state when `collapsible` is true. Defaults to expanded. */
+  defaultCollapsed?: boolean;
 }
 
 export function Section({
@@ -198,27 +204,49 @@ export function Section({
   help,
   right,
   children,
+  collapsible = false,
+  defaultCollapsed = false,
 }: SectionProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed && collapsible);
+  const headerInteractive = collapsible
+    ? {
+        role: "button" as const,
+        tabIndex: 0,
+        onClick: () => setCollapsed((c) => !c),
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setCollapsed((c) => !c);
+          }
+        },
+        style: { cursor: "pointer" as const, userSelect: "none" as const },
+        "aria-expanded": !collapsed,
+      }
+    : {};
   return (
     <section className="flex flex-col gap-1.5">
       {title && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" {...headerInteractive}>
           <h2
-            className="text-[14px] font-semibold tracking-tight"
+            className="text-[14px] font-semibold tracking-tight inline-flex items-center gap-1.5"
             style={{ color: T.fg }}
           >
+            {collapsible && <Chevron open={!collapsed} />}
             {title}
           </h2>
           {right}
         </div>
       )}
       {label && (
-        <div className="flex items-center justify-between">
-          <SectionLabel help={help}>{label}</SectionLabel>
+        <div className="flex items-center justify-between" {...headerInteractive}>
+          <span className="inline-flex items-center gap-1.5">
+            {collapsible && <Chevron open={!collapsed} />}
+            <SectionLabel help={help}>{label}</SectionLabel>
+          </span>
           {right}
         </div>
       )}
-      {description && (
+      {description && !collapsed && (
         <p
           className="text-[13px] leading-relaxed -mt-1"
           style={{ color: T.fgMuted }}
@@ -226,8 +254,33 @@ export function Section({
           {description}
         </p>
       )}
-      <div className="flex flex-col gap-1">{children}</div>
+      {!collapsed && <div className="flex flex-col gap-1">{children}</div>}
     </section>
+  );
+}
+
+/** Inline chevron used by collapsible Section headers. Rotates on toggle. */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+        transition: "transform 140ms ease",
+        opacity: 0.7,
+        flexShrink: 0,
+      }}
+      aria-hidden
+    >
+      <polyline points="3 4.5 6 7.5 9 4.5" />
+    </svg>
   );
 }
 

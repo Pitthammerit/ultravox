@@ -127,7 +127,7 @@ const en: MessageCatalog = {
       sectionRecordingWindow: "Recording window",
       sectionRecordingWindowHelp: "Choose how the floating pill appears while you're recording.",
       pillStyleLabel: "Style",
-      sectionTranscription: "Transcription",
+      sectionTranscription: "Installed transcription",
       sectionPermissions: "Permissions",
       sectionPermissionsHelp: "Required for Ultravox to record audio and paste transcriptions into other apps.",
       micAccess: "Microphone access",
@@ -151,6 +151,9 @@ const en: MessageCatalog = {
       folderCustomHelp: "Using a custom folder. Reset to put recordings back into Documents.",
       folderChoose: "Choose folder…",
       folderReset: "Reset to default",
+      sectionLanguage: "Language",
+      sectionLanguageHelp: "Interface language. Spoken language is detected per recording independently.",
+      languageLabel: "Display language",
       autoDeleteAfter: "Auto-delete after",
       retentionNever: "Never",
       retentionDays: (days) => `${days} days`,
@@ -416,7 +419,7 @@ const de: MessageCatalog = {
       sectionRecordingWindowHelp:
         "Wähle, wie die schwebende Pille während der Aufnahme aussieht.",
       pillStyleLabel: "Stil",
-      sectionTranscription: "Transkription",
+      sectionTranscription: "Installierte Transkription",
       sectionPermissions: "Berechtigungen",
       sectionPermissionsHelp:
         "Erforderlich, damit Ultravox Audio aufnehmen und Transkriptionen in andere Apps einfügen kann.",
@@ -448,6 +451,10 @@ const de: MessageCatalog = {
         "Eigener Ordner aktiv. Mit Zurücksetzen landen Aufnahmen wieder in Dokumente.",
       folderChoose: "Ordner wählen…",
       folderReset: "Auf Standard zurücksetzen",
+      sectionLanguage: "Sprache",
+      sectionLanguageHelp:
+        "Sprache der Oberfläche. Die gesprochene Sprache wird pro Aufnahme separat erkannt.",
+      languageLabel: "Anzeigesprache",
       autoDeleteAfter: "Automatisch löschen nach",
       retentionNever: "Nie",
       retentionDays: (days) => `${days} Tagen`,

@@ -168,6 +168,9 @@ export interface MessageCatalog {
       folderCustomHelp: string;
       folderChoose: string;
       folderReset: string;
+      sectionLanguage: string;
+      sectionLanguageHelp: string;
+      languageLabel: string;
       autoDeleteAfter: string;
       retentionNever: string;
       retentionDays: (days: number) => string;
