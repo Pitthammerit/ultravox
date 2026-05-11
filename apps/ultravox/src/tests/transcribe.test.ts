@@ -9,6 +9,9 @@ vi.mock("../lib/tauri-bridge", async (importOriginal) => {
     localWhisperStatus: vi.fn(),
     localWhisperTranscribe: vi.fn(),
     claudeCodeCheck: vi.fn().mockResolvedValue({ available: false }),
+    claudeCodeCleanup: vi.fn(),
+    localLlmStatus: vi.fn().mockResolvedValue({ available: false }),
+    localLlmCleanup: vi.fn(),
   };
 });
 
@@ -24,6 +27,11 @@ beforeEach(() => {
   globalThis.fetch = fetchMock;
   fetchMock.mockReset();
   _resetTokenCacheForTests();
+  // Clear call history on the module-level vi.fn() mocks so per-test
+  // call-count assertions (e.g. toHaveBeenCalledOnce) don't accumulate
+  // across tests. Implementations set via .mockResolvedValue() at module
+  // init or .mockResolvedValueOnce() in the test body are preserved.
+  vi.clearAllMocks();
 });
 
 const tokenResponse = { ok: true, token: "tok", expiresIn: 300 };
@@ -76,7 +84,11 @@ describe("transcribe routing", () => {
 describe("transcribe", () => {
   it("OpenRouter cleanup path: Whisper raw + client-side OpenRouter call with user key", async () => {
     const { secureStoreGet } = await import("../lib/secure-store");
-    vi.mocked(secureStoreGet).mockResolvedValueOnce("sk-or-test-123");
+    // Two reads: (1) the soft-fallback check that decides openrouter vs fallback,
+    // and (2) inside openRouterCleanup() proper. Both must return the key.
+    vi.mocked(secureStoreGet)
+      .mockResolvedValueOnce("sk-or-test-123")
+      .mockResolvedValueOnce("sk-or-test-123");
 
     const phases: string[] = [];
     fetchMock
@@ -108,10 +120,13 @@ describe("transcribe", () => {
     );
   });
 
-  it("throws MissingOpenRouterKeyError when no key is in Keychain", async () => {
+  it("throws MissingOpenRouterKeyError when no key AND no fallback provider is available", async () => {
     const { secureStoreGet } = await import("../lib/secure-store");
     vi.mocked(secureStoreGet).mockResolvedValueOnce(null);
 
+    // claudeCodeCheck + localLlmStatus default to { available: false }
+    // in the module-level mock — neither soft-fallback path is reachable,
+    // so the openrouter branch must throw.
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw whisper text" }) });
@@ -119,6 +134,82 @@ describe("transcribe", () => {
     await expect(
       transcribe(blob, { mode: baseMode, vocabulary: [], tokenEndpoint: "/api/voice/token" }),
     ).rejects.toBeInstanceOf(MissingOpenRouterKeyError);
+  });
+
+  // v0.18.12 soft-fallback chain. The user reported recording in default
+  // Note mode (which ships with provider="openrouter") with local Whisper
+  // enabled and got MissingOpenRouterKeyError. Root cause: DEFAULT_MODES
+  // pre-set openrouter but v0.18.4 ripped out the managed key. Fix: in
+  // the openrouter branch, when no key is found, try local LLM (if
+  // enabled + model available), then claude-code CLI, before throwing.
+  it("soft-falls back to Claude Code CLI when openrouter has no key but CC is available", async () => {
+    const { secureStoreGet } = await import("../lib/secure-store");
+    const { claudeCodeCheck, claudeCodeCleanup } = await import("../lib/tauri-bridge");
+    vi.mocked(secureStoreGet).mockResolvedValueOnce(null);
+    vi.mocked(claudeCodeCheck).mockResolvedValueOnce({ available: true, version: "1.0", path: "/usr/local/bin/claude" });
+    vi.mocked(claudeCodeCleanup).mockResolvedValueOnce("Hello world.");
+
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "hello world raw" }) });
+
+    const result = await transcribe(blob, {
+      mode: baseMode,
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+    });
+
+    expect(result.text).toBe("Hello world.");
+    expect(claudeCodeCleanup).toHaveBeenCalledOnce();
+    // No third fetch — we never reached openrouter.ai because we fell back.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("soft-falls back to local LLM when openrouter has no key but local cleanup is enabled and available", async () => {
+    const { secureStoreGet } = await import("../lib/secure-store");
+    const { localLlmStatus, localLlmCleanup } = await import("../lib/tauri-bridge");
+    vi.mocked(secureStoreGet).mockResolvedValueOnce(null);
+    vi.mocked(localLlmStatus).mockResolvedValueOnce({ available: true, modelVariant: "haiku-3", modelPath: "/tmp/m.gguf" } as never);
+    vi.mocked(localLlmCleanup).mockResolvedValueOnce("Locally cleaned.");
+
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw text" }) });
+
+    const result = await transcribe(blob, {
+      mode: baseMode,
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localCleanupEnabled: true,
+    });
+
+    expect(result.text).toBe("Locally cleaned.");
+    expect(localLlmCleanup).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("soft-fallback honors localCleanupEnabled=false (skips local LLM even if available)", async () => {
+    const { secureStoreGet } = await import("../lib/secure-store");
+    const { localLlmStatus, claudeCodeCheck, claudeCodeCleanup } = await import("../lib/tauri-bridge");
+    vi.mocked(secureStoreGet).mockResolvedValueOnce(null);
+    vi.mocked(localLlmStatus).mockResolvedValueOnce({ available: true, modelVariant: "haiku-3", modelPath: "/tmp/m.gguf" } as never);
+    vi.mocked(claudeCodeCheck).mockResolvedValueOnce({ available: true, version: "1.0", path: "/usr/local/bin/claude" });
+    vi.mocked(claudeCodeCleanup).mockResolvedValueOnce("CC cleaned.");
+
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw text" }) });
+
+    const result = await transcribe(blob, {
+      mode: baseMode,
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localCleanupEnabled: false,
+    });
+
+    // Local LLM available but disabled by master toggle → falls through to CC.
+    expect(result.text).toBe("CC cleaned.");
+    expect(claudeCodeCleanup).toHaveBeenCalledOnce();
   });
 
   it("POSTs to /v1/audio/transcriptions for raw cleanup", async () => {

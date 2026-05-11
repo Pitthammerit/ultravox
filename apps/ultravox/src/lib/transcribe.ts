@@ -489,10 +489,68 @@ export async function transcribe(
     throw new Error("Claude Code CLI not available. Install it from https://claude.com/claude-code or change this mode's Processing Provider.");
   }
 
-  // ── OpenRouter path (BYO key, client-side) ──
-  // Default branch for any cleanup-requested mode that didn't match local
-  // or claude-code. Reads the user's key from macOS Keychain; throws
-  // MissingOpenRouterKeyError if the user hasn't added one yet.
+  // ── OpenRouter path (BYO key, client-side) — with soft fallback ──
+  //
+  // Default branch for any cleanup-requested mode that didn't match
+  // local or claude-code above. v0.18.12: if no OpenRouter key is in
+  // Keychain, try the next-best provider before failing. Many users on
+  // v0.18.4+ landed here because the previous DEFAULT_MODES shipped
+  // email/message/note with provider="openrouter" — but the managed
+  // OpenRouter key was removed in v0.18.4, so without a user-supplied
+  // key the cleanup branch silently failed on every recording.
+  //
+  // Fallback priority:
+  //   1. localCleanupEnabled + local LLM model available → local LLM
+  //   2. Claude Code CLI available → claude-code
+  //   3. None of the above → throw MissingOpenRouterKeyError as before
+  //
+  // Settings stay as-is (non-destructive); user can add a key later to
+  // get back to openrouter, or switch the mode's provider explicitly
+  // in the mode editor.
+  const orKey = await secureStoreGet(KEY_OPENROUTER_API).catch(() => null);
+  if (!orKey || !orKey.trim()) {
+    // 1) Local LLM, if the master toggle is on and a model is installed.
+    if (localCleanupAllowed) {
+      try {
+        const llmVariant = opts.mode.languageModel ?? "auto";
+        const status = await localLlmStatus(llmVariant === "auto" ? undefined : llmVariant);
+        if (status.available) {
+          logDebug("transcribe-backend", {
+            message: `openrouter→local-llm soft fallback (no OR key, local model ${status.modelVariant})`,
+          });
+          const raw = await getRawTranscript();
+          if (!raw.trim()) return { text: raw };
+          const prompt = buildClaudePrompt(raw, opts);
+          const cleaned = await localLlmCleanup(prompt, llmVariant === "auto" ? undefined : llmVariant);
+          return { text: applyVocabularyReplacements(cleaned, getReplacePairs(opts.vocabulary)) };
+        }
+      } catch (e) {
+        logDebug("transcribe-post", {
+          message: "soft-fallback: local-llm failed, trying claude-code",
+          error: (e as Error).message?.slice(0, 200),
+        });
+      }
+    }
+    // 2) Claude Code CLI, if installed.
+    const ccStatus = await claudeCodeCheck();
+    if (ccStatus.available) {
+      logDebug("transcribe-backend", {
+        message: `openrouter→claude-code soft fallback (no OR key, CC v${ccStatus.version})`,
+      });
+      const raw = await getRawTranscript();
+      if (!raw.trim()) return { text: raw };
+      const prompt = buildClaudePrompt(raw, opts);
+      const cleaned = await claudeCodeCleanup(prompt, claudeAlias);
+      return { text: applyVocabularyReplacements(cleaned, getReplacePairs(opts.vocabulary)) };
+    }
+    // 3) No fallback available — surface the actionable error.
+    logDebug("transcribe-post", {
+      message: "soft-fallback: no provider available, throwing MissingOpenRouterKeyError",
+    });
+    throw new MissingOpenRouterKeyError();
+  }
+
+  // Key present — proceed with openrouter as usual.
   logDebug("transcribe-backend", {
     message: `openrouter (BYO key) — transcribe=${wantsLocal ? "local-or-cloud" : "cloud"} cleanup=${cleanup} model=${opts.mode.languageModel ?? "default"}`,
   });

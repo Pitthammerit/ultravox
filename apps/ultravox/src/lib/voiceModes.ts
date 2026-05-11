@@ -128,7 +128,14 @@ export const DEFAULT_MODES: VoiceMode[] = [
     voiceModel: "whisper-large-v3-turbo",
     language: "auto",
     cleanup: "prose",
-    languageModelProvider: "openrouter",
+    // v0.18.12: switched from "openrouter" → "claude-code". v0.18.4 removed
+    // the managed OpenRouter key (BYO model), so fresh installs that hadn't
+    // added a key silently failed cleanup on every recording. Claude Code
+    // CLI is the no-key default — if it's installed, cleanup just works;
+    // if not, transcribe.ts surfaces an actionable error pointing at the
+    // CLI install OR the Configuration → API Keys panel. The soft-fallback
+    // chain in the openrouter branch covers users with legacy saves.
+    languageModelProvider: "claude-code",
     languageModel: "anthropic/claude-haiku-4.5",
     transcriptionModel: "base",
     autocapitalize: true,
@@ -166,7 +173,8 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     voiceModel: "whisper-large-v3-turbo",
     language: "auto",
     cleanup: "prose",
-    languageModelProvider: "openrouter",
+    // v0.18.12: see the email-mode comment above. Switched from "openrouter".
+    languageModelProvider: "claude-code",
     languageModel: "anthropic/claude-haiku-4.5",
     transcriptionModel: "tiny",
     autocapitalize: true,
@@ -179,7 +187,9 @@ Output ONLY the email body. No preamble, no explanations, no Markdown fences.`,
     voiceModel: "whisper-large-v3-turbo",
     language: "auto",
     cleanup: "note",
-    languageModelProvider: "openrouter",
+    // v0.18.12: see the email-mode comment above. Switched from "openrouter".
+    // This was the mode the user-reported v0.18.11 bug fired on.
+    languageModelProvider: "claude-code",
     languageModel: "anthropic/claude-haiku-4.5",
     transcriptionModel: "base",
     autocapitalize: true,
