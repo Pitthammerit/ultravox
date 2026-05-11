@@ -113,7 +113,7 @@ export default function SettingsWindow() {
             <VocabularyPanel settings={settings} onChange={update} />
           )}
           {section === "configuration" && (
-            <ConfigurationPanel settings={settings} onChange={update} />
+            <ConfigurationPanel settings={settings} onChange={update} onNavigate={setSection} />
           )}
           {section === "sound" && <SoundPanel settings={settings} onChange={update} />}
           {section === "history" && <HistoryPanel />}

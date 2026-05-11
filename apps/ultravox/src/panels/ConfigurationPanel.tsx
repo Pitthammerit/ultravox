@@ -38,9 +38,21 @@ import { LLM_LABEL_MAP } from "../lib/llmVariants";
 import { getDebugLog, clearDebugLog, type DebugEntry } from "../lib/debugLog";
 import { useT } from "../lib/i18n/I18nProvider";
 
+type SettingsSection =
+  | "home"
+  | "modes"
+  | "vocabulary"
+  | "configuration"
+  | "sound"
+  | "history";
+
 interface ConfigurationPanelProps {
   settings?: AppSettings;
   onChange?: (patch: Partial<AppSettings>) => Promise<void>;
+  /** When provided, the Configuration panel can navigate to other sections
+   *  in the SettingsWindow shell — used by LastTranscriptionSection's
+   *  "Show recent recordings" button to deep-link into the History panel. */
+  onNavigate?: (s: SettingsSection) => void;
 }
 
 type MicState = "granted" | "denied" | "prompt" | "unknown";
@@ -78,7 +90,7 @@ async function requestMicrophonePermission(): Promise<boolean> {
   }
 }
 
-export default function ConfigurationPanel({ settings, onChange }: ConfigurationPanelProps) {
+export default function ConfigurationPanel({ settings, onChange, onNavigate }: ConfigurationPanelProps) {
   const t = useT();
   const [axGranted, setAxGranted] = useState<boolean | null>(null);
   const [axRequesting, setAxRequesting] = useState(false);
@@ -228,6 +240,7 @@ export default function ConfigurationPanel({ settings, onChange }: Configuration
 
       <InstalledWhisperModelsSection />
       <InstalledLlmModelsSection />
+      <LastTranscriptionSection settings={settings} onChange={onChange} onNavigate={onNavigate} />
       <RecordingsSection settings={settings} onChange={onChange} />
 
       {/* Permissions: collapsible. Default expanded so a first-launch user
@@ -662,6 +675,21 @@ function formatBytes(b: number): string {
   return `${(b / 1024 / 1024).toFixed(2)}MB`;
 }
 
+/**
+ * Round-and-coarsen byte formatter used only by the Recordings disk-usage
+ * readout. The detailed formatBytes() above (used by Diagnostics + the
+ * toggle-off dialog) reports e.g. "1.29MB" — fine when you need precision,
+ * cluttered when you just want a "you have N MB sitting on disk" eyeball.
+ * Rounded readout: < 1 MB → nearest KB (min 1 KB), >= 1 MB → nearest MB.
+ */
+function formatBytesRounded(b: number): string {
+  if (b < 1024 * 1024) {
+    const kb = Math.max(1, Math.round(b / 1024));
+    return `${kb} KB`;
+  }
+  return `${Math.round(b / (1024 * 1024))} MB`;
+}
+
 /* ─────────────────────────────────────────────────────────────
    INSTALLED WHISPER MODELS — delete-only view for disk management
    Wrapped in an accordion; collapsed by default (maintenance feature).
@@ -905,6 +933,91 @@ function CoremlBadge() {
 }
 
 /* ─────────────────────────────────────────────────────────────────
+   LAST TRANSCRIPTION — controls what happens to each transcript AFTER
+   paste (clipboard / cache / neither). Independent of the audio-blob
+   storage configured in RecordingsSection below. Lives in its own
+   collapsible Section so the help text can be honest about what's
+   actually local vs. round-tripped through the server.
+   ────────────────────────────────────────────────────────────────── */
+
+interface LastTranscriptionSectionProps {
+  settings: AppSettings | undefined;
+  onChange: ((patch: Partial<AppSettings>) => Promise<void>) | undefined;
+  onNavigate: ((s: SettingsSection) => void) | undefined;
+}
+
+function LastTranscriptionSection({
+  settings,
+  onChange,
+  onNavigate,
+}: LastTranscriptionSectionProps) {
+  const t = useT();
+  const recordings: RecordingsSettings = settings?.recordings ?? {
+    saveLocal: false,
+    retentionDays: 30,
+    cacheMode: "cache-only",
+  };
+
+  const handleShowRecordings = () => {
+    if (!onNavigate) return;
+    // Navigate FIRST so HistoryPanel mounts and registers its
+    // `ui:blink-recordings` listener; then emit after a 200ms hedge so
+    // the listener is in place when the event arrives. Same async-race
+    // pattern noted in CLAUDE.md for the useHotkeyEvent hook — Tauri
+    // listen() resolves asynchronously, and a 50ms margin can be lost on
+    // a cold WebView mount or under memory pressure. 200ms is generous
+    // enough to be robust without being perceptibly delayed.
+    onNavigate("history");
+    setTimeout(() => {
+      emit("ui:blink-recordings").catch(() => {});
+    }, 200);
+  };
+
+  return (
+    <Section
+      collapsible
+      defaultCollapsed
+      label={t.panels.configuration.sectionLastTranscription}
+      help={t.panels.configuration.sectionLastTranscriptionHelp}
+    >
+      <Row
+        label={t.panels.configuration.cacheModeLabel}
+        help={t.panels.configuration.cacheModeHelp}
+        control={
+          <select
+            value={recordings.cacheMode ?? "cache-only"}
+            onChange={(e) => {
+              const next = e.currentTarget.value as RecordingsSettings["cacheMode"];
+              void onChange?.({ recordings: { ...recordings, cacheMode: next } });
+            }}
+            className="rounded-md text-[12px] px-2 py-1"
+            style={{
+              background: tokens.control,
+              color: tokens.fg,
+              border: `1px solid ${tokens.border}`,
+            }}
+          >
+            <option value="auto-copy">{t.panels.configuration.cacheModeAutoCopy}</option>
+            <option value="cache-only">{t.panels.configuration.cacheModeCacheOnly}</option>
+            <option value="no-cache">{t.panels.configuration.cacheModeNoCache}</option>
+          </select>
+        }
+      />
+      {onNavigate && (
+        <Row
+          label={t.panels.configuration.showRecordingsButton}
+          control={
+            <Button size="xs" variant="outline" onClick={handleShowRecordings}>
+              {t.panels.configuration.showRecordingsButton}
+            </Button>
+          }
+        />
+      )}
+    </Section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
    RECORDINGS — local audio storage opt-in. Default OFF (privacy-first).
    When enabled, every recording's audio blob is persisted to disk so
    the user can replay / re-transcribe / audit later from the History
@@ -1097,39 +1210,14 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
         checked={recordings.saveLocal}
         onChange={(v) => void setSaveLocal(v)}
       />
-      {/* Cache mode — controls what happens to the TRANSCRIPT (text)
-          after each recording. Independent of the audio toggle above.
-          See RecordingsSettings.cacheMode for semantics. */}
-      <Row
-        label={t.panels.configuration.cacheModeLabel}
-        help={t.panels.configuration.cacheModeHelp}
-        control={
-          <select
-            value={recordings.cacheMode ?? "cache-only"}
-            onChange={(e) => {
-              const next = e.currentTarget.value as RecordingsSettings["cacheMode"];
-              void onChange?.({ recordings: { ...recordings, cacheMode: next } });
-            }}
-            className="rounded-md text-[12px] px-2 py-1"
-            style={{
-              background: tokens.control,
-              color: tokens.fg,
-              border: `1px solid ${tokens.border}`,
-            }}
-          >
-            <option value="auto-copy">{t.panels.configuration.cacheModeAutoCopy}</option>
-            <option value="cache-only">{t.panels.configuration.cacheModeCacheOnly}</option>
-            <option value="no-cache">{t.panels.configuration.cacheModeNoCache}</option>
-          </select>
-        }
-      />
       {recordings.saveLocal && (
         <>
-          {/* Folder row — path on top (tilde-collapsed, ellipsis-overflowed,
-              full path on hover), Open folder + Choose folder + Reset
-              buttons in one horizontal row below. Per user 2026-05-11:
-              "open folder and choose folder in same level one row, 2
-              buttons next to each other". */}
+          {/* Folder row — full path on top (tilde-collapsed, wraps to a
+              second line if long, full string on hover via title=). Open
+              folder + Choose folder + Reset buttons in one horizontal row
+              below. The previous truncated rtl-ellipsis chopped off the
+              important folder-name suffix on long custom paths
+              (2026-05-11). */}
           <Row
             label={t.panels.configuration.folderLabel}
             help={
@@ -1138,18 +1226,16 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
                 : t.panels.configuration.folderCustomHelp
             }
             control={
-              <div className="flex flex-col items-end gap-1.5" style={{ minWidth: 0 }}>
+              <div className="flex flex-col items-end gap-1.5" style={{ minWidth: 0, maxWidth: 280 }}>
                 <span
                   style={{
                     fontSize: 11,
                     color: tokens.fgMuted,
                     fontFamily: "ui-monospace, SFMono-Regular, monospace",
-                    maxWidth: 280,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    direction: "rtl",
                     textAlign: "right",
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-all",
+                    lineHeight: 1.35,
                   }}
                   title={effectiveFolder}
                 >
@@ -1171,9 +1257,10 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
               </div>
             }
           />
-          {/* Retention + disk usage + Delete-all in ONE row. Per user
-              2026-05-11: "keep for ... and delete in one line and
-              recordings mb/gb counter so 3 buttons in one row". */}
+          {/* Retention + disk usage + Delete-all in ONE row. Disk usage is
+              rounded to the nearest MB (KB below 1 MB) since the count
+              already lives in the Delete-all button right next to it —
+              no need to repeat the "across N recordings" suffix. */}
           <Row
             label={t.panels.configuration.autoDeleteAfter}
             control={
@@ -1196,7 +1283,7 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
                 <span style={{ fontSize: 11, color: tokens.fgMuted, whiteSpace: "nowrap" }}>
                   {stats.count === 0
                     ? t.panels.configuration.diskUsageEmpty
-                    : t.panels.configuration.diskUsageFull(formatBytes(stats.bytes), stats.count)}
+                    : t.panels.configuration.diskUsageFull(formatBytesRounded(stats.bytes))}
                 </span>
                 <Button
                   size="xs"

@@ -179,17 +179,20 @@ export interface MessageCatalog {
       toggleOffBody: (count: number, size: string) => string;
       toggleOffDelete: string;
       toggleOffKeep: string;
+      sectionLastTranscription: string;
+      sectionLastTranscriptionHelp: string;
       cacheModeLabel: string;
       cacheModeHelp: string;
       cacheModeAutoCopy: string;
       cacheModeCacheOnly: string;
       cacheModeNoCache: string;
+      showRecordingsButton: string;
       autoDeleteAfter: string;
       retentionNever: string;
       retentionDays: (days: number) => string;
       diskUsage: string;
       diskUsageEmpty: string;
-      diskUsageFull: (size: string, count: number) => string;
+      diskUsageFull: (size: string) => string;
       openFolder: string;
       deleteAll: (count: number) => string;
       deleteAllConfirm: string;
@@ -281,6 +284,9 @@ export interface MessageCatalog {
       timeMinutesAgo: (n: number) => string;
       timeHoursAgo: (n: number) => string;
       timeDaysAgo: (n: number) => string;
+      clickToCopy: string;
+      expand: string;
+      collapse: string;
     };
   };
   pill: {

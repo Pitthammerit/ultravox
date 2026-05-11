@@ -136,3 +136,29 @@ body[data-route="settings"] #root {
 .s-wave-bar.s-wave-active {
   animation: s-wave-pulse 2s linear 1;
 }
+
+/* Yellow halo pulse for the History panel deep-link blink. Triggered when
+ * Configuration → Last transcription → "Show recordings" navigates here:
+ * the section pulses 3× over 1.5s to draw the eye. Hoisted out of the
+ * component body so the keyframes are declared once at module load. */
+@keyframes uv-blink-halo {
+  0%   { box-shadow: 0 0 0 0 transparent; border-color: transparent; }
+  15%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-star) 35%, transparent); border-color: var(--color-star); }
+  33%  { box-shadow: 0 0 0 0 transparent; border-color: transparent; }
+  48%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-star) 35%, transparent); border-color: var(--color-star); }
+  66%  { box-shadow: 0 0 0 0 transparent; border-color: transparent; }
+  81%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-star) 35%, transparent); border-color: var(--color-star); }
+  100% { box-shadow: 0 0 0 0 transparent; border-color: transparent; }
+}
+
+.uv-blink-target {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 2px;
+  margin: -4px;
+  transition: none;
+}
+
+.uv-blink-target.uv-blinking {
+  animation: uv-blink-halo 1.5s ease-in-out;
+}

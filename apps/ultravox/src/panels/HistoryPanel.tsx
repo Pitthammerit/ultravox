@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { ChevronDown } from "lucide-react";
 import {
   clearHistory,
   loadSettings,
@@ -12,9 +13,20 @@ import {
   readRecordingAudio,
 } from "../lib/tauri-bridge";
 import { Button, Section, tokens } from "../components/ui";
+import { useT } from "../lib/i18n/I18nProvider";
+
+// Char threshold above which we render the chevron-expand affordance.
+// Roughly correlates to "would clamp at line-clamp-3 in a ~360px column".
+// Picked over scrollHeight measurement to avoid a layout-effect-per-item
+// pass on every render — the heuristic mis-classifies a few short multi-
+// line entries but never hides text the user can't otherwise read.
+const EXPAND_THRESHOLD_CHARS = 180;
 
 export default function HistoryPanel() {
+  const t = useT();
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [blinking, setBlinking] = useState(false);
+  const sectionRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = async () => {
     const s = await loadSettings();
@@ -27,9 +39,24 @@ export default function HistoryPanel() {
     // PillWindow's appendHistory broadcasts settings:saved on every
     // recording, so the History panel stays current without the user
     // navigating away and back.
-    let unsub: (() => void) | undefined;
-    listen("settings:saved", () => { void refresh(); }).then((u) => { unsub = u; });
-    return () => { unsub?.(); };
+    let unsubSaved: (() => void) | undefined;
+    listen("settings:saved", () => { void refresh(); }).then((u) => { unsubSaved = u; });
+
+    // Listen for the deep-link from Configuration → "Show recent
+    // recordings". The corresponding emit is fired AFTER the navigation
+    // so this listener has time to register on first mount; we still
+    // run the scroll + pulse here as a single visible response.
+    let unsubBlink: (() => void) | undefined;
+    listen("ui:blink-recordings", () => {
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setBlinking(true);
+      setTimeout(() => setBlinking(false), 1500);
+    }).then((u) => { unsubBlink = u; });
+
+    return () => {
+      unsubSaved?.();
+      unsubBlink?.();
+    };
   }, []);
 
   const onClear = async () => {
@@ -64,42 +91,47 @@ export default function HistoryPanel() {
 
   return (
     <>
-      <Section
-        label={`Recent transcriptions (${history.length})`}
-        right={
-          history.length > 0 ? (
-            <Button size="xs" variant="outline" onClick={onClear}>
-              Clear all
-            </Button>
-          ) : undefined
-        }
+      <div
+        ref={sectionRef}
+        className={`uv-blink-target${blinking ? " uv-blinking" : ""}`}
       >
-        {history.length === 0 ? (
-          <p
-            className="text-[12.5px] italic"
-            style={{ color: tokens.fgSubtle }}
-          >
-            No transcriptions yet — capture one with the record hotkey.
-          </p>
-        ) : (
-          history.map((entry) => (
-            <HistoryItem
-              key={entry.id}
-              entry={entry}
-              onDeleteAudio={() => void onDeleteAudio(entry.id)}
-            />
-          ))
-        )}
-      </Section>
+        <Section
+          label={t.panels.history.sectionTitle(history.length)}
+          right={
+            history.length > 0 ? (
+              <Button size="xs" variant="outline" onClick={onClear}>
+                {t.panels.history.clearAll}
+              </Button>
+            ) : undefined
+          }
+        >
+          {history.length === 0 ? (
+            <p
+              className="text-[12.5px] italic"
+              style={{ color: tokens.fgSubtle }}
+            >
+              {t.panels.history.empty}
+            </p>
+          ) : (
+            history.map((entry) => (
+              <HistoryItem
+                key={entry.id}
+                entry={entry}
+                onDeleteAudio={() => void onDeleteAudio(entry.id)}
+              />
+            ))
+          )}
+        </Section>
+      </div>
 
       <p
         className="text-[11.5px] leading-relaxed pt-1"
         style={{ color: tokens.fgSubtle }}
       >
-        History is stored locally on this Mac. {audioCount > 0
-          ? `${audioCount} entr${audioCount === 1 ? "y has" : "ies have"} saved audio.`
-          : "Audio is only saved when 'Save audio recordings locally' is on in Configuration → Recordings."}{" "}
-        Last 50 transcriptions kept.
+        {audioCount > 0
+          ? t.panels.history.footnoteAudio(audioCount)
+          : t.panels.history.footnoteNoAudio}{" "}
+        {t.panels.history.footnoteCap}
       </p>
     </>
   );
@@ -112,12 +144,16 @@ function HistoryItem({
   entry: HistoryEntry;
   onDeleteAudio: () => void;
 }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioErr, setAudioErr] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [hovering, setHovering] = useState(false);
   const objectUrlRef = useRef<string | null>(null);
 
   const hasAudio = !!entry.audioPath && !!entry.audioFormat;
+  const canExpand = entry.text.length > EXPAND_THRESHOLD_CHARS;
 
   // Load the audio bytes lazily. Reading on mount would create a Blob URL
   // for every entry on the page; we only do it when the user expands an
@@ -178,12 +214,12 @@ function HistoryItem({
             {entry.modeId}
           </span>
           <span className="text-[11px]" style={{ color: tokens.fgMuted }}>
-            {formatRelative(entry.ts)}
+            {formatRelative(entry.ts, t)}
           </span>
           {hasAudio && entry.audioBytes && (
             <span
               className="text-[10px] uppercase tracking-[0.10em] font-semibold inline-flex items-center"
-              title={`Audio saved (${formatBytes(entry.audioBytes)})`}
+              title={t.panels.history.audioBadgeTitle(formatBytes(entry.audioBytes))}
               style={{
                 height: 14,
                 padding: "0 5px",
@@ -203,7 +239,7 @@ function HistoryItem({
             color: copied ? tokens.fg : tokens.fgMuted,
           }}
         >
-          {copied ? "✓ Copied" : "Copy"}
+          {copied ? t.common.copied : t.common.copy}
         </button>
       </div>
       {hasAudio && (
@@ -218,22 +254,66 @@ function HistoryItem({
           )}
           {audioErr && !audioUrl && (
             <p className="text-[10px] italic" style={{ color: tokens.fgSubtle }}>
-              Could not load audio: {audioErr}
+              {audioErr}
             </p>
           )}
         </div>
       )}
-      <p
-        className="text-[12.5px] leading-relaxed line-clamp-3"
-        style={{ color: tokens.fg }}
-        title={entry.text}
+      {/* Click-to-copy frame around the transcript. The dedicated Copy
+          button up top stays as the discoverable affordance; this is the
+          "I'll just click the text" shortcut. Hover gets a faint accent
+          tint so the click target is visible but not loud. */}
+      <button
+        type="button"
+        onClick={() => void copy()}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+        title={t.panels.history.clickToCopy}
+        className="w-full text-left rounded-md px-1.5 py-1 -mx-1.5 transition-colors"
+        style={{
+          background: hovering
+            ? "color-mix(in srgb, var(--color-accent) 8%, transparent)"
+            : "transparent",
+          border: "none",
+          cursor: "pointer",
+        }}
       >
-        {entry.text}
-      </p>
+        <p
+          className={`text-[12.5px] leading-relaxed${expanded ? "" : " line-clamp-3"}`}
+          style={{ color: tokens.fg, margin: 0 }}
+        >
+          {entry.text}
+        </p>
+      </button>
+      {canExpand && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded ? t.panels.history.collapse : t.panels.history.expand}
+          className="mt-1 inline-flex items-center justify-center rounded-full transition-colors"
+          style={{
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: tokens.fgMuted,
+            width: 20,
+            height: 20,
+            padding: 0,
+          }}
+        >
+          <ChevronDown
+            size={14}
+            style={{
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 160ms ease",
+            }}
+          />
+        </button>
+      )}
       {hasAudio && (
         <div className="flex items-center gap-1.5 mt-2">
           <Button size="xs" variant="outline" onClick={onDeleteAudio}>
-            Delete audio
+            {t.panels.history.deleteAudio}
           </Button>
         </div>
       )}
@@ -259,14 +339,17 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatRelative(ts: number): string {
+function formatRelative(
+  ts: number,
+  t: ReturnType<typeof useT>,
+): string {
   const diff = Date.now() - ts;
   const min = Math.round(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
+  if (min < 1) return t.panels.history.timeJustNow;
+  if (min < 60) return t.panels.history.timeMinutesAgo(min);
   const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return t.panels.history.timeHoursAgo(hr);
   const day = Math.round(hr / 24);
-  if (day < 7) return `${day}d ago`;
+  if (day < 7) return t.panels.history.timeDaysAgo(day);
   return new Date(ts).toLocaleDateString();
 }
