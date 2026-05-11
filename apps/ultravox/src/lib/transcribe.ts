@@ -41,6 +41,15 @@ export interface TranscribeOptions {
    *  branch in transcribeAudio is skipped and cleanup falls through to the
    *  worker even if the per-mode provider is "local". */
   localCleanupEnabled?: boolean;
+  /** v0.19.1 master toggle for the OpenRouter cleanup provider. When false,
+   *  the openrouter branch is treated as unavailable — same path as "no key
+   *  in Keychain". Falls through to the soft-fallback chain. */
+  openrouterEnabled?: boolean;
+  /** v0.19.1 master toggle for the Claude Code CLI provider. When false,
+   *  the claude-code branch is skipped and falls through to the soft-
+   *  fallback chain (or errors loudly if the per-mode provider is
+   *  explicitly "claude-code" — same path as "CLI not installed"). */
+  claudeCodeEnabled?: boolean;
   /** Audio quality hint computed from peak level. "low" triggers upgrade to more capable models in Auto routing. */
   audioQuality?: "low" | "normal";
   /** Abort signal — when fired, cancels in-flight worker / claude-code fetch calls.
@@ -469,7 +478,10 @@ export async function transcribe(
   // use a key they didn't intend for this mode or fail with a confusing
   // MissingOpenRouterKeyError).
   if (provider === "claude-code") {
-    const status = await claudeCodeCheck();
+    // v0.19.1: respect the master toggle. When false, treat same as
+    // "CLI not detected" — surface the actionable error.
+    const ccEnabled = opts.claudeCodeEnabled ?? true;
+    const status = ccEnabled ? await claudeCodeCheck() : { available: false } as const;
     if (status.available) {
       logDebug("transcribe-backend", { message: `Claude Code CLI v${status.version} model=${claudeAlias}` });
       const raw = await getRawTranscript();
@@ -507,7 +519,12 @@ export async function transcribe(
   // Settings stay as-is (non-destructive); user can add a key later to
   // get back to openrouter, or switch the mode's provider explicitly
   // in the mode editor.
-  const orKey = await secureStoreGet(KEY_OPENROUTER_API).catch(() => null);
+  // v0.19.1: respect the openrouterEnabled master toggle. When false,
+  // treat as "no key" — the soft-fallback chain kicks in just like the
+  // empty-key path. Avoids a separate code branch for "user has a key
+  // but turned the provider off."
+  const orToggleOn = opts.openrouterEnabled ?? true;
+  const orKey = orToggleOn ? await secureStoreGet(KEY_OPENROUTER_API).catch(() => null) : null;
   if (!orKey || !orKey.trim()) {
     // 1) Local LLM, if the master toggle is on and a model is installed.
     if (localCleanupAllowed) {
@@ -531,8 +548,9 @@ export async function transcribe(
         });
       }
     }
-    // 2) Claude Code CLI, if installed.
-    const ccStatus = await claudeCodeCheck();
+    // 2) Claude Code CLI, if installed AND the master toggle is on.
+    const ccToggleOn = opts.claudeCodeEnabled ?? true;
+    const ccStatus = ccToggleOn ? await claudeCodeCheck() : { available: false } as const;
     if (ccStatus.available) {
       logDebug("transcribe-backend", {
         message: `openrouter→claude-code soft fallback (no OR key, CC v${ccStatus.version})`,

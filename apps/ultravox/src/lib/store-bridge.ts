@@ -199,6 +199,19 @@ export interface AppSettings {
    *  removed in v0.11.7 (silent override hid user intent); restored in
    *  v0.18.8 behind this opt-in. */
   autoModeEnabled?: boolean;
+  /** v0.19.1: Master toggle for the OpenRouter cleanup provider. When
+   *  false, OpenRouter is hidden from the mode-editor dropdown AND
+   *  treated as unavailable by the transcribe.ts soft-fallback chain
+   *  (any mode set to "openrouter" falls through to local → claude-code
+   *  → throw). When true, OpenRouter is usable only if a key is also
+   *  present in Keychain — "key absent" effectively disables the
+   *  provider regardless of this toggle. Default true. */
+  openrouterEnabled?: boolean;
+  /** v0.19.1: Master toggle for the Claude Code CLI cleanup provider.
+   *  Same semantics as openrouterEnabled — when false, hidden from
+   *  dropdown + skipped by soft-fallback; when true, usable only if the
+   *  CLI is also detected on PATH. Default true. */
+  claudeCodeEnabled?: boolean;
   /** Internal: marks that the v0.18.6 SHADOW_PAD bump (14 → 32 pt)
    *  position-shift compensation has run. Set to true the first time a
    *  v0.18.7+ build loads settings. Never user-edited; never displayed.
@@ -243,6 +256,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   localCleanupEnabled: true,
   modelsBoxOpen: true,
   autoModeEnabled: false,
+  openrouterEnabled: true,
+  claudeCodeEnabled: true,
   // Fresh installs start "already migrated" — there are no v0.18.5
   // positions to fix. The migration only fires for upgrade paths where
   // the stored file lacks this marker (see migratePillPositions).

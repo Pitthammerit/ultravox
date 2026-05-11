@@ -26,6 +26,8 @@ import { AutoModeAppsSection } from "../components/AutoModeAppsSection";
 import { TranscriptionModelPicker, useTranscriptionModelPicker } from "../components/TranscriptionModelPicker";
 import { LocalLLMPicker, useLocalLLMPicker } from "../components/LocalLLMPicker";
 import type { TranscriptionModelValue } from "../lib/voiceModes";
+import { claudeCodeCheck } from "../lib/tauri-bridge";
+import { secureStoreHas, KEY_OPENROUTER_API } from "../lib/secure-store";
 
 interface ModeFormProps {
   settings: AppSettings;
@@ -106,6 +108,45 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
   const usesCleanup =
     draft.cleanup !== "raw" && draft.languageModelProvider !== "none";
   const providerModels = LANGUAGE_MODELS[draft.languageModelProvider] ?? [];
+
+  // v0.19.1: filter the provider dropdown by per-provider availability.
+  // A provider appears only when (toggle on) AND (credential present).
+  // The current draft.languageModelProvider is always included even if
+  // unavailable, so the user can still see / change their existing
+  // selection — otherwise the Select would render blank for a mode
+  // saved with a now-disabled provider.
+  const [hasOrKey, setHasOrKey] = useState<boolean | null>(null);
+  const [ccAvailable, setCcAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    secureStoreHas(KEY_OPENROUTER_API)
+      .then((v) => { if (!cancelled) setHasOrKey(v); })
+      .catch(() => { if (!cancelled) setHasOrKey(false); });
+    claudeCodeCheck()
+      .then((s) => { if (!cancelled) setCcAvailable(s.available); })
+      .catch(() => { if (!cancelled) setCcAvailable(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const orEnabled = settings.openrouterEnabled ?? true;
+  const ccEnabled = settings.claudeCodeEnabled ?? true;
+  const visibleProviders = LANGUAGE_MODEL_PROVIDERS.filter((p) => {
+    if (p.id === "openrouter") return orEnabled && hasOrKey === true;
+    if (p.id === "claude-code") return ccEnabled && ccAvailable === true;
+    return true; // local + none always visible
+  });
+  // Ensure the currently-selected provider stays in the list even when
+  // its availability is gated off — so the Select doesn't render blank
+  // and the user sees what they need to fix.
+  const providerOptions = visibleProviders.some((p) => p.id === draft.languageModelProvider)
+    ? visibleProviders
+    : [
+        ...visibleProviders,
+        LANGUAGE_MODEL_PROVIDERS.find((p) => p.id === draft.languageModelProvider) ?? {
+          id: draft.languageModelProvider,
+          label: draft.languageModelProvider,
+        },
+      ];
 
   // Slug-field validation only applies to new modes (existing modes are locked).
   const slugCollision = isNew &&
@@ -294,7 +335,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
                       LANGUAGE_MODELS[languageModelProvider]?.[0]?.id ?? null,
                   })
                 }
-                options={LANGUAGE_MODEL_PROVIDERS.map((p) => ({
+                options={providerOptions.map((p) => ({
                   id: p.id,
                   label: p.label,
                 }))}

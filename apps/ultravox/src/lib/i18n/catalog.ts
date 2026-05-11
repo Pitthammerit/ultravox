@@ -135,6 +135,27 @@ export interface MessageCatalog {
       claudeCodeCliChecking: string;
       claudeCodeCliAvailable: (version: string) => string;
       claudeCodeCliNotInstalled: string;
+      // v0.19.1 Cleanup providers section (replaces hardcoded "API Keys").
+      sectionCleanupProviders: string;
+      sectionCleanupProvidersHelp: string;
+      openrouterLabel: string;
+      openrouterEnabledHelp: string;
+      openrouterApiKeyLabel: string;
+      openrouterApiKeyHelp: string;
+      openrouterKeySaved: string;
+      openrouterKeyNotSet: string;
+      openrouterKeyChecking: string;
+      openrouterReplaceKey: string;
+      openrouterSetKey: string;
+      openrouterKeyPlaceholder: string;
+      openrouterKeySaving: string;
+      openrouterKeyClickAgain: string;
+      openrouterKeyRemove: string;
+      openrouterKeySavedToast: string;
+      openrouterKeyRemovedToast: string;
+      openrouterKeySaveError: (msg: string) => string;
+      openrouterKeyRemoveError: (msg: string) => string;
+      claudeCodeEnabledHelp: string;
       sectionOnboarding: string;
       sectionOnboardingHelp: string;
       launchOnboarding: string;

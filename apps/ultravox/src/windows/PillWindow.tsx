@@ -823,6 +823,8 @@ export default function PillWindow() {
         ...(frontmost ? { frontmostApp: frontmost } : {}),
         localWhisperEnabled: settings?.localWhisperEnabled ?? false,
         localCleanupEnabled: settings?.localCleanupEnabled ?? true,
+        openrouterEnabled: settings?.openrouterEnabled ?? true,
+        claudeCodeEnabled: settings?.claudeCodeEnabled ?? true,
         audioQuality,
         signal: abortController.signal,
       });

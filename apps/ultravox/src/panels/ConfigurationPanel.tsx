@@ -348,7 +348,11 @@ export default function ConfigurationPanel({ settings, onChange, onNavigate }: C
         />
       </Section>
 
-      <ApiKeysSection claudeStatus={claudeStatus} />
+      <ApiKeysSection
+        claudeStatus={claudeStatus}
+        settings={settings ?? null}
+        onChange={onChange}
+      />
 
       {/* Onboarding wizard — lives in its own section. Used to be inside
           Danger Zone, which was misleading: re-launching the wizard is
@@ -398,29 +402,47 @@ export default function ConfigurationPanel({ settings, onChange, onNavigate }: C
 }
 
 /* ─────────────────────────────────────────────────────────────
-   API KEYS — BYO OpenRouter key (macOS Keychain) + Claude Code
-   status. Replaces the v0.18 "Cleanup backends" section.
+   CLEANUP PROVIDERS — per-provider on/off toggles + credentials.
+   v0.19.1 refactor of the v0.18.4 "API Keys" section.
+
+   Each provider has a toggle:
+   - OpenRouter: when ON + key in Keychain → available in mode editor.
+     When OFF or no key → hidden from dropdown, backend won't use it.
+   - Claude Code CLI: when ON + CLI detected → available. When OFF or
+     not installed → hidden.
+
+   Effective availability is computed at:
+   - The mode editor's provider dropdown (filtered).
+   - transcribe.ts's openrouter / claude-code branches (skip if toggle
+     off; soft-fallback handles the rest).
 
    The OpenRouter key field is a masked password input. The plaintext
    value lives in React state ONLY while the user is actively typing
-   into the field — it's cleared the moment Save resolves. From then
-   on the row shows a "SAVED" badge derived from secureStoreHas and
-   the actual key never leaves the Keychain unless transcribe.ts
-   reads it on demand at cleanup time. This keeps the key out of
-   dev-tools heap snapshots and accidental screen recordings.
+   into the field — it's cleared the moment Save resolves. The actual
+   key never leaves the Keychain unless transcribe.ts reads it on
+   demand at cleanup time.
    ───────────────────────────────────────────────────────────── */
 
 interface ApiKeysSectionProps {
   claudeStatus: ClaudeCodeStatus | null;
+  settings: AppSettings | null;
+  onChange: ((next: Partial<AppSettings>) => void | Promise<void>) | undefined;
 }
 
-function ApiKeysSection({ claudeStatus }: ApiKeysSectionProps) {
+function ApiKeysSection({ claudeStatus, settings, onChange }: ApiKeysSectionProps) {
+  const t = useT();
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState<"saving" | "removing" | null>(null);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [removeConfirming, setRemoveConfirming] = useState(false);
   const removeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Defaults to true (matches DEFAULT_SETTINGS) so users on v0.19.0
+  // settings files that predate the toggles get the same behavior they
+  // had before — provider available if credential is present.
+  const openrouterEnabled = settings?.openrouterEnabled ?? true;
+  const claudeCodeEnabled = settings?.claudeCodeEnabled ?? true;
 
   useEffect(() => {
     secureStoreHas(KEY_OPENROUTER_API).then(setHasKey).catch(() => setHasKey(false));
@@ -442,9 +464,9 @@ function ApiKeysSection({ claudeStatus }: ApiKeysSectionProps) {
       await secureStoreSet(KEY_OPENROUTER_API, trimmed);
       setDraft("");
       setHasKey(true);
-      flash("ok", "Saved to macOS Keychain");
+      flash("ok", t.panels.configuration.openrouterKeySavedToast);
     } catch (e) {
-      flash("error", `Save failed: ${(e as Error).message ?? e}`);
+      flash("error", t.panels.configuration.openrouterKeySaveError(String((e as Error).message ?? e)));
     } finally {
       setBusy(null);
     }
@@ -462,119 +484,142 @@ function ApiKeysSection({ claudeStatus }: ApiKeysSectionProps) {
     try {
       await secureStoreDelete(KEY_OPENROUTER_API);
       setHasKey(false);
-      flash("ok", "Removed from Keychain");
+      flash("ok", t.panels.configuration.openrouterKeyRemovedToast);
     } catch (e) {
-      flash("error", `Remove failed: ${(e as Error).message ?? e}`);
+      flash("error", t.panels.configuration.openrouterKeyRemoveError(String((e as Error).message ?? e)));
     } finally {
       setBusy(null);
     }
   };
 
-  const claudeHelp = claudeStatus?.available
-    ? `Detected at ${claudeStatus.path ?? "?"} (${claudeStatus.version ?? "v?"}). Modes set to "Claude Code" will use it directly — no OpenRouter key needed.`
-    : "Not installed. Install Claude Code from https://claude.com/claude-code if you want to use your Anthropic account instead of an OpenRouter key.";
-
   return (
     <Section
-      label="API Keys"
-      help="Cleanup runs client-side. Choose your provider per mode in the Modes panel; this section configures the credentials each provider needs."
+      label={t.panels.configuration.sectionCleanupProviders}
+      help={t.panels.configuration.sectionCleanupProvidersHelp}
     >
-      <Row
-        label="OpenRouter API key"
-        help="Get a key at https://openrouter.ai/keys. Stored in macOS Keychain — never sent to Ultravox servers, never written to settings.json."
-        control={
-          hasKey === null ? (
-            <span className="text-[12px]" style={{ color: tokens.fgSubtle }}>Checking…</span>
-          ) : hasKey ? (
-            <span
-              className="inline-flex items-center text-[10px] font-semibold uppercase tracking-[0.06em]"
-              style={{
-                background: "color-mix(in srgb, var(--color-accent) 18%, transparent)",
-                color: "var(--color-accent)",
-                height: 14,
-                padding: "0 5px",
-                borderRadius: 3,
-                letterSpacing: "0.06em",
-              }}
-            >
-              Saved
-            </span>
-          ) : (
-            <span className="text-[12px]" style={{ color: tokens.fgMuted }}>Not set</span>
-          )
-        }
+      {/* OpenRouter master toggle */}
+      <ToggleRow
+        label={t.panels.configuration.openrouterLabel}
+        help={t.panels.configuration.openrouterEnabledHelp}
+        checked={openrouterEnabled}
+        onChange={(v) => onChange?.({ openrouterEnabled: v })}
       />
-      <Row
-        label={hasKey ? "Replace key" : "Set key"}
-        control={
-          <div className="flex items-center gap-1.5">
-            <input
-              type="password"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="sk-or-…"
-              autoComplete="off"
-              spellCheck={false}
-              className="rounded-md transition-colors focus:outline-none"
-              style={{
-                background: tokens.control,
-                color: tokens.fg,
-                border: `1px solid ${tokens.border}`,
-                padding: "4px 8px",
-                fontSize: 12.5,
-                width: 200,
-                fontFamily: "ui-monospace, SFMono-Regular, monospace",
-              }}
+      {openrouterEnabled && (
+        <>
+          <Row
+            label={t.panels.configuration.openrouterApiKeyLabel}
+            help={t.panels.configuration.openrouterApiKeyHelp}
+            control={
+              hasKey === null ? (
+                <span className="text-[12px]" style={{ color: tokens.fgSubtle }}>
+                  {t.panels.configuration.openrouterKeyChecking}
+                </span>
+              ) : hasKey ? (
+                <span
+                  className="inline-flex items-center text-[10px] font-semibold uppercase tracking-[0.06em]"
+                  style={{
+                    background: "color-mix(in srgb, var(--color-accent) 18%, transparent)",
+                    color: "var(--color-accent)",
+                    height: 14,
+                    padding: "0 5px",
+                    borderRadius: 3,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {t.panels.configuration.openrouterKeySaved}
+                </span>
+              ) : (
+                <span className="text-[12px]" style={{ color: tokens.fgMuted }}>
+                  {t.panels.configuration.openrouterKeyNotSet}
+                </span>
+              )
+            }
+          />
+          <Row
+            label={hasKey ? t.panels.configuration.openrouterReplaceKey : t.panels.configuration.openrouterSetKey}
+            control={
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="password"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder={t.panels.configuration.openrouterKeyPlaceholder}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="rounded-md transition-colors focus:outline-none"
+                  style={{
+                    background: tokens.control,
+                    color: tokens.fg,
+                    border: `1px solid ${tokens.border}`,
+                    padding: "4px 8px",
+                    fontSize: 12.5,
+                    width: 200,
+                    fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => void onSave()}
+                  disabled={busy !== null || !draft.trim()}
+                >
+                  {busy === "saving" ? t.panels.configuration.openrouterKeySaving : t.common.save}
+                </Button>
+                {hasKey && (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => void onRemove()}
+                    disabled={busy !== null}
+                    style={removeConfirming ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : {}}
+                  >
+                    {busy === "removing"
+                      ? "…"
+                      : removeConfirming
+                        ? t.panels.configuration.openrouterKeyClickAgain
+                        : t.panels.configuration.openrouterKeyRemove}
+                  </Button>
+                )}
+              </div>
+            }
+          />
+          {feedback && (
+            <Row
+              label=""
+              control={
+                <span
+                  className="text-[11.5px]"
+                  style={{ color: feedback.kind === "ok" ? "var(--color-accent)" : "var(--color-warning)" }}
+                >
+                  {feedback.text}
+                </span>
+              }
             />
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => void onSave()}
-              disabled={busy !== null || !draft.trim()}
-            >
-              {busy === "saving" ? "Saving…" : "Save"}
-            </Button>
-            {hasKey && (
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => void onRemove()}
-                disabled={busy !== null}
-                style={removeConfirming ? { borderColor: "var(--color-warning)", color: "var(--color-warning)" } : {}}
-              >
-                {busy === "removing" ? "…" : removeConfirming ? "Click again" : "Remove"}
-              </Button>
-            )}
-          </div>
-        }
+          )}
+        </>
+      )}
+
+      {/* Claude Code CLI master toggle + status */}
+      <ToggleRow
+        label={t.panels.configuration.claudeCodeCli}
+        help={t.panels.configuration.claudeCodeEnabledHelp}
+        checked={claudeCodeEnabled}
+        onChange={(v) => onChange?.({ claudeCodeEnabled: v })}
       />
-      {feedback && (
+      {claudeCodeEnabled && (
         <Row
           label=""
           control={
-            <span
-              className="text-[11.5px]"
-              style={{ color: feedback.kind === "ok" ? "var(--color-accent)" : "var(--color-warning)" }}
-            >
-              {feedback.text}
+            <span style={{ fontSize: 12, color: claudeStatus?.available ? "var(--color-accent)" : tokens.fgMuted }}>
+              {claudeStatus == null
+                ? t.panels.configuration.claudeCodeCliChecking
+                : claudeStatus.available
+                  ? t.panels.configuration.claudeCodeCliAvailable(claudeStatus.version ?? "v?")
+                  : t.panels.configuration.claudeCodeCliNotInstalled}
             </span>
           }
         />
       )}
-
-      <Row
-        label="Claude Code CLI"
-        help={claudeHelp}
-        control={
-          <span style={{ fontSize: 12, color: claudeStatus?.available ? "var(--color-accent)" : tokens.fgMuted }}>
-            {claudeStatus == null
-              ? "Checking…"
-              : claudeStatus.available
-                ? `Available · ${claudeStatus.version ?? "v?"}`
-                : "Not installed"}
-          </span>
-        }
-      />
     </Section>
   );
 }
