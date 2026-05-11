@@ -151,14 +151,24 @@ Apple credentials live in `apps/ultravox/.env.build` (gitignored; see
 `.env.build.example` for the template). Reference legacy DMG that the
 layout mirrors is at `~/Desktop/Ultravox-0.9.4.dmg`.
 
-### Mode selection — auto-mode is intentionally disabled
+### Mode selection — auto-mode is now opt-in (v0.18.8+)
 
-`pickAutoMode` (apps.json bundle-id → preferred mode mapping) was
-removed from `PillWindow.startRecord` in v0.11.7. The user's
-`activeModeId` is now the sole source of truth for every recording.
-Auto-mode silently overrode manual selection (every browser-focused
-recording reverted to "note"; custom List modes produced prose), so
-re-introduction must be an explicit opt-in toggle, not the default.
+`pickAutoMode` was removed from `PillWindow.startRecord` in v0.11.7
+because it silently overrode manual selection (browser-focused
+recordings reverted to "note"; custom List modes produced prose).
+**v0.18.8 brought it back as opt-in**, gated by
+`settings.autoModeEnabled` (default `false`). Source of truth lives in
+`apps/ultravox/src/lib/autoMode.ts::selectModeForRecording` —
+unit-tested, with deterministic fallback to `activeModeId` when the
+frontmost bundle ID has no mapping or auto-mode is off.
+
+**v0.19.0 hold:** the user has decided to invert the data model from
+"app → mode" (curated `apps.json` shipping JSON) to "mode → apps"
+(per-mode `autoModeApps` list populated via a native macOS app
+picker). Full spec at `docs/v0.19.0-auto-mode-by-app.md`. Do **not**
+implement before that doc's "Ship gate" criteria are met —
+particularly: focus-stealing fix verified in the wild, and the
+parallel PTT + Keychain streams have merged.
 
 ## Dev iteration
 
