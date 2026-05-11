@@ -5,7 +5,8 @@ import OnboardingWizard from "./windows/OnboardingWizard";
 import { loadSettings, patchSettings, saveSettings, purgeStaleRecordings } from "./lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { tokens } from "./components/ui";
-import { registerHotkeys, unregisterAllHotkeys, copyToClipboard } from "./lib/tauri-bridge";
+import { registerHotkeys, unregisterAllHotkeys, copyToClipboard, claudeCodeCheck } from "./lib/tauri-bridge";
+import { secureStoreHas, KEY_OPENROUTER_API } from "./lib/secure-store";
 import { checkForUpdate, type UpdateInfo } from "./lib/updater";
 
 export default function App() {
@@ -26,7 +27,12 @@ export default function App() {
         try { await unregisterAllHotkeys(); } catch (e) { console.warn("unregister hotkeys failed:", e); }
       } else {
         try {
-          await registerHotkeys(settings.hotkeyRecord, settings.hotkeyModeOverlay);
+          await registerHotkeys(
+            settings.hotkeyRecord,
+            settings.hotkeyModeOverlay,
+            settings.pttHotkey,
+            settings.recordingStyle,
+          );
         } catch (e) {
           console.warn("hotkey register failed:", e);
         }
@@ -46,6 +52,34 @@ export default function App() {
       // Deferred 5s after launch so it doesn't compete with the initial
       // settings/UI render. Skipped automatically when saveLocal is off.
       setTimeout(() => { void purgeStaleRecordings(); }, 5_000);
+
+      // BYO-key migration hint. Existing modes that were written when the
+      // worker held a managed OpenRouter key now require either (a) the
+      // user adding their own OR key in Configuration → API Keys, or (b)
+      // switching the mode to Claude Code if available. We don't auto-
+      // rewrite the mode (the user may have a key incoming) — just log a
+      // console hint so the dev console / debug log shows the recommended
+      // next step. Deferred so it doesn't compete with launch render.
+      setTimeout(async () => {
+        try {
+          const usesOpenRouter = (settings.modes ?? []).some(
+            (m) => m.languageModelProvider === "openrouter",
+          );
+          if (!usesOpenRouter) return;
+          const hasKey = await secureStoreHas(KEY_OPENROUTER_API).catch(() => false);
+          if (hasKey) return;
+          const cc = await claudeCodeCheck().catch(() => null);
+          if (cc?.available) {
+            console.info(
+              "[ultravox] One or more modes use OpenRouter but no API key is set. Claude Code CLI is detected — switch any OpenRouter mode to Claude Code (in Modes), or add a key in Configuration → API Keys.",
+            );
+          } else {
+            console.info(
+              "[ultravox] One or more modes use OpenRouter but no API key is set. Add one in Configuration → API Keys, or install Claude Code (https://claude.com/claude-code) and switch the mode's Processing Provider.",
+            );
+          }
+        } catch { /* hint is best-effort; never break startup */ }
+      }, 6_000);
     })();
   }, []);
 
@@ -105,7 +139,12 @@ export default function App() {
     // Re-arm the global hotkeys now that the wizard is done. Use whatever
     // values the user chose on the hotkey step (they're already persisted).
     try {
-      await registerHotkeys(current.hotkeyRecord, current.hotkeyModeOverlay);
+      await registerHotkeys(
+        current.hotkeyRecord,
+        current.hotkeyModeOverlay,
+        current.pttHotkey,
+        current.recordingStyle,
+      );
     } catch (e) {
       console.warn("re-register hotkeys after onboarding failed:", e);
     }

@@ -57,18 +57,45 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
     settings.hotkeyRecord !== "" &&
     settings.hotkeyRecord === settings.hotkeyModeOverlay;
 
-  const updateHotkey = async (
-    key: "hotkeyRecord" | "hotkeyModeOverlay",
-    v: string,
-  ) => {
-    const next = { ...settings, [key]: v };
-    await onChange({ [key]: v });
+  // Re-register every global shortcut after any hotkey or mode change so the
+  // change takes effect immediately. Pass the FRESH values (not the stale
+  // `settings` snapshot) — the patch hasn't propagated through React yet
+  // when this runs.
+  const reregister = async (next: AppSettings) => {
     try {
-      await registerHotkeys(next.hotkeyRecord, next.hotkeyModeOverlay);
+      await registerHotkeys(
+        next.hotkeyRecord,
+        next.hotkeyModeOverlay,
+        next.pttHotkey,
+        next.recordingStyle,
+      );
     } catch (e) {
       console.warn("hotkey register failed:", e);
     }
   };
+
+  const updateHotkey = async (
+    key: "hotkeyRecord" | "hotkeyModeOverlay" | "pttHotkey",
+    v: string,
+  ) => {
+    const next = { ...settings, [key]: v };
+    await onChange({ [key]: v });
+    await reregister(next);
+  };
+
+  const setRecordingStyle = async (v: AppSettings["recordingStyle"]) => {
+    if (v === settings.recordingStyle) return;
+    const next = { ...settings, recordingStyle: v };
+    await onChange({ recordingStyle: v });
+    await reregister(next);
+  };
+
+  const isPtt = settings.recordingStyle === "push-to-talk";
+  const pttDup =
+    isPtt &&
+    settings.pttHotkey !== "" &&
+    (settings.pttHotkey === settings.hotkeyModeOverlay ||
+      settings.pttHotkey === settings.hotkeyRecord);
 
   /* ── Last-transcription safety net ─────────────────────────
    * If a paste landed in the wrong place (focus drifted, the
@@ -156,14 +183,29 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
           }
         />
         <Row
-          label={t.panels.home.pushToTalk}
+          label={t.panels.home.recordingStyleLabel}
           help={t.panels.home.pushToTalkHelp}
           control={
-            <span style={{ fontSize: 11, fontWeight: 500, padding: "3px 8px", borderRadius: 4, background: "var(--color-ink-15)", color: "var(--color-secondary)", letterSpacing: "0.04em" }}>
-              {t.panels.home.pushToTalkPlaceholder}
-            </span>
+            <RecordingStylePicker
+              value={settings.recordingStyle}
+              onChange={setRecordingStyle}
+              toggleLabel={t.panels.home.recordingStyleToggle}
+              pttLabel={t.panels.home.recordingStylePtt}
+            />
           }
         />
+        {isPtt && (
+          <Row
+            label={t.panels.home.pttHotkeyLabel}
+            control={
+              <HotkeyRecorder
+                value={settings.pttHotkey}
+                onChange={(v) => updateHotkey("pttHotkey", v)}
+                error={pttDup}
+              />
+            }
+          />
+        )}
       </Section>
 
       <Section label={t.panels.home.sectionAppearance}>
@@ -185,6 +227,51 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
         <NavCard title={t.panels.home.navHistory} onClick={() => onNavigate("history")} />
       </Section>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RECORDING STYLE PICKER — segmented Toggle / Push-to-talk.
+   Identical chrome to the ThemePicker so the two read as related
+   primitives in the Recording section.
+   ───────────────────────────────────────────────────────────── */
+
+function RecordingStylePicker({
+  value,
+  onChange,
+  toggleLabel,
+  pttLabel,
+}: {
+  value: AppSettings["recordingStyle"];
+  onChange: (v: AppSettings["recordingStyle"]) => void;
+  toggleLabel: string;
+  pttLabel: string;
+}) {
+  const Btn = ({ id, label }: { id: AppSettings["recordingStyle"]; label: string }) => {
+    const active = id === value;
+    return (
+      <button
+        onClick={() => onChange(id)}
+        className="px-2.5 py-[3px] rounded text-[12px] font-medium transition-colors"
+        style={{
+          background: active ? tokens.card : "transparent",
+          color: active ? tokens.fg : tokens.fgMuted,
+          boxShadow: active ? "0 1px 2px rgba(0,0,0,0.06)" : "none",
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
+  return (
+    <div
+      className="inline-flex items-center gap-0.5 rounded-md p-0.5"
+      style={{ background: tokens.control }}
+      role="radiogroup"
+    >
+      <Btn id="toggle" label={toggleLabel} />
+      <Btn id="push-to-talk" label={pttLabel} />
+    </div>
   );
 }
 

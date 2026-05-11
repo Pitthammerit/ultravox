@@ -120,30 +120,67 @@ fn parse_key(key: &str) -> Result<Code, String> {
 /// Default fallbacks if settings are empty/invalid.
 const DEFAULT_RECORD: &str = "Cmd+Shift+;";
 const DEFAULT_MODE_OVERLAY: &str = "Alt+Shift+K";
+const DEFAULT_PTT: &str = "Cmd+Shift+Space";
+const DEFAULT_RECORDING_STYLE: &str = "toggle";
 
 /// Register both default hotkeys at startup. The two `_record` / `_mode`
 /// strings are pulled from `ultravox_register_hotkeys` later — this just
 /// boots the app with sane defaults so the user can tap the key right away.
 pub fn register_default_hotkeys<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    register_hotkeys_inner(app, DEFAULT_RECORD, DEFAULT_MODE_OVERLAY)
+    register_hotkeys_inner(
+        app,
+        DEFAULT_RECORD,
+        DEFAULT_MODE_OVERLAY,
+        DEFAULT_PTT,
+        DEFAULT_RECORDING_STYLE,
+    )
 }
 
 fn register_hotkeys_inner<R: Runtime>(
     app: &AppHandle<R>,
     record: &str,
     mode_overlay: &str,
+    ptt: &str,
+    recording_style: &str,
 ) -> Result<(), String> {
     let gs = app.global_shortcut();
     // Wipe whatever is currently registered. unregister_all is idempotent.
     let _ = gs.unregister_all();
 
-    let record_shortcut = parse_shortcut(record)?;
     let mode_shortcut = parse_shortcut(mode_overlay)?;
+    let is_ptt = recording_style == "push-to-talk";
 
-    let app_a = app.clone();
-    gs.on_shortcut(record_shortcut, move |_app, _shortcut, event| {
-        match event.state() {
+    if is_ptt {
+        // PTT mode: register only the PTT shortcut. On Pressed, show the
+        // pill window WITHOUT stealing focus and emit ptt-pressed; on
+        // Released, emit ptt-released. The toggle hotkey is intentionally
+        // NOT registered — the two recording styles are mutually exclusive.
+        let ptt_shortcut = parse_shortcut(ptt)?;
+        let app_a = app.clone();
+        gs.on_shortcut(ptt_shortcut, move |_app, _shortcut, event| match event.state() {
             ShortcutState::Pressed => {
+                if let Some(win) = app_a.get_webview_window("pill") {
+                    let _ = win.show();
+                    pill_window::reapply_overlay_flags(&app_a, "pill");
+                }
+                let _ = app_a.emit("hotkey:ptt-pressed", ());
+            }
+            ShortcutState::Released => {
+                let _ = app_a.emit("hotkey:ptt-released", ());
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    } else {
+        // Toggle mode (default): register the record shortcut. On Pressed,
+        // show the pill window without stealing focus and emit
+        // toggle-record. We do NOT emit ptt-pressed here — JS guards
+        // would ignore it anyway, but emitting both made the event
+        // contract ambiguous and risked double-triggering during a future
+        // listener change.
+        let record_shortcut = parse_shortcut(record)?;
+        let app_a = app.clone();
+        gs.on_shortcut(record_shortcut, move |_app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
                 // Show the pill window WITHOUT stealing focus so the user's active
                 // app stays frontmost. alwaysOnTop keeps the pill visible on top.
                 // Keeping the previous app focused means Cmd+V paste lands there
@@ -155,14 +192,10 @@ fn register_hotkeys_inner<R: Runtime>(
                     pill_window::reapply_overlay_flags(&app_a, "pill");
                 }
                 let _ = app_a.emit("hotkey:toggle-record", ());
-                let _ = app_a.emit("hotkey:ptt-pressed", ());
             }
-            ShortcutState::Released => {
-                let _ = app_a.emit("hotkey:ptt-released", ());
-            }
-        }
-    })
-    .map_err(|e| e.to_string())?;
+        })
+        .map_err(|e| e.to_string())?;
+    }
 
     let app_b = app.clone();
     gs.on_shortcut(mode_shortcut, move |_app, _shortcut, event| {
@@ -203,13 +236,20 @@ fn arm_recording_escape<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
 
 /// Re-register both hotkeys with new accelerator strings. Called from JS
 /// when the user finishes editing a hotkey in the Configuration panel.
+///
+/// `recording_style` selects which recording shortcut is bound:
+///   "toggle"        → `record` (tap to start/stop)
+///   "push-to-talk"  → `ptt` (hold to record, release to stop)
+/// Only one of the two is bound at a time. Mode-overlay is always bound.
 #[tauri::command]
 pub fn ultravox_register_hotkeys<R: Runtime>(
     app: AppHandle<R>,
     record: String,
     mode_overlay: String,
+    ptt: String,
+    recording_style: String,
 ) -> Result<(), String> {
-    register_hotkeys_inner(&app, &record, &mode_overlay)
+    register_hotkeys_inner(&app, &record, &mode_overlay, &ptt, &recording_style)
 }
 
 /// Unregister every globally-registered shortcut. Used during onboarding so

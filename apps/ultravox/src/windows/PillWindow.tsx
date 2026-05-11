@@ -6,7 +6,7 @@ import RollingWaveform from "../components/RollingWaveform";
 import { ModeGlyph } from "../components/ModeIcons";
 import { useRecorder } from "../hooks/useRecorder";
 import { useHotkeyEvent } from "../hooks/useHotkeyEvents";
-import { transcribe } from "../lib/transcribe";
+import { transcribe, MissingOpenRouterKeyError } from "../lib/transcribe";
 import {
   TOKEN_ENDPOINT,
   pasteToFrontmost,
@@ -907,7 +907,15 @@ export default function PillWindow() {
       }
       logDebug("transcribe-pre", { message: `stage=error name=${errName}`, error: errMsg.slice(0, 240) });
       captureError(e, { stage: "transcribe" });
-      showError(`Transcribe error: ${errMsg || e}`);
+      // Specialized affordance for the BYO-key path: tell the user where to
+      // add their OpenRouter key instead of dropping the raw "Transcribe
+      // error: …" alongside genuine network failures. Falls through to the
+      // generic toast for every other error class.
+      if (e instanceof MissingOpenRouterKeyError || errName === "MissingOpenRouterKeyError") {
+        showError("OpenRouter key required. Open Settings → Configuration → API Keys to add one, or switch this mode to Claude Code.");
+      } else {
+        showError(`Transcribe error: ${errMsg || e}`);
+      }
     } finally {
       transcribeAbortRef.current = null;
     }
@@ -922,6 +930,16 @@ export default function PillWindow() {
   // of stopAndTranscribe.
   const stateRef = useRef(state);
   useEffect(() => { stateRef.current = state; }, [state]);
+
+  // Mirror settings into a ref so hotkey listeners — which may be the OLD
+  // listener mid-unlisten when an event arrives — read the current
+  // recordingStyle instead of a stale closure value. Same rationale as
+  // stateRef above (CLAUDE.md "React hook patterns" → cross-listener
+  // state reads must come from a ref). Without this, switching between
+  // toggle and PTT mid-session can route a press to the wrong handler
+  // for one render's worth of in-flight events.
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   /* ── Footer-button handlers (shared with keyboard shortcuts) ──
      Each handler mirrors exactly one branch of the keydown listener
@@ -948,12 +966,47 @@ export default function PillWindow() {
   useHotkeyEvent(
     "hotkey:toggle-record",
     useCallback(() => {
+      // Toggle handler is a no-op while the user is in PTT mode. Rust only
+      // registers one of the two recording shortcuts at a time, but this
+      // ref-read guard survives a mid-session mode switch where an in-flight
+      // event would otherwise route to the wrong handler.
+      if (settingsRef.current?.recordingStyle === "push-to-talk") return;
       const s = stateRef.current;
       logDebug("record-start", { message: `hotkey:toggle-record fired, stateRef=${s}` });
       if (s === "idle") startRecord();
       else if (s === "recording") stopAndTranscribe();
       // discardConfirm and transcribing: ignore hotkey
     }, [startRecord, stopAndTranscribe]),
+  );
+
+  /* ── Hotkey: push-to-talk ───────────────────────────────────── */
+  // Pressed → start recording (treated as a fresh start; no toggle).
+  // Released → stop and transcribe iff currently recording.
+  // Both gated on recordingStyle so a stale event after a mode switch
+  // doesn't kick off a recording the user didn't ask for. Per CLAUDE.md
+  // "React hook patterns", useHotkeyEvent holds the handler in a ref so
+  // listen()/unlisten() registers EXACTLY ONCE per event name; the
+  // handlers must therefore live behind useCallback to keep their
+  // dependency surface stable.
+  useHotkeyEvent(
+    "hotkey:ptt-pressed",
+    useCallback(() => {
+      if (settingsRef.current?.recordingStyle !== "push-to-talk") return;
+      const s = stateRef.current;
+      logDebug("record-start", { message: `hotkey:ptt-pressed fired, stateRef=${s}` });
+      if (s === "idle") startRecord();
+      // If already recording (e.g. key repeat), ignore — don't restart.
+    }, [startRecord]),
+  );
+  useHotkeyEvent(
+    "hotkey:ptt-released",
+    useCallback(() => {
+      if (settingsRef.current?.recordingStyle !== "push-to-talk") return;
+      const s = stateRef.current;
+      logDebug("record-start", { message: `hotkey:ptt-released fired, stateRef=${s}` });
+      if (s === "recording") stopAndTranscribe();
+      // Other states (idle, discardConfirm, transcribing): nothing to stop.
+    }, [stopAndTranscribe]),
   );
 
   /* (Esc / Space / Enter handling moved into the single keydown

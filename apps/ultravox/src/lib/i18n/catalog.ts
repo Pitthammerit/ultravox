@@ -105,6 +105,10 @@ export interface MessageCatalog {
       pushToTalk: string;
       pushToTalkHelp: string;
       pushToTalkPlaceholder: string;
+      recordingStyleLabel: string;
+      recordingStyleToggle: string;
+      recordingStylePtt: string;
+      pttHotkeyLabel: string;
       sectionAppearance: string;
       themeLabel: string;
       themeLight: string;

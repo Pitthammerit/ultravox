@@ -166,8 +166,8 @@ const COPY: Record<Lang, {
     styleBody: "Toggle is great for hands-free dictation. Push-to-talk feels natural if you're used to walkie-talkies or Discord.",
     styleToggle: "Toggle",
     styleToggleDesc: "Tap to start, tap to stop",
-    stylePtt: "Push-to-talk (v1.5)",
-    stylePttDesc: "Hold to record, release to stop — coming in a future update",
+    stylePtt: "Push-to-talk",
+    stylePttDesc: "Hold the hotkey to record, release to stop",
     modeTitle: "What do you mostly write?",
     modeBody: "We'll set this as your default mode. You can switch any time with the mode-switcher hotkey.",
     whisperTitle: "Faster, on-device transcription",
@@ -240,8 +240,8 @@ const COPY: Record<Lang, {
     styleBody: "Toggle ist ideal für freihändiges Diktieren. Push-to-talk fühlt sich vertraut an, wenn du Walkie-Talkies oder Discord kennst.",
     styleToggle: "Toggle",
     styleToggleDesc: "Tippen zum Start, tippen zum Stopp",
-    stylePtt: "Push-to-talk (v1.5)",
-    stylePttDesc: "Halten zum Aufnehmen, loslassen zum Stoppen — kommt in einem späteren Update",
+    stylePtt: "Push-to-talk",
+    stylePttDesc: "Hotkey zum Aufnehmen halten, zum Stoppen loslassen",
     modeTitle: "Was schreibst du meistens?",
     modeBody: "Wir setzen das als deinen Standard-Modus. Du kannst jederzeit mit dem Modus-Hotkey wechseln.",
     whisperTitle: "Schnellere Transkription auf deinem Gerät",
@@ -714,9 +714,8 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
               <ChoiceCard
                 title={t.stylePtt}
                 desc={t.stylePttDesc}
-                active={false}
-                onClick={() => {}}
-                disabled
+                active={recordingStyle === "push-to-talk"}
+                onClick={() => pickRecordingStyle("push-to-talk")}
               />
             </div>
             <PrimaryBtn onClick={next}>{t.continueBtn}</PrimaryBtn>

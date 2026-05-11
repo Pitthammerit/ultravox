@@ -6,6 +6,7 @@ mod hotkey;
 mod paste;
 mod permissions;
 mod recordings;
+mod secure_store;
 mod system;
 mod tray;
 
@@ -143,6 +144,10 @@ pub fn run() {
         local_llm::local_llm_list_models,
         tray::update_mic_submenu,
         tray::update_mode_submenu,
+        secure_store::secure_store_set,
+        secure_store::secure_store_get,
+        secure_store::secure_store_delete,
+        secure_store::secure_store_has,
     ]);
 
     #[cfg(not(target_os = "macos"))]
@@ -178,6 +183,10 @@ pub fn run() {
         claude_code::claude_code_cleanup,
         tray::update_mic_submenu,
         tray::update_mode_submenu,
+        secure_store::secure_store_set,
+        secure_store::secure_store_get,
+        secure_store::secure_store_delete,
+        secure_store::secure_store_has,
     ]);
 
     #[cfg(not(target_os = "macos"))]
@@ -218,6 +227,10 @@ pub fn run() {
         local_llm::local_llm_download_model,
         local_llm::local_llm_delete_model,
         local_llm::local_llm_list_models,
+        secure_store::secure_store_set,
+        secure_store::secure_store_get,
+        secure_store::secure_store_delete,
+        secure_store::secure_store_has,
     ]);
 
     builder

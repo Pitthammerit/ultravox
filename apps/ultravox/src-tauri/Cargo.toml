@@ -1,6 +1,6 @@
 [package]
 name = "ultravox"
-version = "0.18.3"
+version = "0.18.4"
 description = "Voice dictation companion for macOS"
 authors = ["Benjamin Kurtz"]
 edition = "2021"
@@ -34,6 +34,12 @@ dirs = "5"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 sha2 = "0.10"
 futures-util = "0.3"
+# macOS Keychain via Apple's Security.framework. We disable default features
+# (which pull in Linux secret-service via dbus / Windows wincred) to keep
+# the build minimal — on macOS the Security.framework backend ships in libstd,
+# no extra system deps needed. The `apple-native` feature explicitly opts
+# into the Security.framework backend.
+keyring = { version = "3", default-features = false, features = ["apple-native"] }
 
 [target.'cfg(target_os = "macos")'.dependencies.whisper-rs]
 version = "0.11"

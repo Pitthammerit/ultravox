@@ -98,6 +98,11 @@ export interface AppSettings {
   hotkeyRecord: string;
   /** Hotkey for mode-switcher overlay. */
   hotkeyModeOverlay: string;
+  /** Hotkey for push-to-talk (hold to record, release to stop). Active only
+   *  when `recordingStyle === "push-to-talk"`. The toggle hotkey
+   *  (`hotkeyRecord`) and this one are mutually exclusive — Rust registers
+   *  only the one matching the current style. */
+  pttHotkey: string;
   /** Default voice mode id. */
   activeModeId: string;
   /** All saved voice modes. */
@@ -179,6 +184,7 @@ export const HISTORY_MAX = 50;
 export const DEFAULT_SETTINGS: AppSettings = {
   hotkeyRecord: "Cmd+Shift+;",
   hotkeyModeOverlay: "Alt+Shift+K",
+  pttHotkey: "Cmd+Shift+Space",
   activeModeId: "note",
   modes: DEFAULT_MODES,
   vocabulary: [],
@@ -244,13 +250,17 @@ function migrateModes(modes: VoiceMode[]): { modes: VoiceMode[]; changed: boolea
       updated = { ...updated, languageModel: target };
     }
     // Normalize unknown / removed providers (e.g. legacy "gemini" / "claude")
-    // to the managed OpenRouter path so existing modes keep working.
+    // to "none" — raw transcript with no cleanup. v0.18.2 dropped the
+    // managed OpenRouter key, so a silent rewrite to "openrouter" would
+    // make the very first recording fail with MissingOpenRouterKeyError
+    // for any user upgrading from a build that had unknown providers.
+    // "none" is always safe; users can opt back into a real cleanup
+    // provider in the Mode editor.
     if (!VALID_PROVIDERS.has(updated.languageModelProvider as string)) {
       changed = true;
       updated = {
         ...updated,
-        languageModelProvider: "openrouter",
-        languageModel: updated.languageModel ?? "anthropic/claude-haiku-4.5",
+        languageModelProvider: "none",
       };
     }
     // v0.10.8: add transcriptionModel to modes that were saved before this

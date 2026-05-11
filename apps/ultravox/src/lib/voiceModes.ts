@@ -6,10 +6,10 @@ export type VoiceModelId =
 export type LanguageModelProvider = "openrouter" | "claude-code" | "local" | "none";
 
 export const LANGUAGE_MODEL_PROVIDERS: Array<{ id: LanguageModelProvider; label: string }> = [
-  { id: "openrouter",  label: "OpenRouter (managed)" },
-  { id: "claude-code", label: "Claude Code (local CLI)" },
-  { id: "local",       label: "Local (on-device LLM)" },
-  { id: "none",        label: "No cleanup" },
+  { id: "openrouter",  label: "OpenRouter (your API key)" },
+  { id: "claude-code", label: "Claude Code (auto-detect)" },
+  { id: "local",       label: "Local LLM (on-device)" },
+  { id: "none",        label: "Raw transcript (no cleanup)" },
 ];
 
 export const LANGUAGE_MODELS: Record<string, Array<{ id: string; label: string; speed: string; accuracy: string }>> = {

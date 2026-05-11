@@ -39,7 +39,12 @@ export default function SettingsWindow() {
       // Re-register stored hotkeys so they take effect even after a restart.
       // The Rust side boots with hardcoded defaults; this overwrites them with
       // whatever the user last saved.
-      registerHotkeys(s.hotkeyRecord, s.hotkeyModeOverlay).catch(() => {});
+      registerHotkeys(
+        s.hotkeyRecord,
+        s.hotkeyModeOverlay,
+        s.pttHotkey,
+        s.recordingStyle,
+      ).catch(() => {});
     });
 
     // Settings live in a Tauri-plugin-store file shared across windows.

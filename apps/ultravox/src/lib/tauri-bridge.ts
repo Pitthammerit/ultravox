@@ -65,8 +65,25 @@ export async function getFrontmostApp(): Promise<FrontmostApp | null> {
   }
 }
 
-export async function registerHotkeys(record: string, modeOverlay: string): Promise<void> {
-  await invoke("ultravox_register_hotkeys", { record, modeOverlay });
+/**
+ * Re-register every global hotkey atomically. The Rust side wipes any
+ * previously-registered shortcuts and binds whichever recording shortcut
+ * matches `recordingStyle` ("toggle" → `record`, "push-to-talk" → `ptt`)
+ * along with the always-on mode-overlay shortcut. The two recording
+ * shortcuts are mutually exclusive — only one is bound at a time.
+ */
+export async function registerHotkeys(
+  record: string,
+  modeOverlay: string,
+  ptt: string,
+  recordingStyle: "toggle" | "push-to-talk",
+): Promise<void> {
+  await invoke("ultravox_register_hotkeys", {
+    record,
+    modeOverlay,
+    ptt,
+    recordingStyle,
+  });
 }
 
 /** Returns true if the app already has Accessibility permission. */

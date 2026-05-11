@@ -13,7 +13,9 @@
   },
   "routes": []
   // Secrets set via `wrangler secret put`:
-  //   OPENROUTER_API_KEY  — managed OpenRouter key for LLM cleanup
   //   VOICE_HMAC_SECRET   — signs short-lived tokens issued by /api/voice/token
   //   DEV_BEARER_TOKEN    — static token for local curl smoke-tests only
+  // Note: OPENROUTER_API_KEY was removed in v0.19.0 when LLM cleanup moved
+  // client-side. You can `wrangler secret delete OPENROUTER_API_KEY` to clean
+  // up the deployed worker.
 }
