@@ -10,6 +10,7 @@ import { transcribe } from "../lib/transcribe";
 import {
   TOKEN_ENDPOINT,
   pasteToFrontmost,
+  copyToClipboard,
   getFrontmostApp,
   setPillHeight,
   setPillPositionTopCenter,
@@ -831,14 +832,37 @@ export default function PillWindow() {
           showError(`Paste failed: ${(pasteErr as Error).message ?? pasteErr} — Accessibility access likely denied.`);
           return;
         }
-        // Pass `blob` through so appendHistory can persist the audio when
-        // settings.recordings.saveLocal is on. When off, the blob is
-        // ignored and the entry is stored text-only (existing behavior).
-        appendHistory(
-          { id: crypto.randomUUID(), ts: Date.now(), modeId: mode.id, bundleId: frontmost?.bundle_id ?? null, text: result.text },
-          blob,
-        )
-          .catch((e) => captureError(e, { stage: "history-append" }));
+        // Cache-mode dispatch (per settings.recordings.cacheMode):
+        //   - "no-cache":  skip appendHistory entirely. Transcript exists
+        //                  only in the focused app (where we just pasted)
+        //                  and the user's recent-undo history. Privacy-
+        //                  strictest mode — Last Transcription accordion
+        //                  stays empty.
+        //   - "cache-only" (default): append to history as today. User
+        //                  clicks Copy in the accordion to re-load the
+        //                  clipboard. paste.rs has already restored the
+        //                  prior clipboard.
+        //   - "auto-copy": append to history AND re-write the transcript
+        //                  to the clipboard ~600 ms after paste, so
+        //                  paste.rs's clipboard-restore (500 ms) doesn't
+        //                  win the race. The transcript stays available
+        //                  on the clipboard for an immediate ⌘V re-paste.
+        const cacheMode = settings?.recordings?.cacheMode ?? "cache-only";
+        if (cacheMode !== "no-cache") {
+          appendHistory(
+            { id: crypto.randomUUID(), ts: Date.now(), modeId: mode.id, bundleId: frontmost?.bundle_id ?? null, text: result.text },
+            blob,
+          )
+            .catch((e) => captureError(e, { stage: "history-append" }));
+        }
+        if (cacheMode === "auto-copy") {
+          // Wait past paste.rs's 500 ms clipboard-restore, then re-set
+          // the clipboard to the transcript. Fire-and-forget — failure
+          // is non-fatal (user can still click Copy from the accordion).
+          setTimeout(() => {
+            void copyToClipboard(result.text).catch(() => {});
+          }, 600);
+        }
       } else {
         // Empty transcript with non-zero audio peak — usually a brief
         // grunt, fan noise that crossed the peak threshold, or a worker

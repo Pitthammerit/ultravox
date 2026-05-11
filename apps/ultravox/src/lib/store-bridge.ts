@@ -60,9 +60,11 @@ export interface HistoryEntry {
  *  audio is sensitive. When enabled, every recording's audio blob is
  *  persisted to ~/.../recordings/<historyEntryId>.<ext>. */
 export interface RecordingsSettings {
-  /** Master switch. When false, no audio is ever written; existing files
-   *  on disk stay untouched (user can clear via Configuration → "Delete
-   *  all saved audio"). */
+  /** Master switch for AUDIO persistence to disk. When false, no audio
+   *  is ever written; existing files on disk stay untouched (user can
+   *  clear via Configuration → "Delete all saved audio"). Recording +
+   *  transcription happen regardless — this only controls the post-
+   *  transcription audio backup. */
   saveLocal: boolean;
   /** Auto-delete files older than this many days on app launch.
    *  0 disables auto-delete. */
@@ -74,6 +76,21 @@ export interface RecordingsSettings {
    *  to default" — the field reverts to undefined and the Rust default
    *  resolver takes over. */
   folder?: string;
+  /**
+   * Last-transcription cache mode (independent of saveLocal — that's
+   * audio, this is text):
+   *   "auto-copy"  — Append to history AND leave the transcript on
+   *                  the clipboard after paste (no clipboard restore).
+   *                  Useful when you want to re-paste with ⌘V.
+   *   "cache-only" — Append to history (current default). Clipboard is
+   *                  restored to its prior content after paste. User
+   *                  clicks the Copy button to re-load the transcript
+   *                  onto the clipboard.
+   *   "no-cache"   — Don't append to history at all. Paste happens
+   *                  normally; the transcript exists only as long as
+   *                  the focused app keeps it. Privacy-strictest mode.
+   */
+  cacheMode: "auto-copy" | "cache-only" | "no-cache";
 }
 
 export interface AppSettings {
@@ -186,8 +203,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   localCleanupEnabled: true,
   modelsBoxOpen: true,
   recordings: {
-    saveLocal: false,    // Privacy-first default — opt-in only.
-    retentionDays: 30,   // Auto-clean monthly when enabled.
+    saveLocal: false,         // Privacy-first default — audio opt-in only.
+    retentionDays: 30,        // Auto-clean monthly when enabled.
+    cacheMode: "cache-only",  // Text in history; clipboard restored after paste.
   },
 };
 

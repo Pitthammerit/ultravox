@@ -99,10 +99,17 @@ export default function HomePanel({ settings, onNavigate, onChange }: HomePanelP
 
   return (
     <>
+      {/* Last Transcription — top-level accordion at the top of the
+          Settings landing. Only renders when there's an entry to show
+          (history[0] exists). Collapsible: defaults to OPEN so the user
+          sees their most recent dictation immediately, but can collapse
+          to clean up the layout. Hidden entirely when cacheMode is
+          "no-cache" (no history is being appended in that mode). */}
       {lastEntry && (
         <Section
           label={t.panels.home.lastTranscriptionLabel}
           help={t.panels.home.lastTranscriptionHelp}
+          collapsible
         >
           <Row
             label={

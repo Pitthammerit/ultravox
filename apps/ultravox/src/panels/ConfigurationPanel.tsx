@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings } from "../lib/store-bridge";
+import type { AppSettings, RecordingsSettings } from "../lib/store-bridge";
 import { applyTheme } from "@ultravox/design-system";
 import { resetSettings, DEFAULT_SETTINGS } from "../lib/store-bridge";
 import { Button, Input, Row, Section, ToggleRow, tokens } from "../components/ui";
 import { Trash2 } from "lucide-react";
 import { PillStylePicker } from "../components/PillStylePicker";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
   registerHotkeys,
   checkAccessibilityPermission,
@@ -794,8 +795,18 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
   // value in the "Folder" row when the user hasn't picked a custom one,
   // AND as the comparison reference for the "Reset to default" affordance.
   const [defaultFolder, setDefaultFolder] = useState<string>("");
+  // Toggle-off prompt: when user flips Save-audio OFF AND there are
+  // existing recordings on disk, show a 3-button dialog asking what to
+  // do (Delete all + folder / Keep / Cancel). Confirmed by the user
+  // 2026-05-11. Without this, an accidental toggle would silently leave
+  // possibly-sensitive audio sitting on disk forever.
+  const [showToggleOffDialog, setShowToggleOffDialog] = useState(false);
 
-  const recordings = settings?.recordings ?? { saveLocal: false, retentionDays: 30 as const };
+  const recordings: RecordingsSettings = settings?.recordings ?? {
+    saveLocal: false,
+    retentionDays: 30,
+    cacheMode: "cache-only",
+  };
   // Pass user-chosen folder to ALL recordings commands. When undefined,
   // Rust resolves to the default; we still pass it here so the
   // refreshStats list-call counts files in the right place.
@@ -822,8 +833,54 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
     void recordingsDefaultFolder().then(setDefaultFolder).catch(() => {});
   }, []);
 
-  const setSaveLocal = (next: boolean) =>
-    onChange?.({ recordings: { ...recordings, saveLocal: next } });
+  /**
+   * Flip the saveLocal toggle. Notes on architecture (for future me):
+   *
+   * `recordings.saveLocal` is a POST-TRANSCRIPTION persistence flag, not
+   * a recording or transcription gate:
+   *   - Recording (MediaRecorder capture during the hotkey press)
+   *     happens regardless of this flag.
+   *   - Transcription (audio blob → text via cloud worker / local
+   *     whisper) happens regardless.
+   *   - The flag only controls whether the resulting audio blob is
+   *     ALSO persisted to disk after transcription completes, so the
+   *     user can replay / re-transcribe / audit it later.
+   *
+   * Toggling OFF therefore doesn't break anything that's currently
+   * happening — recordings continue to transcribe normally, just
+   * without the disk-side copy. But existing files on disk persist
+   * unless the user explicitly opts to delete them, which is why we
+   * prompt below.
+   */
+  const setSaveLocal = (next: boolean) => {
+    if (!next && stats.count > 0) {
+      // OFF + files exist → confirm with the user. The dialog primary
+      // deletes everything; secondary keeps them on disk; cancel
+      // aborts the toggle entirely.
+      setShowToggleOffDialog(true);
+      return;
+    }
+    void onChange?.({ recordings: { ...recordings, saveLocal: next } });
+  };
+
+  const onToggleOffDeleteAll = async () => {
+    setShowToggleOffDialog(false);
+    try {
+      const files = await listRecordingFiles(folder);
+      for (const f of files) {
+        await deleteRecordingAudio(f.id, folder);
+      }
+    } catch (e) {
+      console.warn("[Recordings] toggle-off delete failed:", e);
+    }
+    await onChange?.({ recordings: { ...recordings, saveLocal: false } });
+    void refreshStats();
+  };
+
+  const onToggleOffKeep = async () => {
+    setShowToggleOffDialog(false);
+    await onChange?.({ recordings: { ...recordings, saveLocal: false } });
+  };
   const setRetention = (days: 0 | 7 | 30 | 90) =>
     onChange?.({ recordings: { ...recordings, retentionDays: days } });
 
@@ -866,6 +923,27 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
   const usingDefault = !folder;
 
   return (
+    <>
+      <ConfirmDialog
+        open={showToggleOffDialog}
+        onOpenChange={(open) => {
+          // Treat backdrop-click / Esc as Cancel — leave the toggle ON
+          // and the files on disk untouched.
+          if (!open) setShowToggleOffDialog(false);
+        }}
+        title={t.panels.configuration.toggleOffTitle}
+        body={t.panels.configuration.toggleOffBody(stats.count, formatBytes(stats.bytes))}
+        primary={{
+          label: t.panels.configuration.toggleOffDelete,
+          onClick: onToggleOffDeleteAll,
+          variant: "danger",
+        }}
+        secondary={{
+          label: t.panels.configuration.toggleOffKeep,
+          onClick: onToggleOffKeep,
+        }}
+        cancelLabel={t.common.cancel}
+      />
     <Section
       label={t.panels.configuration.sectionRecordings}
       help={t.panels.configuration.sectionRecordingsHelp}
@@ -886,8 +964,39 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
         checked={recordings.saveLocal}
         onChange={(v) => void setSaveLocal(v)}
       />
+      {/* Cache mode — controls what happens to the TRANSCRIPT (text)
+          after each recording. Independent of the audio toggle above.
+          See RecordingsSettings.cacheMode for semantics. */}
+      <Row
+        label={t.panels.configuration.cacheModeLabel}
+        help={t.panels.configuration.cacheModeHelp}
+        control={
+          <select
+            value={recordings.cacheMode ?? "cache-only"}
+            onChange={(e) => {
+              const next = e.currentTarget.value as RecordingsSettings["cacheMode"];
+              void onChange?.({ recordings: { ...recordings, cacheMode: next } });
+            }}
+            className="rounded-md text-[12px] px-2 py-1"
+            style={{
+              background: tokens.control,
+              color: tokens.fg,
+              border: `1px solid ${tokens.border}`,
+            }}
+          >
+            <option value="auto-copy">{t.panels.configuration.cacheModeAutoCopy}</option>
+            <option value="cache-only">{t.panels.configuration.cacheModeCacheOnly}</option>
+            <option value="no-cache">{t.panels.configuration.cacheModeNoCache}</option>
+          </select>
+        }
+      />
       {recordings.saveLocal && (
         <>
+          {/* Folder row — path on top (tilde-collapsed, ellipsis-overflowed,
+              full path on hover), Open folder + Choose folder + Reset
+              buttons in one horizontal row below. Per user 2026-05-11:
+              "open folder and choose folder in same level one row, 2
+              buttons next to each other". */}
           <Row
             label={t.panels.configuration.folderLabel}
             help={
@@ -914,6 +1023,9 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
                   {effectiveFolder.replace(/^\/Users\/[^/]+/, "~")}
                 </span>
                 <div className="flex items-center gap-1.5">
+                  <Button size="xs" variant="outline" onClick={() => void openRecordingsFolder(folder)}>
+                    {t.panels.configuration.openFolder}
+                  </Button>
                   <Button size="xs" variant="outline" onClick={() => void onChooseFolder()}>
                     {t.panels.configuration.folderChoose}
                   </Button>
@@ -926,51 +1038,48 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
               </div>
             }
           />
+          {/* Retention + disk usage + Delete-all in ONE row. Per user
+              2026-05-11: "keep for ... and delete in one line and
+              recordings mb/gb counter so 3 buttons in one row". */}
           <Row
             label={t.panels.configuration.autoDeleteAfter}
             control={
-              <select
-                value={recordings.retentionDays}
-                onChange={(e) => setRetention(Number(e.currentTarget.value) as 0 | 7 | 30 | 90)}
-                className="rounded-md text-[12px] px-2 py-1"
-                style={{
-                  background: tokens.control,
-                  color: tokens.fg,
-                  border: `1px solid ${tokens.border}`,
-                }}
-              >
-                <option value={0}>{t.panels.configuration.retentionNever}</option>
-                <option value={7}>{t.panels.configuration.retentionDays(7)}</option>
-                <option value={30}>{t.panels.configuration.retentionDays(30)}</option>
-                <option value={90}>{t.panels.configuration.retentionDays(90)}</option>
-              </select>
-            }
-          />
-          <Row
-            label={t.panels.configuration.diskUsage}
-            control={
-              <span style={{ fontSize: 12, color: tokens.fgMuted }}>
-                {stats.count === 0
-                  ? t.panels.configuration.diskUsageEmpty
-                  : t.panels.configuration.diskUsageFull(formatBytes(stats.bytes), stats.count)}
-              </span>
-            }
-          />
-          <Row
-            label=""
-            control={
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => void openRecordingsFolder(folder)}
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <select
+                  value={recordings.retentionDays}
+                  onChange={(e) => setRetention(Number(e.currentTarget.value) as 0 | 7 | 30 | 90)}
+                  className="rounded-md text-[12px] px-2 py-1"
+                  style={{
+                    background: tokens.control,
+                    color: tokens.fg,
+                    border: `1px solid ${tokens.border}`,
+                  }}
                 >
-                  {t.panels.configuration.openFolder}
-                </Button>
+                  <option value={0}>{t.panels.configuration.retentionNever}</option>
+                  <option value={7}>{t.panels.configuration.retentionDays(7)}</option>
+                  <option value={30}>{t.panels.configuration.retentionDays(30)}</option>
+                  <option value={90}>{t.panels.configuration.retentionDays(90)}</option>
+                </select>
+                <span style={{ fontSize: 11, color: tokens.fgMuted, whiteSpace: "nowrap" }}>
+                  {stats.count === 0
+                    ? t.panels.configuration.diskUsageEmpty
+                    : t.panels.configuration.diskUsageFull(formatBytes(stats.bytes), stats.count)}
+                </span>
                 <Button
                   size="xs"
                   variant="outline"
                   onClick={() => void onClearAll()}
+                  style={
+                    clearConfirming
+                      ? {
+                          // Destructive-state visual: warning-tinted background
+                          // + matching text so the second tap is unambiguous.
+                          background: "color-mix(in srgb, var(--color-warning) 22%, transparent)",
+                          color: "var(--color-warning)",
+                          borderColor: "color-mix(in srgb, var(--color-warning) 50%, transparent)",
+                        }
+                      : {}
+                  }
                 >
                   {clearConfirming
                     ? t.panels.configuration.deleteAllConfirm
@@ -982,6 +1091,7 @@ function RecordingsSection({ settings, onChange }: RecordingsSectionProps) {
         </>
       )}
     </Section>
+    </>
   );
 }
 

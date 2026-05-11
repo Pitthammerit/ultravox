@@ -171,6 +171,15 @@ export interface MessageCatalog {
       sectionLanguage: string;
       sectionLanguageHelp: string;
       languageLabel: string;
+      toggleOffTitle: string;
+      toggleOffBody: (count: number, size: string) => string;
+      toggleOffDelete: string;
+      toggleOffKeep: string;
+      cacheModeLabel: string;
+      cacheModeHelp: string;
+      cacheModeAutoCopy: string;
+      cacheModeCacheOnly: string;
+      cacheModeNoCache: string;
       autoDeleteAfter: string;
       retentionNever: string;
       retentionDays: (days: number) => string;
