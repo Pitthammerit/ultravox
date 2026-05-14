@@ -13,6 +13,7 @@
 
 #![cfg(target_os = "macos")]
 
+use std::collections::VecDeque;
 use std::io::Write;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
@@ -27,11 +28,16 @@ use llama_cpp_2::model::params::LlamaModelParams;
 #[allow(deprecated)]
 use llama_cpp_2::model::{AddBos, LlamaModel, Special};
 use llama_cpp_2::sampling::LlamaSampler;
+use llama_cpp_2::{send_logs_to_tracing, LogOptions};
 use serde::Serialize;
 use tauri::Emitter;
+use tracing::{Event, Subscriber};
+use tracing_subscriber::layer::{Context, Layer};
+use tracing_subscriber::prelude::*;
 
 const MODEL_BUNDLE_ID: &str = "com.ultravox.dev";
 const INFERENCE_TIMEOUT_SEC: u64 = 30;
+const LLAMA_LOG_RING_CAP: usize = 200;
 
 struct CachedModel {
     path: PathBuf,
@@ -41,9 +47,90 @@ struct CachedModel {
 
 static BACKEND: OnceCell<LlamaBackend> = OnceCell::new();
 
+/// Ring buffer of recent llama.cpp/ggml log lines. Populated by
+/// `LlamaLogLayer` (registered as a tracing subscriber once when the
+/// backend is first initialized), drained around each load attempt by
+/// `drain_recent_llama_logs` so the real diagnostic ends up in the
+/// error string returned to JS.
+static LLAMA_LOGS: Lazy<Mutex<VecDeque<String>>> = Lazy::new(|| Mutex::new(VecDeque::new()));
+
+/// Tracing layer that captures llama.cpp + ggml events. llama-cpp-2's
+/// `send_logs_to_tracing` routes the C-side log callback through Rust
+/// `tracing` events with target="llama-cpp-2" and a `message` field.
+/// Without this layer those events are silently dropped — and the user
+/// sees only the opaque "null result from llama cpp" surface error.
+struct LlamaLogLayer;
+
+impl<S: Subscriber> Layer<S> for LlamaLogLayer {
+    fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+        struct MsgVisitor(String);
+        impl tracing::field::Visit for MsgVisitor {
+            fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+                if field.name() == "message" {
+                    self.0.push_str(value);
+                }
+            }
+            fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+                if field.name() == "message" {
+                    use std::fmt::Write as _;
+                    let _ = write!(self.0, "{value:?}");
+                }
+            }
+        }
+        let target = event.metadata().target();
+        if target != "llama-cpp-2" && target != "llama-cpp-2::ggml" {
+            return;
+        }
+        let mut v = MsgVisitor(String::new());
+        event.record(&mut v);
+        let msg = v.0.trim().to_string();
+        if msg.is_empty() {
+            return;
+        }
+        if let Ok(mut g) = LLAMA_LOGS.lock() {
+            g.push_back(msg);
+            while g.len() > LLAMA_LOG_RING_CAP {
+                g.pop_front();
+            }
+        }
+    }
+}
+
+/// Clear the ring buffer. Call before a load attempt so the resulting
+/// drain contains only events from that attempt.
+fn clear_llama_log_buffer() {
+    if let Ok(mut g) = LLAMA_LOGS.lock() {
+        g.clear();
+    }
+}
+
+/// Drain the ring buffer and return all captured events joined by " | ".
+/// Empty string if nothing was captured. Truncated to keep error strings
+/// reasonable.
+fn drain_llama_log_buffer() -> String {
+    let joined = match LLAMA_LOGS.lock() {
+        Ok(mut g) => g.drain(..).collect::<Vec<_>>().join(" | "),
+        Err(_) => return String::new(),
+    };
+    const MAX_LEN: usize = 1500;
+    if joined.len() > MAX_LEN {
+        format!("{}…(truncated)", &joined[..MAX_LEN])
+    } else {
+        joined
+    }
+}
+
 fn backend() -> Result<&'static LlamaBackend, String> {
-    BACKEND
-        .get_or_try_init(|| LlamaBackend::init().map_err(|e| format!("llama backend init: {e}")))
+    BACKEND.get_or_try_init(|| {
+        // Install the capture layer + route llama.cpp logs into tracing.
+        // Both calls are idempotent in practice: `try_init` returns Err
+        // if a subscriber is already registered globally (which we treat
+        // as success — capture is best-effort), and `send_logs_to_tracing`
+        // has its own OnceLock-gated init.
+        let _ = tracing_subscriber::registry().with(LlamaLogLayer).try_init();
+        send_logs_to_tracing(LogOptions::default());
+        LlamaBackend::init().map_err(|e| format!("llama backend init: {e}"))
+    })
 }
 
 static CACHE: Lazy<Mutex<Option<CachedModel>>> = Lazy::new(|| Mutex::new(None));
@@ -183,18 +270,24 @@ fn load_model(backend: &LlamaBackend, path: &Path) -> Result<LlamaModel, String>
     validate_gguf_magic(path)?;
     let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
+    clear_llama_log_buffer();
     let gpu_params = LlamaModelParams::default().with_n_gpu_layers(1_000_000);
     match LlamaModel::load_from_file(backend, path, &gpu_params) {
         Ok(m) => Ok(m),
         Err(gpu_err) => {
+            let gpu_logs = drain_llama_log_buffer();
+            clear_llama_log_buffer();
             let cpu_params = LlamaModelParams::default().with_n_gpu_layers(0);
             match LlamaModel::load_from_file(backend, path, &cpu_params) {
                 Ok(m) => Ok(m),
-                Err(cpu_err) => Err(format!(
-                    "load llama model: GPU offload failed ({gpu_err}); CPU-only fallback also failed ({cpu_err}); file={} size={}MB",
-                    path.display(),
-                    size / (1024 * 1024)
-                )),
+                Err(cpu_err) => {
+                    let cpu_logs = drain_llama_log_buffer();
+                    Err(format!(
+                        "load llama model: GPU=({gpu_err}) llama.cpp_logs=[{gpu_logs}]; CPU=({cpu_err}) llama.cpp_logs=[{cpu_logs}]; file={} size={}MB",
+                        path.display(),
+                        size / (1024 * 1024)
+                    ))
+                }
             }
         }
     }

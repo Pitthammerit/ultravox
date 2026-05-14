@@ -1,6 +1,6 @@
 [package]
 name = "ultravox"
-version = "0.19.9"
+version = "0.19.10"
 description = "Voice dictation companion for macOS"
 authors = ["Benjamin Kurtz"]
 edition = "2021"
@@ -34,6 +34,14 @@ dirs = "5"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 sha2 = "0.10"
 futures-util = "0.3"
+# Capture llama.cpp's internal error messages. llama-cpp-2 routes its C-side
+# log output through `tracing` events; without a subscriber, those events are
+# discarded and `LlamaModel::load_from_file` failures surface to JS as opaque
+# "null result from llama cpp" with no actionable detail. tracing-subscriber
+# is used to install a custom layer in local_llm.rs that captures recent
+# events into a ring buffer so we can append them to the error string.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["registry"] }
 # macOS Keychain via Apple's Security.framework. We disable default features
 # (which pull in Linux secret-service via dbus / Windows wincred) to keep
 # the build minimal — on macOS the Security.framework backend ships in libstd,
