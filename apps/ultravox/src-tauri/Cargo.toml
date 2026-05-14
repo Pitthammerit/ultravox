@@ -1,6 +1,6 @@
 [package]
 name = "ultravox"
-version = "0.19.5"
+version = "0.19.6"
 description = "Voice dictation companion for macOS"
 authors = ["Benjamin Kurtz"]
 edition = "2021"

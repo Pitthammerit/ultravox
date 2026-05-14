@@ -136,9 +136,13 @@ export function _resetTokenCacheForTests(): void {
 async function whisperRaw(
   blob: Blob,
   opts: TranscribeOptions,
-  token: string,
-  apiUrl: string,
 ): Promise<string> {
+  // v0.19.6: fetchToken moved here from transcribe() top so fully-local
+  // workflows (local Whisper + local/none/claude-code cleanup) never
+  // hit the network. Fixes offline use case and shaves the unconditional
+  // token round-trip off every local recording. Only the cloud-Whisper
+  // path needs the JWT — and this function IS that path.
+  const { token, apiUrl } = await fetchToken(opts.tokenEndpoint, opts.signal);
   const ext = /mp4|m4a|aac/.test(blob.type) ? "m4a"
             : /ogg/.test(blob.type)         ? "ogg"
             : /wav/.test(blob.type)         ? "wav"
@@ -386,7 +390,10 @@ export async function transcribe(
   blob: Blob,
   opts: TranscribeOptions,
 ): Promise<TranscribeResult> {
-  const { token, apiUrl } = await fetchToken(opts.tokenEndpoint, opts.signal);
+  // v0.19.6: fetchToken is now LAZY — pushed down into whisperRaw, which
+  // is the only consumer of the JWT. Fully-local workflows (local Whisper
+  // + local/none/claude-code cleanup) skip the network entirely. Cloud
+  // Whisper fetches when it actually runs.
   opts.onProgress?.("transcribing");
 
   const cleanup = opts.mode.cleanup ?? "prose";
@@ -425,7 +432,7 @@ export async function transcribe(
         });
       }
     }
-    return whisperRaw(blob, opts, token, apiUrl);
+    return whisperRaw(blob, opts);
   };
 
   // ── Raw mode short-circuit ──
@@ -442,34 +449,55 @@ export async function transcribe(
   // Master toggle: when localCleanupEnabled is explicitly false, skip the
   // on-device LLM branch even if the per-mode provider is "local" — fall
   // through to the next branch. Default true matches DEFAULT_SETTINGS.
+  //
+  // v0.19.6: user explicitly chose provider=local → must NOT silently
+  // fall through to claude-code on a local-LLM error (the v0.18.12
+  // try/catch did exactly that, producing the "claude exit status 1"
+  // user-visible error when the actual failure was llama.cpp). Now:
+  //   - status check throws → log + fall through (rare; treat as
+  //     "local layer broken, try next")
+  //   - status.available=false → throw clear local-not-available error
+  //   - localLlmCleanup throws → propagate (user wanted local; show
+  //     them the local error)
   const localCleanupAllowed = opts.localCleanupEnabled ?? true;
   if (provider === "local" && localCleanupAllowed) {
+    const llmVariant = opts.mode.languageModel ?? "auto";
+    let status;
     try {
-      const llmVariant = opts.mode.languageModel ?? "auto";
-      const status = await localLlmStatus(llmVariant === "auto" ? undefined : llmVariant);
-      if (status.available) {
-        logDebug("transcribe-backend", { message: `local LLM (${status.modelVariant})` });
-        const raw = await getRawTranscript();
-        if (raw.trim()) {
-          const prompt = buildClaudePrompt(raw, opts);
-          const t0 = performance.now();
-          const cleaned = await localLlmCleanup(prompt, llmVariant === "auto" ? undefined : llmVariant);
-          logDebug("transcribe-result", {
-            textLength: cleaned.length,
-            durationMs: Math.round(performance.now() - t0),
-            message: `local-llm (${status.modelVariant})`,
-          });
-          return { text: applyVocabularyReplacements(cleaned, getReplacePairs(opts.vocabulary)) };
-        }
-        return { text: raw };
-      }
-      logDebug("transcribe-post", { message: "local-llm not available — falling back" });
+      status = await localLlmStatus(llmVariant === "auto" ? undefined : llmVariant);
     } catch (e) {
       logDebug("transcribe-post", {
-        message: "local-llm path failed, falling back",
+        message: "local-llm status check failed",
         error: (e as Error).message?.slice(0, 200),
       });
+      throw new Error(
+        `Local LLM is unavailable: ${(e as Error).message ?? "status check failed"}. ` +
+        `Open Settings → Modes and confirm an on-device model is downloaded, ` +
+        `or change this mode's Processing Provider.`,
+      );
     }
+    if (!status.available) {
+      logDebug("transcribe-post", { message: "local-llm not available — surfacing error (no silent fallback)" });
+      throw new Error(
+        `Local LLM is not available. ` +
+        `Open Settings → Modes and download an on-device model, ` +
+        `or change this mode's Processing Provider.`,
+      );
+    }
+    logDebug("transcribe-backend", { message: `local LLM (${status.modelVariant})` });
+    const raw = await getRawTranscript();
+    if (!raw.trim()) return { text: raw };
+    const prompt = buildClaudePrompt(raw, opts);
+    const t0 = performance.now();
+    // Intentionally NOT wrapped in try/catch — user explicitly picked
+    // local, so they need to see the local-LLM error to act on it.
+    const cleaned = await localLlmCleanup(prompt, llmVariant === "auto" ? undefined : llmVariant);
+    logDebug("transcribe-result", {
+      textLength: cleaned.length,
+      durationMs: Math.round(performance.now() - t0),
+      message: `local-llm (${status.modelVariant})`,
+    });
+    return { text: applyVocabularyReplacements(cleaned, getReplacePairs(opts.vocabulary)) };
   }
 
   // ── Claude Code path (per-mode, no auto-fallback to other providers) ──
@@ -527,25 +555,37 @@ export async function transcribe(
   const orKey = orToggleOn ? await secureStoreGet(KEY_OPENROUTER_API).catch(() => null) : null;
   if (!orKey || !orKey.trim()) {
     // 1) Local LLM, if the master toggle is on and a model is installed.
+    //
+    // v0.19.6: when status.available=true, the user clearly has local
+    // set up — they expect cleanup to happen locally. Do NOT swallow
+    // localLlmCleanup errors and silently route to claude-code. Only
+    // catch the *status* check (which is a Tauri-bridge probe that
+    // can fail for unrelated reasons); the cleanup call itself must
+    // propagate so users see the real local-LLM error.
     if (localCleanupAllowed) {
+      const llmVariant = opts.mode.languageModel ?? "auto";
+      let status;
       try {
-        const llmVariant = opts.mode.languageModel ?? "auto";
-        const status = await localLlmStatus(llmVariant === "auto" ? undefined : llmVariant);
-        if (status.available) {
-          logDebug("transcribe-backend", {
-            message: `openrouter→local-llm soft fallback (no OR key, local model ${status.modelVariant})`,
-          });
-          const raw = await getRawTranscript();
-          if (!raw.trim()) return { text: raw };
-          const prompt = buildClaudePrompt(raw, opts);
-          const cleaned = await localLlmCleanup(prompt, llmVariant === "auto" ? undefined : llmVariant);
-          return { text: applyVocabularyReplacements(cleaned, getReplacePairs(opts.vocabulary)) };
-        }
+        status = await localLlmStatus(llmVariant === "auto" ? undefined : llmVariant);
       } catch (e) {
         logDebug("transcribe-post", {
-          message: "soft-fallback: local-llm failed, trying claude-code",
+          message: "soft-fallback: local-llm status check failed, trying claude-code",
           error: (e as Error).message?.slice(0, 200),
         });
+        status = { available: false } as const;
+      }
+      if (status.available) {
+        logDebug("transcribe-backend", {
+          message: `openrouter→local-llm soft fallback (no OR key, local model ${status.modelVariant})`,
+        });
+        const raw = await getRawTranscript();
+        if (!raw.trim()) return { text: raw };
+        const prompt = buildClaudePrompt(raw, opts);
+        // Intentional: localLlmCleanup errors propagate (user has local
+        // available — they want to see the actual local error, not a
+        // misleading claude-code error from continuing the chain).
+        const cleaned = await localLlmCleanup(prompt, llmVariant === "auto" ? undefined : llmVariant);
+        return { text: applyVocabularyReplacements(cleaned, getReplacePairs(opts.vocabulary)) };
       }
     }
     // 2) Claude Code CLI, if installed AND the master toggle is on.

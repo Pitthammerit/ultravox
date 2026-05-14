@@ -342,3 +342,98 @@ describe("transcribe audio-quality routing", () => {
     expect(statusMock).toHaveBeenCalledWith("medium.en", undefined, undefined);
   });
 });
+
+// v0.19.6 — three bug fixes informed by user's debug-log.json:
+//   Bug 1: provider=local that fails must surface a local-LLM error,
+//          NOT silently fall through to claude-code
+//   Bug 1b: openrouter soft-fallback chain that successfully reached the
+//          local-LLM step (status=available) but then localLlmCleanup
+//          throws must surface the local error, NOT silently continue to CC
+//   Bug 3: fetchToken MUST NOT be called when both transcription and
+//          cleanup are local — it's a network round-trip that blocks
+//          offline use of fully-local workflows
+describe("transcribe v0.19.6 routing fixes", () => {
+  it("Bug 1: provider=local + localLlmStatus unavailable → throws clear local-LLM error (no CC fall-through)", async () => {
+    const { localLlmStatus, claudeCodeCheck, claudeCodeCleanup } = await import("../lib/tauri-bridge");
+    vi.mocked(localLlmStatus).mockResolvedValueOnce({ available: false, modelPath: null, modelVariant: null } as never);
+    // CC IS available — proving the bug would silently route here.
+    vi.mocked(claudeCodeCheck).mockResolvedValueOnce({ available: true, version: "2.1.110 (Claude Code)", path: "/usr/local/bin/claude" });
+
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw" }) });
+
+    await expect(
+      transcribe(blob, {
+        mode: { ...baseMode, languageModelProvider: "local", languageModel: null },
+        vocabulary: [],
+        tokenEndpoint: "/api/voice/token",
+        localCleanupEnabled: true,
+      }),
+    ).rejects.toThrow(/local LLM/i);
+    expect(claudeCodeCleanup).not.toHaveBeenCalled();
+  });
+
+  it("Bug 1b: openrouter soft-fallback that reaches local-LLM with status=available but localLlmCleanup throws → surfaces local error (no CC fall-through)", async () => {
+    const { secureStoreGet } = await import("../lib/secure-store");
+    const { localLlmStatus, localLlmCleanup, claudeCodeCheck, claudeCodeCleanup } = await import("../lib/tauri-bridge");
+    vi.mocked(secureStoreGet).mockResolvedValueOnce(null);
+    vi.mocked(localLlmStatus).mockResolvedValueOnce({ available: true, modelPath: "/x.gguf", modelVariant: "qwen2.5-3b" } as never);
+    vi.mocked(localLlmCleanup).mockRejectedValueOnce(new Error("llama.cpp: out of memory"));
+    // CC available — used to silently rescue. Now should NOT be called.
+    vi.mocked(claudeCodeCheck).mockResolvedValueOnce({ available: true, version: "2.1.110 (Claude Code)", path: "/usr/local/bin/claude" });
+
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ text: "raw" }) });
+
+    await expect(
+      transcribe(blob, {
+        mode: baseMode,
+        vocabulary: [],
+        tokenEndpoint: "/api/voice/token",
+        localCleanupEnabled: true,
+      }),
+    ).rejects.toThrow(/out of memory/);
+    expect(claudeCodeCleanup).not.toHaveBeenCalled();
+  });
+
+  it("Bug 3: local Whisper + raw cleanup → does NOT call fetchToken (no network)", async () => {
+    const { localWhisperStatus, localWhisperTranscribe } = await import("../lib/tauri-bridge");
+    vi.mocked(localWhisperStatus).mockResolvedValueOnce({ available: true, modelPath: "/x.bin", modelVariant: "base" });
+    vi.mocked(localWhisperTranscribe).mockResolvedValueOnce("local raw text");
+
+    // Critical: no fetchMock responses queued — if fetchToken is called,
+    // the await on fetchMock() rejects/returns undefined and the test
+    // fails. This is the failing-test guarantee that fetchToken is
+    // skipped on fully-local paths.
+    const result = await transcribe(blob, {
+      mode: { ...baseMode, cleanup: "raw", transcriptionModel: "base" },
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localWhisperEnabled: true,
+    });
+
+    expect(result.text).toBe("local raw text");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Bug 3: local Whisper + provider=local + local LLM available → does NOT call fetchToken", async () => {
+    const { localWhisperStatus, localWhisperTranscribe, localLlmStatus, localLlmCleanup } = await import("../lib/tauri-bridge");
+    vi.mocked(localWhisperStatus).mockResolvedValueOnce({ available: true, modelPath: "/x.bin", modelVariant: "base" });
+    vi.mocked(localWhisperTranscribe).mockResolvedValueOnce("local raw");
+    vi.mocked(localLlmStatus).mockResolvedValueOnce({ available: true, modelPath: "/m.gguf", modelVariant: "qwen2.5-3b" } as never);
+    vi.mocked(localLlmCleanup).mockResolvedValueOnce("local cleaned");
+
+    const result = await transcribe(blob, {
+      mode: { ...baseMode, languageModelProvider: "local", languageModel: null, transcriptionModel: "base" },
+      vocabulary: [],
+      tokenEndpoint: "/api/voice/token",
+      localWhisperEnabled: true,
+      localCleanupEnabled: true,
+    });
+
+    expect(result.text).toBe("local cleaned");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
