@@ -152,6 +152,54 @@ pub fn local_llm_status(preferred_variant: Option<String>) -> Result<LocalLlmSta
     }
 }
 
+/// Validate the GGUF magic bytes. llama.cpp's loader will fail with an
+/// opaque "null result from llama cpp" if the file isn't a valid GGUF
+/// (truncated download, HTML error page written under .gguf name, wrong
+/// format). Catching it here lets us return an actionable message.
+fn validate_gguf_magic(path: &Path) -> Result<(), String> {
+    use std::io::Read as _;
+    let mut f = std::fs::File::open(path).map_err(|e| format!("open: {e}"))?;
+    let mut magic = [0u8; 4];
+    f.read_exact(&mut magic).map_err(|e| format!("read magic: {e}"))?;
+    if &magic != b"GGUF" {
+        return Err(format!(
+            "not a GGUF file (magic={:02x}{:02x}{:02x}{:02x}); the model file is corrupt or truncated, please re-download",
+            magic[0], magic[1], magic[2], magic[3]
+        ));
+    }
+    Ok(())
+}
+
+/// Load a llama model, trying GPU offload first and falling back to
+/// CPU-only on `NullResult`.
+///
+/// Some models (notably Phi-3.5 in llama-cpp-2 0.1.146 + Metal) fail to
+/// load when all layers are pushed onto the GPU but load fine on CPU.
+/// The underlying llama.cpp returns NULL with no further detail (the
+/// real diagnostic goes to llama.cpp's tracing logger which we don't
+/// subscribe to). A CPU fallback is slower at inference time (~3-5×)
+/// but "slow inference" beats "doesn't work at all".
+fn load_model(backend: &LlamaBackend, path: &Path) -> Result<LlamaModel, String> {
+    validate_gguf_magic(path)?;
+    let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+
+    let gpu_params = LlamaModelParams::default().with_n_gpu_layers(1_000_000);
+    match LlamaModel::load_from_file(backend, path, &gpu_params) {
+        Ok(m) => Ok(m),
+        Err(gpu_err) => {
+            let cpu_params = LlamaModelParams::default().with_n_gpu_layers(0);
+            match LlamaModel::load_from_file(backend, path, &cpu_params) {
+                Ok(m) => Ok(m),
+                Err(cpu_err) => Err(format!(
+                    "load llama model: GPU offload failed ({gpu_err}); CPU-only fallback also failed ({cpu_err}); file={} size={}MB",
+                    path.display(),
+                    size / (1024 * 1024)
+                )),
+            }
+        }
+    }
+}
+
 fn ensure_loaded(preferred_variant: Option<&str>) -> Result<(), String> {
     let mut guard = CACHE.lock().map_err(|e| format!("lock: {e}"))?;
     if let Some(cached) = guard.as_ref() {
@@ -164,9 +212,7 @@ fn ensure_loaded(preferred_variant: Option<&str>) -> Result<(), String> {
         .ok_or_else(|| "no llm model installed".to_string())?;
 
     let backend = backend()?;
-    let model_params = LlamaModelParams::default().with_n_gpu_layers(1_000_000);
-    let model = LlamaModel::load_from_file(backend, &path, &model_params)
-        .map_err(|e| format!("load llama model: {e}"))?;
+    let model = load_model(backend, &path)?;
 
     *guard = Some(CachedModel {
         path,
@@ -201,97 +247,106 @@ fn strip_assistant_tag(variant: &str, output: &str) -> String {
 }
 
 #[tauri::command]
-pub fn local_llm_cleanup(prompt: String, preferred_variant: Option<String>) -> Result<String, String> {
-    ensure_loaded(preferred_variant.as_deref())?;
+pub async fn local_llm_cleanup(prompt: String, preferred_variant: Option<String>) -> Result<String, String> {
+    // v0.19.9: mirror of v0.19.8 fix to local_whisper_transcribe. Llama
+    // inference is CPU/GPU-bound and runs 5-30s. As a sync `tauri::command`
+    // it blocked a tokio worker, starving Tauri's IPC layer → WebView main
+    // thread stalled on pending invokes → beach ball. spawn_blocking moves
+    // it to the dedicated blocking pool; tokio workers stay free for IPC.
+    tauri::async_runtime::spawn_blocking(move || {
+        ensure_loaded(preferred_variant.as_deref())?;
 
-    let (model, variant) = {
-        let guard = CACHE.lock().map_err(|e| format!("lock: {e}"))?;
-        let cached = guard.as_ref().ok_or("model not loaded")?;
-        (Arc::clone(&cached.model), cached.variant.clone())
-    };
-
-    let template = chat_template_for(&variant);
-    let formatted = template.replace("{prompt}", &prompt);
-
-    let backend = backend()?;
-    let n_ctx: u32 = 2048;
-    let n_threads = std::thread::available_parallelism()
-        .map(|n| n.get() as i32)
-        .unwrap_or(4);
-
-    let ctx_params = LlamaContextParams::default()
-        .with_n_ctx(NonZeroU32::new(n_ctx))
-        .with_n_batch(n_ctx)
-        .with_n_threads(n_threads)
-        .with_n_threads_batch(n_threads);
-
-    let mut ctx = model
-        .new_context(backend, ctx_params)
-        .map_err(|e| format!("create context: {e}"))?;
-
-    let tokens = model
-        .str_to_token(&formatted, AddBos::Always)
-        .map_err(|e| format!("tokenize: {e}"))?;
-
-    if tokens.len() as u32 >= n_ctx {
-        return Err(format!(
-            "prompt too long: {} tokens (limit {})",
-            tokens.len(),
-            n_ctx
-        ));
-    }
-
-    let mut batch = LlamaBatch::new(n_ctx as usize, 1);
-    let last_idx = tokens.len() as i32 - 1;
-    for (i, tok) in tokens.iter().enumerate() {
-        let i32_pos = i as i32;
-        batch
-            .add(*tok, i32_pos, &[0], i32_pos == last_idx)
-            .map_err(|e| format!("batch add: {e}"))?;
-    }
-    ctx.decode(&mut batch).map_err(|e| format!("decode prompt: {e}"))?;
-
-    let mut sampler = LlamaSampler::chain_simple([
-        LlamaSampler::temp(0.7),
-        LlamaSampler::top_p(0.95, 1),
-        LlamaSampler::dist(0),
-    ]);
-
-    let max_new_tokens: u32 = 512;
-    let start = std::time::Instant::now();
-    let mut n_cur: i32 = tokens.len() as i32;
-    let mut output = String::new();
-
-    for _ in 0..max_new_tokens {
-        if start.elapsed() > Duration::from_secs(INFERENCE_TIMEOUT_SEC) {
-            break;
-        }
-
-        let new_token = sampler.sample(&ctx, batch.n_tokens() - 1);
-        sampler.accept(new_token);
-
-        if model.is_eog_token(new_token) {
-            break;
-        }
-
-        let piece = {
-            #[allow(deprecated)]
-            let p = model
-                .token_to_str(new_token, Special::Tokenize)
-                .unwrap_or_default();
-            p
+        let (model, variant) = {
+            let guard = CACHE.lock().map_err(|e| format!("lock: {e}"))?;
+            let cached = guard.as_ref().ok_or("model not loaded")?;
+            (Arc::clone(&cached.model), cached.variant.clone())
         };
-        output.push_str(&piece);
 
-        batch.clear();
-        batch
-            .add(new_token, n_cur, &[0], true)
-            .map_err(|e| format!("batch add gen: {e}"))?;
-        n_cur += 1;
-        ctx.decode(&mut batch).map_err(|e| format!("decode gen: {e}"))?;
-    }
+        let template = chat_template_for(&variant);
+        let formatted = template.replace("{prompt}", &prompt);
 
-    Ok(strip_assistant_tag(&variant, &output))
+        let backend = backend()?;
+        let n_ctx: u32 = 2048;
+        let n_threads = std::thread::available_parallelism()
+            .map(|n| n.get() as i32)
+            .unwrap_or(4);
+
+        let ctx_params = LlamaContextParams::default()
+            .with_n_ctx(NonZeroU32::new(n_ctx))
+            .with_n_batch(n_ctx)
+            .with_n_threads(n_threads)
+            .with_n_threads_batch(n_threads);
+
+        let mut ctx = model
+            .new_context(backend, ctx_params)
+            .map_err(|e| format!("create context: {e}"))?;
+
+        let tokens = model
+            .str_to_token(&formatted, AddBos::Always)
+            .map_err(|e| format!("tokenize: {e}"))?;
+
+        if tokens.len() as u32 >= n_ctx {
+            return Err(format!(
+                "prompt too long: {} tokens (limit {})",
+                tokens.len(),
+                n_ctx
+            ));
+        }
+
+        let mut batch = LlamaBatch::new(n_ctx as usize, 1);
+        let last_idx = tokens.len() as i32 - 1;
+        for (i, tok) in tokens.iter().enumerate() {
+            let i32_pos = i as i32;
+            batch
+                .add(*tok, i32_pos, &[0], i32_pos == last_idx)
+                .map_err(|e| format!("batch add: {e}"))?;
+        }
+        ctx.decode(&mut batch).map_err(|e| format!("decode prompt: {e}"))?;
+
+        let mut sampler = LlamaSampler::chain_simple([
+            LlamaSampler::temp(0.7),
+            LlamaSampler::top_p(0.95, 1),
+            LlamaSampler::dist(0),
+        ]);
+
+        let max_new_tokens: u32 = 512;
+        let start = std::time::Instant::now();
+        let mut n_cur: i32 = tokens.len() as i32;
+        let mut output = String::new();
+
+        for _ in 0..max_new_tokens {
+            if start.elapsed() > Duration::from_secs(INFERENCE_TIMEOUT_SEC) {
+                break;
+            }
+
+            let new_token = sampler.sample(&ctx, batch.n_tokens() - 1);
+            sampler.accept(new_token);
+
+            if model.is_eog_token(new_token) {
+                break;
+            }
+
+            let piece = {
+                #[allow(deprecated)]
+                let p = model
+                    .token_to_str(new_token, Special::Tokenize)
+                    .unwrap_or_default();
+                p
+            };
+            output.push_str(&piece);
+
+            batch.clear();
+            batch
+                .add(new_token, n_cur, &[0], true)
+                .map_err(|e| format!("batch add gen: {e}"))?;
+            n_cur += 1;
+            ctx.decode(&mut batch).map_err(|e| format!("decode gen: {e}"))?;
+        }
+
+        Ok(strip_assistant_tag(&variant, &output))
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking join: {e}"))?
 }
 
 #[tauri::command]
