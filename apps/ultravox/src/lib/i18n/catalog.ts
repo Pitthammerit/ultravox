@@ -156,6 +156,9 @@ export interface MessageCatalog {
       openrouterKeySaveError: (msg: string) => string;
       openrouterKeyRemoveError: (msg: string) => string;
       claudeCodeEnabledHelp: string;
+      // v0.19.3 — permissions row affordances
+      permissionGranted: string;
+      permissionWaiting: string;
       sectionOnboarding: string;
       sectionOnboardingHelp: string;
       launchOnboarding: string;
@@ -259,6 +262,27 @@ export interface MessageCatalog {
       autoModeAppsAdd: string;
       autoModeAppsRemove: (appName: string) => string;
       autoModeAppsPickerTitle: (modeName: string) => string;
+      // v0.19.3 — mode editor field labels (formerly hardcoded)
+      editorStyle: string;
+      editorLanguage: string;
+      editorAutoCapitalize: string;
+      editorAutoCapitalizeHelp: string;
+      editorModelsAccordion: string;
+      editorTranscription: string;
+      editorTranscriptionHelp: string;
+      editorProcessingProvider: string;
+      editorProcessingProviderHelp: string;
+      editorProcessingAi: string;
+      editorPromptPlaceholder: string;
+      editorSlugPlaceholder: string;
+      editorSlugTitle: string;
+      editorIdTitle: string;
+      editorIconPickerTitle: string;
+      editorSave: string;
+      editorCancel: string;
+      editorDelete: string;
+      editorResetToDefault: string;
+      editorResetTooltip: string;
     };
     sound: {
       roundTripTest: string;

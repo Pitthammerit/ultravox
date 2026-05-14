@@ -289,7 +289,7 @@ export default function ConfigurationPanel({ settings, onChange, onNavigate }: C
           }
           control={
             micState === "granted" ? (
-              <span className="text-[12px] text-color-accent font-medium">✓ Granted</span>
+              <span className="text-[12px] text-color-accent font-medium">{t.panels.configuration.permissionGranted}</span>
             ) : (
               <div className="flex items-center gap-2">
                 <Button
@@ -298,7 +298,7 @@ export default function ConfigurationPanel({ settings, onChange, onNavigate }: C
                   onClick={grantMic}
                   disabled={micRequesting}
                 >
-                  {micRequesting ? "Waiting…" : t.panels.configuration.grantAccess}
+                  {micRequesting ? t.panels.configuration.permissionWaiting : t.panels.configuration.grantAccess}
                 </Button>
                 {micState === "denied" && !micRequesting && (
                   <button
@@ -323,7 +323,7 @@ export default function ConfigurationPanel({ settings, onChange, onNavigate }: C
           }
           control={
             axGranted ? (
-              <span className="text-[12px] text-color-accent font-medium">✓ Granted</span>
+              <span className="text-[12px] text-color-accent font-medium">{t.panels.configuration.permissionGranted}</span>
             ) : (
               <div className="flex items-center gap-2">
                 <Button
@@ -332,7 +332,7 @@ export default function ConfigurationPanel({ settings, onChange, onNavigate }: C
                   onClick={grantAx}
                   disabled={axRequesting}
                 >
-                  {axRequesting ? "Waiting…" : t.panels.configuration.grantAccess}
+                  {axRequesting ? t.panels.configuration.permissionWaiting : t.panels.configuration.grantAccess}
                 </Button>
                 {axGranted === false && !axRequesting && (
                   <button
@@ -866,8 +866,7 @@ function InstalledWhisperModelsSection() {
    ───────────────────────────────────────────────────────────── */
 
 function InstalledLlmModelsSection() {
-  // useT() invoked for future migrations once catalog has LLM model section keys.
-  void useT();
+  const t = useT();
   const [installed, setInstalled] = useState<LocalLlmModel[]>([]);
   const [removeConfirming, setRemoveConfirming] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -902,7 +901,7 @@ function InstalledLlmModelsSection() {
       defaultCollapsed
       label={
         <span className="inline-flex items-center gap-2">
-          <span>Installed LLM models</span>
+          <span>{t.panels.configuration.installedLlmHeader}</span>
           {installed.length > 0 && <CountBadge value={installed.length} />}
         </span>
       }

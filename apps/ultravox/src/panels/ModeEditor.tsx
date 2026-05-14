@@ -28,6 +28,7 @@ import { LocalLLMPicker, useLocalLLMPicker } from "../components/LocalLLMPicker"
 import type { TranscriptionModelValue } from "../lib/voiceModes";
 import { claudeCodeCheck } from "../lib/tauri-bridge";
 import { secureStoreHas, KEY_OPENROUTER_API } from "../lib/secure-store";
+import { useT } from "../lib/i18n/I18nProvider";
 
 interface ModeFormProps {
   settings: AppSettings;
@@ -60,6 +61,7 @@ function makeBlankMode(): VoiceMode {
 }
 
 export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirtyChange, saveRef }: ModeFormProps) {
+  const t = useT();
   const isNew = modeId === "__new__" || modeId === "__duplicate__";
   const isDuplicate = modeId === "__duplicate__";
   const original = isDuplicate
@@ -241,7 +243,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
             />
           ) : (
             <span
-              title="Mode ID — frozen on first save, never changes"
+              title={t.panels.modes.editorIdTitle}
               className="text-[11px] font-mono px-2 py-1 rounded shrink-0"
               style={{ background: tokens.control, color: tokens.fgMuted }}
             >
@@ -253,7 +255,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
 
       <Group>
         <Field
-          label="Style"
+          label={t.panels.modes.editorStyle}
           help={CLEANUP_VARIANTS.find((c) => c.id === draft.cleanup)?.description}
           control={
             <Segmented<VoiceCleanup>
@@ -267,7 +269,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
           }
         />
         <Field
-          label="Language"
+          label={t.panels.modes.editorLanguage}
           control={
             <Select<string>
               value={draft.language}
@@ -277,8 +279,8 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
           }
         />
         <Field
-          label="Auto-capitalize"
-          help="Server-side capitalize after punctuation"
+          label={t.panels.modes.editorAutoCapitalize}
+          help={t.panels.modes.editorAutoCapitalizeHelp}
           control={
             <input
               type="checkbox"
@@ -298,14 +300,14 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
       />
 
       <AccordionGroup
-        label="Models"
+        label={t.panels.modes.editorModelsAccordion}
         open={settings.modelsBoxOpen ?? true}
         onToggle={(next) => onChange({ modelsBoxOpen: next })}
       >
         {(settings.localWhisperEnabled ?? true) && (
           <Field
-            label="Transcription"
-            help="Which Whisper variant runs transcription for this mode. Auto smart-routes based on language."
+            label={t.panels.modes.editorTranscription}
+            help={t.panels.modes.editorTranscriptionHelp}
             control={
               <TranscriptionModelPicker
                 value={(draft.transcriptionModel ?? "auto") as TranscriptionModelValue}
@@ -322,8 +324,8 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
         )}
         {draft.cleanup !== "raw" && (
           <Field
-            label="Processing Provider"
-            help="Cleanup LLM provider"
+            label={t.panels.modes.editorProcessingProvider}
+            help={t.panels.modes.editorProcessingProviderHelp}
             control={
               <Select<LanguageModelProvider>
                 value={draft.languageModelProvider}
@@ -345,7 +347,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
         )}
         {usesCleanup && providerModels.length > 0 && (
           <Field
-            label="Processing AI"
+            label={t.panels.modes.editorProcessingAi}
             control={
               draft.languageModelProvider === "local" ? (
                 <LocalLLMPicker
@@ -396,14 +398,14 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
             </Button>
             <Button variant="primary" size="xs" onClick={confirmDelete}
               style={{ background: tokens.warning, color: "#fff" }}>
-              Delete
+              {t.panels.modes.editorDelete}
             </Button>
           </div>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2 pt-1">
           <Button variant="ghost" size="xs" onClick={remove}>
-            {isNew ? "Cancel" : "Delete"}
+            {isNew ? t.panels.modes.editorCancel : t.panels.modes.editorDelete}
           </Button>
           <Button
             variant="primary"
@@ -411,7 +413,7 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
             disabled={!dirty || !draft.name.trim()}
             onClick={save}
           >
-            Save
+            {t.panels.modes.editorSave}
           </Button>
         </div>
       )}
@@ -435,6 +437,7 @@ function CleanupPromptEditor({
   value: string | null;
   onChange: (next: string | null) => void;
 }) {
+  const t = useT();
   const defaultText = defaultTemplateFor(cleanup);
   const effective = value ?? defaultText;
   const isModified = value != null && value !== defaultText;
@@ -476,7 +479,7 @@ function CleanupPromptEditor({
             <span
               className="text-[10.5px] font-medium"
               style={{ color: "var(--color-warning)" }}
-              title="You've edited this from the default. Click Reset to restore."
+              title={t.panels.modes.editorResetTooltip}
             >
               Modified
             </span>
@@ -488,7 +491,7 @@ function CleanupPromptEditor({
               className="text-[11px] underline"
               style={{ color: tokens.fgMuted }}
             >
-              Reset to default
+              {t.panels.modes.editorResetToDefault}
             </button>
           )}
         </div>
@@ -497,7 +500,7 @@ function CleanupPromptEditor({
         ref={textareaRef}
         value={effective}
         onChange={(next) => onChange(next === defaultText ? null : next)}
-        placeholder="Describe how the AI should clean up your dictated text…"
+        placeholder={t.panels.modes.editorPromptPlaceholder}
         rows={10}
       />
       <div className="flex items-center flex-wrap gap-1.5 mt-1.5 px-1">
@@ -542,15 +545,16 @@ function SlugInput({
   invalid: boolean;
   collision: boolean;
 }) {
+  const t = useT();
   const error = invalid || collision;
   return (
     <div className="flex flex-col items-end shrink-0" style={{ minWidth: 140 }}>
       <input
         type="text"
         value={value}
-        placeholder="auto"
+        placeholder={t.panels.modes.editorSlugPlaceholder}
         onChange={(e) => onChange(e.target.value)}
-        title="Mode slug — auto-derived from the name. Click here to edit. Locked once saved."
+        title={t.panels.modes.editorSlugTitle}
         className="text-[11px] font-mono rounded transition-colors focus:outline-none"
         style={{
           background: tokens.control,
@@ -576,6 +580,7 @@ function IconPicker({
   value: string | null;
   onChange: (icon: string | null) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className="relative shrink-0">
@@ -590,7 +595,7 @@ function IconPicker({
           border: `1px solid ${tokens.border}`,
           color: tokens.fg,
         }}
-        title="Pick icon"
+        title={t.panels.modes.editorIconPickerTitle}
       >
         {value ? (
           <ModeGlyph name={value} size={15} strokeWidth={1.8} />
