@@ -550,6 +550,19 @@ export default function PillWindow() {
       setPillPositionTopCenter(PILL_W, PILL_H).catch(() => {});
     }
     invoke("show_pill").catch(() => {});
+
+    // v0.19.4: auto-dismiss errors after 3 s, matching showSilenceFlow.
+    // Previously errors required manual click/ESC dismiss, which left
+    // the compact-pill CompactMarquee scrolling "Transcribe failed…"
+    // indefinitely. User asked for ALL errors to auto-close in 3 s;
+    // full message + stack are still captured in debug-log.json for
+    // post-hoc inspection. cancelSilenceTimers() above already cleared
+    // any pending timer queue — push a fresh one.
+    const t1 = window.setTimeout(() => {
+      setState("idle");
+      invoke("hide_pill").catch(() => {});
+    }, 3000);
+    silenceTimersRef.current.push(t1);
   }, [compact, cancelSilenceTimers]);
 
   /**
@@ -578,6 +591,11 @@ export default function PillWindow() {
   }, [cancelSilenceTimers]);
 
   const dismissError = useCallback(() => {
+    // v0.19.4: kill any pending auto-dismiss timer scheduled by showError
+    // / showSilenceFlow so it doesn't fire after the user has already
+    // moved on (e.g. ESC to dismiss, then they immediately start a new
+    // recording — the stale timer must not race and hide the new pill).
+    cancelSilenceTimers();
     setView("pill");
     setState("idle");
     if (compact) {
@@ -589,7 +607,7 @@ export default function PillWindow() {
       }
     }
     invoke("hide_pill").catch(() => {});
-  }, [compact, settings]);
+  }, [compact, settings, cancelSilenceTimers]);
 
   /* Single Esc / discard handler — was previously TWO competing
      listeners (one universal "abort and hide", one recording-specific
