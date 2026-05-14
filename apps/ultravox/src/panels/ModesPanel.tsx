@@ -203,6 +203,26 @@ export default function ModesPanel({ settings, onChange }: ModesPanelProps) {
         }}
         cancelLabel={t.common.cancel}
       />
+      {/* Mode selection — opt-in auto-mode-by-frontmost-app. Default
+          off: the user's manually-picked activeModeId always wins
+          until they flip this. v0.19.5: moved here from Configuration
+          panel — conceptually a mode-resolution meta-setting that
+          belongs next to the local-on-device toggles below. i18n keys
+          stay in the configuration catalog namespace (cross-panel ref). */}
+      <Section
+        collapsible
+        defaultCollapsed
+        label={t.panels.configuration.sectionModeSelection}
+        help={t.panels.configuration.sectionModeSelectionHelp}
+      >
+        <ToggleRow
+          label={t.panels.configuration.autoModeLabel}
+          help={t.panels.configuration.autoModeHelp}
+          checked={settings.autoModeEnabled ?? false}
+          onChange={(v) => void onChange({ autoModeEnabled: v })}
+        />
+      </Section>
+
       <Section label={t.panels.modes.sectionRunOnDevice}>
         <ToggleRow
           label={t.panels.modes.enableLocalTranscription}

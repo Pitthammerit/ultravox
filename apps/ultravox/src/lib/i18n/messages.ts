@@ -268,6 +268,7 @@ const en: MessageCatalog = {
       editorDelete: "Delete",
       editorResetToDefault: "Reset to default",
       editorResetTooltip: "You've edited this from the default. Click Reset to restore.",
+      editorPromptAccordion: "Prompt",
     },
     sound: {
       roundTripTest: "Round-trip test",
@@ -657,6 +658,7 @@ const de: MessageCatalog = {
       editorDelete: "Löschen",
       editorResetToDefault: "Auf Standard zurücksetzen",
       editorResetTooltip: "Vom Standard abweichend. Klicke „Zurücksetzen“, um den Standard wiederherzustellen.",
+      editorPromptAccordion: "Prompt",
     },
     sound: {
       roundTripTest: "Round-Trip-Test",
@@ -1058,6 +1060,7 @@ const es: MessageCatalog = {
       editorDelete: "Eliminar",
       editorResetToDefault: "Restablecer al predeterminado",
       editorResetTooltip: "Has modificado esto respecto al predeterminado. Haz clic en Restablecer para restaurar.",
+      editorPromptAccordion: "Prompt",
     },
     sound: {
       roundTripTest: "Prueba de ida y vuelta",
@@ -1460,6 +1463,7 @@ const sv: MessageCatalog = {
       editorDelete: "Ta bort",
       editorResetToDefault: "Återställ till standard",
       editorResetTooltip: "Du har avvikit från standard. Klicka på Återställ för att återgå.",
+      editorPromptAccordion: "Prompt",
     },
     sound: {
       roundTripTest: "Tur-och-retur-test",

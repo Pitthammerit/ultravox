@@ -283,6 +283,8 @@ export interface MessageCatalog {
       editorDelete: string;
       editorResetToDefault: string;
       editorResetTooltip: string;
+      // v0.19.5 — collapsible Prompt section
+      editorPromptAccordion: string;
     };
     sound: {
       roundTripTest: string;

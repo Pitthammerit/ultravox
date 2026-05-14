@@ -239,27 +239,13 @@ export default function ConfigurationPanel({ settings, onChange, onNavigate }: C
         />
       </Section>
 
-      {/* Mode selection — opt-in auto-mode-by-frontmost-app. Default off:
-          the user's manually-picked activeModeId always wins until they
-          flip this. Restored in v0.18.8 after being removed in v0.11.7
-          (it silently overrode user intent). Sits ABOVE the model lists
-          so it reads as a "how modes resolve" setting, not an "advanced
-          model" tweak. */}
-      <Section
-        collapsible
-        defaultCollapsed
-        label={t.panels.configuration.sectionModeSelection}
-        help={t.panels.configuration.sectionModeSelectionHelp}
-      >
-        <ToggleRow
-          label={t.panels.configuration.autoModeLabel}
-          help={t.panels.configuration.autoModeHelp}
-          checked={settings?.autoModeEnabled ?? false}
-          onChange={(v) => {
-            if (onChange) void onChange({ autoModeEnabled: v });
-          }}
-        />
-      </Section>
+      {/* v0.19.5: Mode Selection section moved to ModesPanel.tsx
+          ('Run on device' neighbor). The autoMode toggle is conceptually
+          a mode-level meta-setting (which mode applies to each
+          recording) and belongs next to the other mode-resolution
+          settings. The keys (sectionModeSelection, autoModeLabel,
+          autoModeHelp) stay in the configuration catalog namespace —
+          cross-panel reference is fine. */}
 
       <InstalledWhisperModelsSection />
       <InstalledLlmModelsSection />

@@ -70,6 +70,10 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
 
   const [draft, setDraft] = useState<VoiceMode>(original);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // v0.19.5: Prompt editor is now a default-CLOSED accordion. Most users
+  // don't customize the cleanup template; collapsing by default removes
+  // ~280px of vertical noise from the mode editor.
+  const [promptOpen, setPromptOpen] = useState(false);
 
   const transcriptionPicker = useTranscriptionModelPicker();
   const llmPicker = useLocalLLMPicker();
@@ -378,13 +382,19 @@ export default function ModeForm({ settings, modeId, seedDraft, onChange, onDirt
       </AccordionGroup>
 
       {usesCleanup && (
-        <CleanupPromptEditor
-          cleanup={draft.cleanup}
-          value={draft.systemPrompt ?? null}
-          onChange={(systemPrompt) =>
-            setDraft({ ...draft, systemPrompt: systemPrompt && systemPrompt.length > 0 ? systemPrompt : null })
-          }
-        />
+        <AccordionGroup
+          label={t.panels.modes.editorPromptAccordion}
+          open={promptOpen}
+          onToggle={setPromptOpen}
+        >
+          <CleanupPromptEditor
+            cleanup={draft.cleanup}
+            value={draft.systemPrompt ?? null}
+            onChange={(systemPrompt) =>
+              setDraft({ ...draft, systemPrompt: systemPrompt && systemPrompt.length > 0 ? systemPrompt : null })
+            }
+          />
+        </AccordionGroup>
       )}
 
       {confirmingDelete ? (
@@ -467,35 +477,28 @@ function CleanupPromptEditor({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1 px-1">
-        <div
-          className="text-[10.5px] uppercase tracking-[0.14em] font-medium"
-          style={{ color: tokens.fgMuted }}
-        >
-          Cleanup instructions
+      {/* v0.19.5: section label removed — the wrapping AccordionGroup
+          ('Prompt') now labels this area. Modified-badge + Reset
+          button stay inline, right-aligned. */}
+      {isModified && (
+        <div className="flex items-center justify-end gap-2 mb-1 px-1">
+          <span
+            className="text-[10.5px] font-medium"
+            style={{ color: "var(--color-warning)" }}
+            title={t.panels.modes.editorResetTooltip}
+          >
+            Modified
+          </span>
+          <button
+            type="button"
+            onClick={reset}
+            className="text-[11px] underline"
+            style={{ color: tokens.fgMuted }}
+          >
+            {t.panels.modes.editorResetToDefault}
+          </button>
         </div>
-        <div className="flex items-center gap-2">
-          {isModified && (
-            <span
-              className="text-[10.5px] font-medium"
-              style={{ color: "var(--color-warning)" }}
-              title={t.panels.modes.editorResetTooltip}
-            >
-              Modified
-            </span>
-          )}
-          {isModified && (
-            <button
-              type="button"
-              onClick={reset}
-              className="text-[11px] underline"
-              style={{ color: tokens.fgMuted }}
-            >
-              {t.panels.modes.editorResetToDefault}
-            </button>
-          )}
-        </div>
-      </div>
+      )}
       <Textarea
         ref={textareaRef}
         value={effective}
