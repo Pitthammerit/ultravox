@@ -11,6 +11,8 @@ import {
   type LocalLlmModelInfo,
 } from "../lib/tauri-bridge";
 import { LLM_VARIANTS } from "../lib/llmVariants";
+import { useOnlineStatus, friendlyDownloadError } from "../lib/networkStatus";
+import { useT } from "../lib/i18n/I18nProvider";
 
 export interface LocalLLMPickerProps {
   value: string;
@@ -35,8 +37,13 @@ export function LocalLLMPicker({
   removeConfirming,
   onRemoveRequest,
 }: LocalLLMPickerProps) {
+  const t = useT();
+  const online = useOnlineStatus();
   const [open, setOpen] = useState(false);
   const [downloadErrors, setDownloadErrors] = useState<Record<string, string>>({});
+  // See TranscriptionModelPicker for the rationale on this ref + the two
+  // effects below — same auto-resume pattern. v0.19.7.
+  const pendingResumeRef = useRef<Set<string>>(new Set());
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({ position: "fixed", visibility: "hidden", top: 0, left: 0 });
@@ -68,6 +75,36 @@ export function LocalLLMPicker({
       unsubError?.();
     };
   }, []);
+
+  // v0.19.7 — friendly error mapping + auto-resume (mirrors TranscriptionModelPicker)
+  const errI18n = {
+    offline: t.panels.configuration.downloadErrOffline,
+    notFound: t.panels.configuration.downloadErrNotFound,
+    auth: t.panels.configuration.downloadErrAuth,
+    disk: t.panels.configuration.downloadErrDisk,
+    cancelled: t.panels.configuration.downloadErrCancelled,
+  };
+  useEffect(() => {
+    Object.entries(downloadErrors).forEach(([variant, raw]) => {
+      if (friendlyDownloadError(raw, online, errI18n).kind === "offline") {
+        pendingResumeRef.current.add(variant);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [downloadErrors, online]);
+
+  useEffect(() => {
+    if (!online) return;
+    if (pendingResumeRef.current.size === 0) return;
+    const toRetry = Array.from(pendingResumeRef.current);
+    pendingResumeRef.current.clear();
+    setDownloadErrors((prev) => {
+      const next = { ...prev };
+      toRetry.forEach((v) => delete next[v]);
+      return next;
+    });
+    toRetry.forEach((v) => onDownload(v));
+  }, [online, onDownload]);
 
   useEffect(() => {
     if (!open) return;
@@ -190,6 +227,21 @@ export function LocalLLMPicker({
             boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
           }}
         >
+          {!online && (
+            <div
+              role="status"
+              style={{
+                padding: "6px 10px",
+                fontSize: 11,
+                background: "color-mix(in srgb, var(--color-warning) 18%, transparent)",
+                color: tokens.fg,
+                borderBottom: `1px solid ${tokens.border}`,
+                lineHeight: 1.4,
+              }}
+            >
+              {t.panels.configuration.downloadErrOfflineBanner}
+            </div>
+          )}
           {LLM_VARIANTS.map((opt, i) => {
             const isInstalled = opt.id !== "auto" && installedModels.some((m) => m.variant === opt.id);
             const isDownloading = opt.id in downloadProgress;
@@ -235,9 +287,11 @@ export function LocalLLMPicker({
                       <span style={{ fontSize: 10, color: tokens.fgMuted, flexShrink: 0 }}>{pct.toFixed(0)}%</span>
                     </div>
                   )}
-                  {downloadErrors[opt.id] && !isDownloading && (
-                    <span style={{ fontSize: 10, color: "var(--color-warning)", marginLeft: 4, flexShrink: 0 }}>{downloadErrors[opt.id]}</span>
-                  )}
+                  {downloadErrors[opt.id] && !isDownloading && (() => {
+                    const fr = friendlyDownloadError(downloadErrors[opt.id]!, online, errI18n);
+                    const color: string = fr.kind === "offline" ? tokens.fgMuted : "var(--color-warning)";
+                    return <span style={{ fontSize: 10, color, marginLeft: 4, flexShrink: 0 }}>{fr.message}</span>;
+                  })()}
                 </div>
 
                 <span style={{ fontSize: 11, color: tokens.fgSubtle, textAlign: "right", whiteSpace: "nowrap" }}>

@@ -12,6 +12,8 @@ import {
 } from "../lib/tauri-bridge";
 import type { TranscriptionModelValue } from "../lib/voiceModes";
 import { TRANSCRIPTION_VARIANTS } from "../lib/transcriptionVariants";
+import { useOnlineStatus, friendlyDownloadError } from "../lib/networkStatus";
+import { useT } from "../lib/i18n/I18nProvider";
 
 export type { TranscriptionModelValue };
 
@@ -38,8 +40,14 @@ export function TranscriptionModelPicker({
   removeConfirming,
   onRemoveRequest,
 }: TranscriptionModelPickerProps) {
+  const t = useT();
+  const online = useOnlineStatus();
   const [open, setOpen] = useState(false);
   const [downloadErrors, setDownloadErrors] = useState<Record<string, string>>({});
+  // Variants that errored due to offline — retry once when online flips back.
+  // ref so we don't re-trigger the retry effect on every render. New offline
+  // errors add to the set; the online-flip effect drains it.
+  const pendingResumeRef = useRef<Set<string>>(new Set());
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({ position: "fixed", visibility: "hidden", top: 0, left: 0 });
@@ -71,6 +79,47 @@ export function TranscriptionModelPicker({
       unsubError?.();
     };
   }, []);
+
+  // v0.19.7 — friendly error mapping + auto-resume on reconnect.
+  // i18n strings memoized so the helper stays pure (no react-import dep).
+  const errI18n = {
+    offline: t.panels.configuration.downloadErrOffline,
+    notFound: t.panels.configuration.downloadErrNotFound,
+    auth: t.panels.configuration.downloadErrAuth,
+    disk: t.panels.configuration.downloadErrDisk,
+    cancelled: t.panels.configuration.downloadErrCancelled,
+  };
+  // Track offline-errored variants so the next online flip triggers retry.
+  // Effect re-syncs on downloadErrors changes; the ref is only drained on
+  // online → true transitions (below).
+  useEffect(() => {
+    Object.entries(downloadErrors).forEach(([variant, raw]) => {
+      if (friendlyDownloadError(raw, online, errI18n).kind === "offline") {
+        pendingResumeRef.current.add(variant);
+      }
+    });
+    // Only re-run when downloadErrors changes — `online` is checked inside
+    // the helper, and `errI18n` is a fresh object per render but its
+    // semantic identity depends only on `t`. Re-running on every render
+    // would be fine here (the helper is O(1) per variant), so this dep
+    // shape is intentionally permissive.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [downloadErrors, online]);
+
+  // Auto-resume: when online flips true and there are queued variants,
+  // clear their errors optimistically and re-trigger the download.
+  useEffect(() => {
+    if (!online) return;
+    if (pendingResumeRef.current.size === 0) return;
+    const toRetry = Array.from(pendingResumeRef.current);
+    pendingResumeRef.current.clear();
+    setDownloadErrors((prev) => {
+      const next = { ...prev };
+      toRetry.forEach((v) => delete next[v]);
+      return next;
+    });
+    toRetry.forEach((v) => onDownload(v));
+  }, [online, onDownload]);
 
   useEffect(() => {
     if (!open) return;
@@ -206,6 +255,25 @@ export function TranscriptionModelPicker({
             boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
           }}
         >
+          {/* v0.19.7 offline banner — shows at the top of the picker
+             dropdown when navigator.onLine is false. Inline (not a
+             toast / modal) so it's visible while the user inspects
+             which models they can/can't download. */}
+          {!online && (
+            <div
+              role="status"
+              style={{
+                padding: "6px 10px",
+                fontSize: 11,
+                background: "color-mix(in srgb, var(--color-warning) 18%, transparent)",
+                color: tokens.fg,
+                borderBottom: `1px solid ${tokens.border}`,
+                lineHeight: 1.4,
+              }}
+            >
+              {t.panels.configuration.downloadErrOfflineBanner}
+            </div>
+          )}
           {TRANSCRIPTION_VARIANTS.map((opt, i) => {
             const isInstalled = !opt.isCloud && opt.id !== "auto" && installedModels.some((m) => m.variant === opt.id);
             const isDownloading = opt.id in downloadProgress;
@@ -276,9 +344,15 @@ export function TranscriptionModelPicker({
                       <span style={{ fontSize: 10, color: tokens.fgMuted, flexShrink: 0 }}>{pct.toFixed(0)}%</span>
                     </div>
                   )}
-                  {downloadErrors[opt.id] && !isDownloading && (
-                    <span style={{ fontSize: 10, color: "var(--color-warning)", marginLeft: 4, flexShrink: 0 }}>{downloadErrors[opt.id]}</span>
-                  )}
+                  {downloadErrors[opt.id] && !isDownloading && (() => {
+                    const fr = friendlyDownloadError(downloadErrors[opt.id]!, online, errI18n);
+                    // Offline errors get a neutral muted color (it'll auto-
+                    // resume), other errors stay warning-red.
+                    const color: string = fr.kind === "offline" ? tokens.fgMuted : "var(--color-warning)";
+                    return (
+                      <span style={{ fontSize: 10, color, marginLeft: 4, flexShrink: 0 }}>{fr.message}</span>
+                    );
+                  })()}
                 </div>
 
                 {/* size col — right-aligned, fixed width */}

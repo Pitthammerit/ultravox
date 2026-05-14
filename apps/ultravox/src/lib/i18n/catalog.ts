@@ -159,6 +159,13 @@ export interface MessageCatalog {
       // v0.19.3 — permissions row affordances
       permissionGranted: string;
       permissionWaiting: string;
+      // v0.19.7 — friendly download error categories
+      downloadErrOffline: string;
+      downloadErrOfflineBanner: string;
+      downloadErrNotFound: string;
+      downloadErrAuth: string;
+      downloadErrDisk: string;
+      downloadErrCancelled: string;
       sectionOnboarding: string;
       sectionOnboardingHelp: string;
       launchOnboarding: string;
