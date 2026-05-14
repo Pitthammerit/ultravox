@@ -298,6 +298,62 @@ export default function PillWindow() {
     };
   }, []);
 
+  /* ── Mic pre-warm on app launch ─────────────────────────────────
+   * macOS' AVAudioSession cold-start is the slow part of the FIRST
+   * getUserMedia call per WebView process: opening the mic hardware,
+   * negotiating sample rate, allocating the IO Audio Unit chain. This
+   * takes ~1-2s on Apple Silicon. Subsequent calls in the same process
+   * are <100ms because the session is already up.
+   *
+   * Without pre-warming, the first hotkey press of every app session
+   * feels laggy: the pill opens but mic input is delayed ~2s while the
+   * audio session bootstraps. The user reported this as
+   * "input seems blocked for 2 sec on first start, after that fast"
+   * (v0.19.6 systematic-debugging session).
+   *
+   * Strategy: open + immediately stop a throwaway stream at mount, but
+   * ONLY when permission is already `granted`. If `prompt` or `denied`
+   * or unknown, skip entirely — pre-warming would otherwise pop the
+   * macOS permission dialog at app launch (terrible UX, and may not
+   * even be the user's intent if they just opened Settings).
+   *
+   * The throwaway stream uses `audio: true` (default constraints) which
+   * is enough to wake the audio session — the real recording will
+   * re-open with the user's deviceId + AGC/NS preferences, but that
+   * reconfigure is fast against an already-warm session.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const perm = await navigator.permissions
+          ?.query({ name: "microphone" as PermissionName })
+          .catch(() => null);
+        const state = perm?.state ?? "unknown";
+        if (state !== "granted") {
+          logDebug("record-start", {
+            message: `mic prewarm skipped (permission=${state})`,
+          });
+          return;
+        }
+        if (cancelled) return;
+        const t0 = performance.now();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        for (const track of stream.getTracks()) track.stop();
+        logDebug("record-start", {
+          message: `mic prewarm done in ${Math.round(performance.now() - t0)}ms`,
+        });
+      } catch (e) {
+        logDebug("record-start", {
+          message: `mic prewarm threw: ${(e as Error).message?.slice(0, 200) ?? "unknown"}`,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const currentModes = settings?.modes ?? DEFAULT_MODES;
 
   /* ── Reactive sync: settings.pillStyle → local `compact` ───────

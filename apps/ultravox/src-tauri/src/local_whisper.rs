@@ -242,64 +242,81 @@ fn ensure_loaded(preferred_variant: Option<&str>, routing_language: Option<&str>
 }
 
 #[tauri::command]
-pub fn local_whisper_transcribe(
+pub async fn local_whisper_transcribe(
     audio_bytes: Vec<u8>,
     language: Option<String>,
     preferred_variant: Option<String>,
     routing_language: Option<String>,
     audio_quality: Option<String>,
 ) -> Result<String, String> {
-    ensure_loaded(preferred_variant.as_deref(), routing_language.as_deref(), audio_quality.as_deref())?;
+    // v0.19.8: Whisper inference is CPU-bound and runs ~1-10 seconds. As a
+    // sync `tauri::command` it ran on a tokio worker thread, blocking it
+    // for the entire inference. Tauri's IPC layer needs those workers to
+    // service the WebView's outbound `invoke` calls; once they're starved
+    // the WebView's main thread stalls waiting for responses → macOS
+    // beach-ball cursor during every local transcription.
+    //
+    // Routing through `spawn_blocking` moves the inference to the dedicated
+    // blocking thread pool (designed for exactly this) and keeps tokio
+    // workers free to handle IPC. CACHE mutex is still held across
+    // inference (one concern at a time — see systematic-debugging notes),
+    // but it now only contends with other blocking-pool tasks, not with
+    // the runtime serving JS↔Rust traffic.
+    tauri::async_runtime::spawn_blocking(move || {
+        ensure_loaded(preferred_variant.as_deref(), routing_language.as_deref(), audio_quality.as_deref())?;
 
-    let pcm = decode_to_mono_16k(audio_bytes)?;
-    if pcm.is_empty() {
-        return Err("decoded audio empty".into());
-    }
-
-    let guard = CACHE.lock().map_err(|e| format!("lock: {e}"))?;
-    let cached = guard.as_ref().ok_or("model not loaded")?;
-    let mut state = cached
-        .ctx
-        .create_state()
-        .map_err(|e| format!("whisper state: {e}"))?;
-
-    let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-    let n_threads = std::thread::available_parallelism()
-        .map(|n| n.get() as i32)
-        .unwrap_or(4);
-    params.set_n_threads(n_threads);
-    params.set_translate(false);
-    params.set_no_context(true);
-    params.set_single_segment(false);
-    params.set_print_special(false);
-    params.set_print_progress(false);
-    params.set_print_realtime(false);
-    params.set_print_timestamps(false);
-    let lang_param = language.as_deref().and_then(|l| {
-        let trimmed = l.trim();
-        if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("auto") {
-            None
-        } else {
-            Some(trimmed)
+        let pcm = decode_to_mono_16k(audio_bytes)?;
+        if pcm.is_empty() {
+            return Err("decoded audio empty".into());
         }
-    });
-    params.set_language(lang_param);
 
-    state
-        .full(params, &pcm)
-        .map_err(|e| format!("whisper full: {e}"))?;
+        let guard = CACHE.lock().map_err(|e| format!("lock: {e}"))?;
+        let cached = guard.as_ref().ok_or("model not loaded")?;
+        let mut state = cached
+            .ctx
+            .create_state()
+            .map_err(|e| format!("whisper state: {e}"))?;
 
-    let n_segments = state
-        .full_n_segments()
-        .map_err(|e| format!("n_segments: {e}"))?;
-    let mut text = String::new();
-    for i in 0..n_segments {
-        let seg = state
-            .full_get_segment_text(i)
-            .map_err(|e| format!("segment {i}: {e}"))?;
-        text.push_str(&seg);
-    }
-    Ok(text.trim().to_string())
+        let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+        let n_threads = std::thread::available_parallelism()
+            .map(|n| n.get() as i32)
+            .unwrap_or(4);
+        params.set_n_threads(n_threads);
+        params.set_translate(false);
+        params.set_no_context(true);
+        params.set_single_segment(false);
+        params.set_print_special(false);
+        params.set_print_progress(false);
+        params.set_print_realtime(false);
+        params.set_print_timestamps(false);
+        let lang_param = language.as_deref().and_then(|l| {
+            let trimmed = l.trim();
+            if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("auto") {
+                None
+            } else {
+                Some(trimmed)
+            }
+        });
+        params.set_language(lang_param);
+
+        state
+            .full(params, &pcm)
+            .map_err(|e| format!("whisper full: {e}"))?;
+
+        let n_segments = state
+            .full_n_segments()
+            .map_err(|e| format!("n_segments: {e}"))?;
+        let mut text = String::new();
+        for i in 0..n_segments {
+            let seg = state
+                .full_get_segment_text(i)
+                .map_err(|e| format!("segment {i}: {e}"))?;
+            text.push_str(&seg);
+        }
+        Ok(text.trim().to_string())
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking join: {e}"))?
 }
 
 #[tauri::command]
