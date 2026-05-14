@@ -344,6 +344,14 @@ export interface MessageCatalog {
     pasteFailed: (msg: string) => string;
     invalidConstraint: string;
     silentDescription: string;
+    // v0.19.2 — visible-pill error strings, previously hardcoded in
+    // PillWindow.tsx. Keep these short — the pill is small.
+    noAudioCaptured: string;
+    audioZeroBytes: string;
+    transcribeFailed: (msg: string) => string;
+    openrouterKeyRequired: string;
+    discardRecording: string;
+    doubleClickToExpand: string;
   };
   modeOverlay: {
     title: string;

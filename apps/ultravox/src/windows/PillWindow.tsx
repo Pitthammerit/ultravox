@@ -28,6 +28,7 @@ import { selectModeForRecording } from "../lib/autoMode";
 import { invoke } from "@tauri-apps/api/core";
 import { captureError, track } from "../lib/telemetry";
 import { logDebug } from "../lib/debugLog";
+import { useT } from "../lib/i18n/I18nProvider";
 import { playStartChime, playStopChime } from "../lib/chime";
 import { prettifyShortcut } from "../components/HotkeyRecorder";
 
@@ -130,7 +131,8 @@ export default function PillWindow() {
   const [mode, setMode] = useState<VoiceMode>(DEFAULT_MODES[0]!);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [highlightIdx, setHighlightIdx] = useState(0);
-  const transcribeLabel = "Transcribing…";
+  const t = useT();
+  const transcribeLabel = t.pill.transcribing;
 
   useEffect(() => {
     void (async () => {
@@ -795,7 +797,7 @@ export default function PillWindow() {
       console.log("[pill] recorder.stop returned blob:", blob ? `${blob.size} bytes, ${blob.type}` : "null");
       if (!blob || blob.size === 0) {
         logDebug("transcribe-pre", { message: "stage=blob-empty", error: blob ? `${blob.size} bytes` : "null blob" });
-        showError(blob ? "Recording produced 0 bytes — mimeType not supported by WebKit?" : "No audio captured.");
+        showError(blob ? t.pill.audioZeroBytes : t.pill.noAudioCaptured);
         return;
       }
       // Short-circuit silent recordings BEFORE uploading. Whisper otherwise
@@ -860,7 +862,7 @@ export default function PillWindow() {
         } catch (pasteErr) {
           captureError(pasteErr, { stage: "paste" });
           logDebug("paste", { error: String((pasteErr as Error).message ?? pasteErr), textLength: result.text.length });
-          showError(`Paste failed: ${(pasteErr as Error).message ?? pasteErr} — Accessibility access likely denied.`);
+          showError(t.pill.pasteFailed(String((pasteErr as Error).message ?? pasteErr)));
           return;
         }
         // Cache-mode dispatch (per settings.recordings.cacheMode):
@@ -919,9 +921,9 @@ export default function PillWindow() {
       // error: …" alongside genuine network failures. Falls through to the
       // generic toast for every other error class.
       if (e instanceof MissingOpenRouterKeyError || errName === "MissingOpenRouterKeyError") {
-        showError("OpenRouter key required. Open Settings → Configuration → API Keys to add one, or switch this mode to Claude Code.");
+        showError(t.pill.openrouterKeyRequired);
       } else {
-        showError(`Transcribe error: ${errMsg || e}`);
+        showError(t.pill.transcribeFailed(errMsg || String(e)));
       }
     } finally {
       transcribeAbortRef.current = null;
@@ -1021,7 +1023,7 @@ export default function PillWindow() {
      was the cause of the "sometimes Esc works, sometimes not" race.) */
 
   const statusLabel =
-    state === "error" ? "Error"
+    state === "error" ? t.pill.error
     : mode.name;
 
   const pillStyle: React.CSSProperties = {
@@ -1072,9 +1074,9 @@ export default function PillWindow() {
           onMouseDown={handleCompactDrag}
           onDoubleClick={() => { expand("manual"); }}
           title={
-            state === "transcribing" ? "Transcribing…"
-            : isDiscardConfirm ? "Click ✓ to keep, ✕ to discard"
-            : "Double-click to expand"
+            state === "transcribing" ? t.pill.transcribing
+            : isDiscardConfirm ? t.pill.discardConfirmHint
+            : t.pill.doubleClickToExpand
           }
         >
           {state === "recording" ? (
@@ -1107,7 +1109,7 @@ export default function PillWindow() {
                 onMouseLeave={(e) => { e.currentTarget.style.color = "var(--pill-fg-muted)"; }}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => { e.stopPropagation(); setState("discardConfirm"); }}
-                title="Discard recording"
+                title={t.pill.discardRecording}
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
                   <path d="M2 2 L10 10 M10 2 L2 10" />
@@ -1172,8 +1174,8 @@ export default function PillWindow() {
             <CompactMarquee
               text={
                 state === "silenceClosing"
-                  ? "Nothing to transcribe. Closing…"
-                  : (errorMsg || "Error")
+                  ? t.pill.silenceClosing
+                  : (errorMsg || t.pill.error)
               }
             />
           ) : (
@@ -1215,7 +1217,7 @@ export default function PillWindow() {
             style={{ height: WAVE_H, cursor: "pointer" }}
             onMouseDown={(e) => e.preventDefault()}
             onClick={dismissError}
-            title="Click to dismiss"
+            title={t.pill.dismiss}
           >
             <span
               className="text-[11px] leading-snug"
@@ -1231,7 +1233,7 @@ export default function PillWindow() {
             style={{ height: WAVE_H, cursor: "grab" }}
           >
             <span className="text-[12px] font-medium" style={{ color: "var(--pill-fg)" }}>
-              Discard recording?
+              {t.pill.discardConfirm}
             </span>
           </div>
         ) : state === "transcribing" || state === "silenceClosing" ? (
@@ -1250,7 +1252,7 @@ export default function PillWindow() {
                 animation: "ultravox-pulse 1.4s ease-in-out infinite",
               }}
             >
-              {state === "silenceClosing" ? "Nothing to transcribe. Closing…" : transcribeLabel}
+              {state === "silenceClosing" ? t.pill.silenceClosing : transcribeLabel}
             </span>
           </div>
         ) : (

@@ -339,6 +339,13 @@ const en: MessageCatalog = {
     invalidConstraint:
       "Couldn't configure the mic — restart Ultravox or check System Settings → Sound → Input.",
     silentDescription: "Recording…",
+    noAudioCaptured: "No audio captured.",
+    audioZeroBytes: "Recording produced 0 bytes — audio format not supported.",
+    transcribeFailed: (msg) => `Transcribe failed: ${msg}`,
+    openrouterKeyRequired:
+      "OpenRouter key required. Settings → Configuration → Cleanup providers, or switch this mode to Claude Code.",
+    discardRecording: "Discard recording",
+    doubleClickToExpand: "Double-click to expand",
   },
   modeOverlay: {
     title: "Switch mode",
@@ -701,6 +708,13 @@ const de: MessageCatalog = {
     invalidConstraint:
       "Ungültige Mikrofon-Konfiguration — starte Ultravox neu oder prüfe Systemeinstellungen → Sound → Eingabe.",
     silentDescription: "Aufnahme…",
+    noAudioCaptured: "Kein Audio aufgenommen.",
+    audioZeroBytes: "Aufnahme ergab 0 Bytes — Audioformat nicht unterstützt.",
+    transcribeFailed: (msg) => `Transkription fehlgeschlagen: ${msg}`,
+    openrouterKeyRequired:
+      "OpenRouter-Key erforderlich. Einstellungen → Konfiguration → Cleanup-Anbieter, oder Modus auf Claude Code wechseln.",
+    discardRecording: "Aufnahme verwerfen",
+    doubleClickToExpand: "Doppelklick zum Aufklappen",
   },
   modeOverlay: {
     title: "Modus wechseln",
@@ -1074,6 +1088,13 @@ const es: MessageCatalog = {
     invalidConstraint:
       "Configuración de micrófono inválida — reinicia Ultravox o comprueba Ajustes del Sistema → Sonido → Entrada.",
     silentDescription: "Grabando…",
+    noAudioCaptured: "No se capturó audio.",
+    audioZeroBytes: "La grabación produjo 0 bytes — formato de audio no compatible.",
+    transcribeFailed: (msg) => `Error al transcribir: ${msg}`,
+    openrouterKeyRequired:
+      "Se necesita clave de OpenRouter. Ajustes → Configuración → Proveedores de limpieza, o cambia este modo a Claude Code.",
+    discardRecording: "Descartar grabación",
+    doubleClickToExpand: "Doble clic para ampliar",
   },
   modeOverlay: {
     title: "Cambiar de modo",
@@ -1428,9 +1449,9 @@ const sv: MessageCatalog = {
     },
   },
   pill: {
-    discardConfirm: "Släng?",
+    discardConfirm: "Kassera?",
     discardKeepHint: "Mellanslag för att behålla",
-    discardConfirmHint: "Esc för att slänga",
+    discardConfirmHint: "Esc för att kassera",
     transcribing: "Transkriberar…",
     silenceClosing: "Inget att transkribera. Stänger…",
     error: "Fel",
@@ -1447,6 +1468,13 @@ const sv: MessageCatalog = {
     invalidConstraint:
       "Ogiltig mikrofonkonfiguration — starta om Ultravox eller kontrollera Systeminställningar → Ljud → Indata.",
     silentDescription: "Inspelning pågår…",
+    noAudioCaptured: "Inget ljud spelades in.",
+    audioZeroBytes: "Inspelningen gav 0 byte — ljudformatet stöds inte.",
+    transcribeFailed: (msg) => `Transkribering misslyckades: ${msg}`,
+    openrouterKeyRequired:
+      "OpenRouter-nyckel krävs. Inställningar → Konfiguration → Cleanup-leverantörer, eller byt detta läge till Claude Code.",
+    discardRecording: "Kassera inspelning",
+    doubleClickToExpand: "Dubbelklicka för att expandera",
   },
   modeOverlay: {
     title: "Byt läge",
