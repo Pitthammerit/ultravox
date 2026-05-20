@@ -988,7 +988,15 @@ export default function PillWindow() {
         logDebug("transcribe-pre", { message: "stage=aborted (Esc / cancel)", error: errMsg });
         return;
       }
-      logDebug("transcribe-pre", { message: `stage=error name=${errName}`, error: errMsg.slice(0, 240) });
+      // v0.19.11: raised from 240→4000 chars. The 240 cap predated
+      // v0.19.10's llama.cpp tracing capture, which appends up to
+      // ~3000 chars of diagnostic to the error (GPU+CPU attempts each
+      // with their captured llama.cpp/ggml log lines). At 240 chars
+      // the diagnostic gets sliced mid-sentence, defeating the whole
+      // point of the capture layer. 4000 is well under any practical
+      // store-cell limit and lets the full diagnostic land in
+      // debug-log.json for triage.
+      logDebug("transcribe-pre", { message: `stage=error name=${errName}`, error: errMsg.slice(0, 4000) });
       captureError(e, { stage: "transcribe" });
       // Specialized affordance for the BYO-key path: tell the user where to
       // add their OpenRouter key instead of dropping the raw "Transcribe
