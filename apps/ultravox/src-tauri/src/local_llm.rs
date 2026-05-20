@@ -282,6 +282,23 @@ fn load_model(backend: &LlamaBackend, path: &Path) -> Result<LlamaModel, String>
                 Ok(m) => Ok(m),
                 Err(cpu_err) => {
                     let cpu_logs = drain_llama_log_buffer();
+                    // Detect the specific "duplicated tensor" failure mode
+                    // — caused by GGUFs converted with legacy scripts where
+                    // tied-embedding LM heads accidentally share the name
+                    // `token_embd.weight` instead of `output.weight`. The
+                    // bundled llama.cpp's strict pre-check rejects this
+                    // before the lenient tied-embedding handler can kick in.
+                    // Surface an actionable hint so the user knows to delete
+                    // + re-download (the latest URL changes in download_model_inner
+                    // point to known-good GGUF sources for the affected models).
+                    let combined_logs = format!("{gpu_logs} {cpu_logs}");
+                    if combined_logs.contains("is duplicated") {
+                        return Err(format!(
+                            "this model file has a duplicated tensor (known GGUF conversion bug) — please delete it in Configuration → Local LLM and re-download. Diagnostic: GPU=({gpu_err}) llama.cpp_logs=[{gpu_logs}]; CPU=({cpu_err}) llama.cpp_logs=[{cpu_logs}]; file={} size={}MB",
+                            path.display(),
+                            size / (1024 * 1024)
+                        ));
+                    }
                     Err(format!(
                         "load llama model: GPU=({gpu_err}) llama.cpp_logs=[{gpu_logs}]; CPU=({cpu_err}) llama.cpp_logs=[{cpu_logs}]; file={} size={}MB",
                         path.display(),
@@ -482,9 +499,31 @@ async fn download_model_inner(app: &tauri::AppHandle, v: &str) -> Result<String,
         return Err(format!("invalid variant: {v}"));
     }
 
+    // v0.19.12: qwen2.5-3b URL changed from the official `Qwen/Qwen2.5-3B-Instruct-GGUF`
+    // upload to bartowski's quant.
+    //
+    // The official Qwen upload was produced with a legacy converter that
+    // writes the embedding tensor twice in the GGUF — once as
+    // `token_embd.weight` for the input embedding, and once *also* named
+    // `token_embd.weight` for the tied LM head (instead of the correct
+    // `output.weight`). The bundled llama.cpp's loader has a strict
+    // "no duplicate tensor names" check (llama-model-loader.cpp:574-578)
+    // that throws BEFORE reaching the lenient handler at line 1090 that
+    // would have treated the duplicate as tied embeddings. Result:
+    // "invalid model: tensor 'token_embd.weight' is duplicated" → NULL
+    // return → user-visible "load llama model: null result from llama cpp".
+    //
+    // Verified in v0.19.11 user debug-log: the captured llama.cpp tracing
+    // output contained exactly this error message. bartowski's converter
+    // emits `output.weight` correctly, dodging the strict check.
+    //
+    // phi-3.5 URL kept as bartowski — same converter family that produces
+    // the clean qwen quant. If a user has an older broken phi-3.5.gguf on
+    // disk from a previous bartowski revision, deleting + re-downloading
+    // will fetch the current clean version.
     let url = match v {
         "phi-3.5" => "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
-        "qwen2.5-3b" => "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+        "qwen2.5-3b" => "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
         "mistral-7b" => "https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf",
         _ => return Err(format!("unknown variant: {v}")),
     };
