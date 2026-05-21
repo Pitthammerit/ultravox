@@ -257,57 +257,64 @@ fn validate_gguf_magic(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Load a llama model, trying GPU offload first and falling back to
-/// CPU-only on `NullResult`.
+/// Load a llama model with three escalating fallback strategies.
 ///
-/// Some models (notably Phi-3.5 in llama-cpp-2 0.1.146 + Metal) fail to
-/// load when all layers are pushed onto the GPU but load fine on CPU.
-/// The underlying llama.cpp returns NULL with no further detail (the
-/// real diagnostic goes to llama.cpp's tracing logger which we don't
-/// subscribe to). A CPU fallback is slower at inference time (~3-5×)
-/// but "slow inference" beats "doesn't work at all".
+/// 1. GPU offload + mmap (default, fastest)
+/// 2. CPU only + mmap (covers GPU offload failures)
+/// 3. CPU only + no-mmap (covers a class of bug seen in llama-cpp-2
+///    0.1.146 on Apple Silicon M1 Pro where the loader's tensor
+///    iteration spuriously reports duplicate tensors that don't exist
+///    in the GGUF file — verified via a standalone GGUF parser. Disabling
+///    mmap forces llama.cpp to read+parse the file conventionally
+///    instead of mapping it, sidestepping whatever interaction with
+///    Apple's Virtual Memory subsystem is corrupting tensor enumeration.)
+///
+/// All three attempts share the same "captured llama.cpp tracing logs
+/// in the error message" pattern so the user-visible error covers every
+/// attempted path's diagnostic.
 fn load_model(backend: &LlamaBackend, path: &Path) -> Result<LlamaModel, String> {
     validate_gguf_magic(path)?;
     let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
     clear_llama_log_buffer();
     let gpu_params = LlamaModelParams::default().with_n_gpu_layers(1_000_000);
-    match LlamaModel::load_from_file(backend, path, &gpu_params) {
-        Ok(m) => Ok(m),
-        Err(gpu_err) => {
-            let gpu_logs = drain_llama_log_buffer();
-            clear_llama_log_buffer();
-            let cpu_params = LlamaModelParams::default().with_n_gpu_layers(0);
-            match LlamaModel::load_from_file(backend, path, &cpu_params) {
-                Ok(m) => Ok(m),
-                Err(cpu_err) => {
-                    let cpu_logs = drain_llama_log_buffer();
-                    // Detect the specific "duplicated tensor" failure mode
-                    // — caused by GGUFs converted with legacy scripts where
-                    // tied-embedding LM heads accidentally share the name
-                    // `token_embd.weight` instead of `output.weight`. The
-                    // bundled llama.cpp's strict pre-check rejects this
-                    // before the lenient tied-embedding handler can kick in.
-                    // Surface an actionable hint so the user knows to delete
-                    // + re-download (the latest URL changes in download_model_inner
-                    // point to known-good GGUF sources for the affected models).
-                    let combined_logs = format!("{gpu_logs} {cpu_logs}");
-                    if combined_logs.contains("is duplicated") {
-                        return Err(format!(
-                            "this model file has a duplicated tensor (known GGUF conversion bug) — please delete it in Configuration → Local LLM and re-download. Diagnostic: GPU=({gpu_err}) llama.cpp_logs=[{gpu_logs}]; CPU=({cpu_err}) llama.cpp_logs=[{cpu_logs}]; file={} size={}MB",
-                            path.display(),
-                            size / (1024 * 1024)
-                        ));
-                    }
-                    Err(format!(
-                        "load llama model: GPU=({gpu_err}) llama.cpp_logs=[{gpu_logs}]; CPU=({cpu_err}) llama.cpp_logs=[{cpu_logs}]; file={} size={}MB",
-                        path.display(),
-                        size / (1024 * 1024)
-                    ))
-                }
-            }
-        }
+    let gpu_err = match LlamaModel::load_from_file(backend, path, &gpu_params) {
+        Ok(m) => return Ok(m),
+        Err(e) => e,
+    };
+    let gpu_logs = drain_llama_log_buffer();
+
+    clear_llama_log_buffer();
+    let cpu_params = LlamaModelParams::default().with_n_gpu_layers(0);
+    let cpu_err = match LlamaModel::load_from_file(backend, path, &cpu_params) {
+        Ok(m) => return Ok(m),
+        Err(e) => e,
+    };
+    let cpu_logs = drain_llama_log_buffer();
+
+    clear_llama_log_buffer();
+    let nommap_params = LlamaModelParams::default()
+        .with_n_gpu_layers(0)
+        .with_use_mmap(false);
+    let nommap_err = match LlamaModel::load_from_file(backend, path, &nommap_params) {
+        Ok(m) => return Ok(m),
+        Err(e) => e,
+    };
+    let nommap_logs = drain_llama_log_buffer();
+
+    let combined_logs = format!("{gpu_logs} {cpu_logs} {nommap_logs}");
+    if combined_logs.contains("is duplicated") {
+        return Err(format!(
+            "this model file appears incompatible with the bundled llama.cpp on your Mac (Apple Silicon loader reports a spurious duplicated tensor that isn't actually in the file). Try the Plus model (Mistral 7B) instead — it uses a different architecture that sidesteps this bug. Diagnostic: GPU=({gpu_err}) [{gpu_logs}]; CPU=({cpu_err}) [{cpu_logs}]; CPU-nommap=({nommap_err}) [{nommap_logs}]; file={} size={}MB",
+            path.display(),
+            size / (1024 * 1024)
+        ));
     }
+    Err(format!(
+        "load llama model: GPU=({gpu_err}) llama.cpp_logs=[{gpu_logs}]; CPU=({cpu_err}) llama.cpp_logs=[{cpu_logs}]; CPU-nommap=({nommap_err}) llama.cpp_logs=[{nommap_logs}]; file={} size={}MB",
+        path.display(),
+        size / (1024 * 1024)
+    ))
 }
 
 fn ensure_loaded(preferred_variant: Option<&str>) -> Result<(), String> {
